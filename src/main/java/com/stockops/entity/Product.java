@@ -43,5 +43,5 @@ public class Product extends BaseEntity {
     private String unit;
 
     @Column(name = "expiry_managed", nullable = false)
-    private Boolean expiryManaged;
+    private boolean expiryManaged;
 }

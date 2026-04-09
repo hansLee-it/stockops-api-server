@@ -1,0 +1,103 @@
+package com.stockops.controller;
+
+import com.stockops.dto.CreateUserRequest;
+import com.stockops.dto.UpdateUserRequest;
+import com.stockops.dto.UserDTO;
+import com.stockops.service.UserService;
+import jakarta.validation.Valid;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+
+/**
+ * User management API controller.
+ *
+ * @author StockOps Team
+ * @since 1.0
+ */
+@RestController
+@RequestMapping("/api/v1/users")
+public class UserController {
+
+    private final UserService userService;
+
+    /**
+     * Creates the controller.
+     *
+     * @param userService user service
+     */
+    public UserController(final UserService userService) {
+        this.userService = userService;
+    }
+
+    /**
+     * Lists all users.
+     *
+     * @return user list
+     */
+    @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<UserDTO>> getAllUsers() {
+        return ResponseEntity.ok(userService.getAllUsers());
+    }
+
+    /**
+     * Gets a user by id.
+     *
+     * @param id user id
+     * @return user response
+     */
+    @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    public ResponseEntity<UserDTO> getUserById(@PathVariable final Long id) {
+        return ResponseEntity.ok(userService.getUserById(id));
+    }
+
+    /**
+     * Creates a user.
+     *
+     * @param request creation request
+     * @return created user
+     */
+    @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<UserDTO> createUser(@Valid @RequestBody final CreateUserRequest request) {
+        return ResponseEntity.status(201).body(userService.createUser(request));
+    }
+
+    /**
+     * Updates a user.
+     *
+     * @param id user id
+     * @param request update request
+     * @return updated user
+     */
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    public ResponseEntity<UserDTO> updateUser(@PathVariable final Long id,
+                                              @RequestBody final UpdateUserRequest request) {
+        return ResponseEntity.ok(userService.updateUser(id, request));
+    }
+
+    /**
+     * Deletes a user.
+     *
+     * @param id user id
+     * @return no content response
+     */
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> deleteUser(@PathVariable final Long id) {
+        userService.deleteUser(id);
+        return ResponseEntity.noContent().build();
+    }
+}

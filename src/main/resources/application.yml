@@ -28,6 +28,10 @@ springdoc:
   swagger-ui:
     path: /swagger-ui.html
 
+jwt:
+  secret: ${JWT_SECRET:StockOpsSecretKeyForJWTTokenGenerationMustBeLongEnough2024}
+  expiration: 86400000
+
 ---
 spring:
   config:
