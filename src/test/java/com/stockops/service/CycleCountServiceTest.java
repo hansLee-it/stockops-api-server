@@ -6,22 +6,22 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.stockops.dto.CompleteCycleCountItemRequest;
+import com.stockops.dto.CompleteCycleCountRequest;
+import com.stockops.dto.CreateCycleCountRequest;
+import com.stockops.dto.CycleCountDTO;
 import com.stockops.dto.CycleCountItemDTO;
 import com.stockops.entity.CycleCount;
 import com.stockops.entity.CycleCountItem;
+import com.stockops.entity.CycleCountStatus;
 import com.stockops.entity.Inventory;
-import com.stockops.entity.Lot;
-import com.stockops.entity.Location;
-import com.stockops.entity.Product;
-import com.stockops.entity.User;
 import com.stockops.exception.InvalidOperationException;
 import com.stockops.repository.CycleCountItemRepository;
 import com.stockops.repository.CycleCountRepository;
 import com.stockops.repository.InventoryRepository;
-import com.stockops.repository.LotRepository;
 import com.stockops.repository.LocationRepository;
-import com.stockops.repository.ProductRepository;
 import com.stockops.repository.UserRepository;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -50,13 +50,7 @@ class CycleCountServiceTest {
     private InventoryRepository inventoryRepository;
 
     @Mock
-    private ProductRepository productRepository;
-
-    @Mock
     private LocationRepository locationRepository;
-
-    @Mock
-    private LotRepository lotRepository;
 
     @Mock
     private UserRepository userRepository;
@@ -65,10 +59,20 @@ class CycleCountServiceTest {
     private CycleCountService cycleCountService;
 
     /**
-     * Verifies that recording a count updates actual quantity, variance, and count metadata.
+     * Verifies that a cycle count snapshots the requested inventory balances.
      */
     @Test
-    void recordCountUpdatesItemAndReturnsDto() {
+    void createCycleCountSnapshotsExpectedQuantities() {
+        final LocalDate countDate = LocalDate.of(2026, 4, 9);
+        final CreateCycleCountRequest request = new CreateCycleCountRequest(countDate, 300L, List.of(100L));
+
+        final CycleCount savedCycleCount = new CycleCount();
+        savedCycleCount.setId(10L);
+        savedCycleCount.setCountDate(countDate);
+        savedCycleCount.setStatus(CycleCountStatus.PENDING);
+        savedCycleCount.setLocationId(300L);
+        savedCycleCount.setCreatedBy(9L);
+
         final CycleCountItem item = new CycleCountItem();
         item.setId(1L);
         item.setCycleCountId(10L);
@@ -77,63 +81,56 @@ class CycleCountServiceTest {
 
         final Inventory inventory = new Inventory();
         inventory.setId(100L);
-        inventory.setProductId(200L);
         inventory.setLocationId(300L);
-        inventory.setLotId(400L);
 
-        final Product product = new Product();
-        product.setId(200L);
-        product.setName("Milk");
-
-        final Location location = new Location();
-        location.setId(300L);
-        location.setCode("A-01");
-
-        final Lot lot = new Lot();
-        lot.setId(400L);
-        lot.setLotNumber("LOT-1");
-
-        final User user = new User();
-        user.setId(9L);
-        user.setName("Staff User");
-
-        when(cycleCountItemRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(item));
-        when(cycleCountItemRepository.save(any(CycleCountItem.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(userRepository.existsById(9L)).thenReturn(true);
+        when(locationRepository.existsById(300L)).thenReturn(true);
         when(inventoryRepository.findById(100L)).thenReturn(Optional.of(inventory));
-        when(productRepository.findById(200L)).thenReturn(Optional.of(product));
-        when(locationRepository.findById(300L)).thenReturn(Optional.of(location));
-        when(lotRepository.findById(400L)).thenReturn(Optional.of(lot));
-        when(userRepository.findById(9L)).thenReturn(Optional.of(user));
+        when(cycleCountRepository.save(any(CycleCount.class))).thenReturn(savedCycleCount);
+        when(cycleCountItemRepository.saveAll(any())).thenReturn(List.of(item));
 
-        final CycleCountItemDTO dto = cycleCountService.recordCount(1L, 10, 9L, "checked twice");
+        final CycleCountDTO dto = cycleCountService.createCycleCount(request, 9L);
 
-        final ArgumentCaptor<CycleCountItem> captor = ArgumentCaptor.forClass(CycleCountItem.class);
-        verify(cycleCountItemRepository).save(captor.capture());
-        assertThat(captor.getValue().getActualQuantity()).isEqualTo(10);
-        assertThat(captor.getValue().getVariance()).isEqualTo(3);
-        assertThat(captor.getValue().getCountedBy()).isEqualTo(9L);
-        assertThat(captor.getValue().getNotes()).isEqualTo("checked twice");
-        assertThat(dto.productName()).isEqualTo("Milk");
-        assertThat(dto.locationCode()).isEqualTo("A-01");
-        assertThat(dto.lotNumber()).isEqualTo("LOT-1");
+        final ArgumentCaptor<CycleCount> cycleCountCaptor = ArgumentCaptor.forClass(CycleCount.class);
+        verify(cycleCountRepository).save(cycleCountCaptor.capture());
+        assertThat(cycleCountCaptor.getValue().getStatus()).isEqualTo(CycleCountStatus.PENDING);
+        assertThat(cycleCountCaptor.getValue().getLocationId()).isEqualTo(300L);
+
+        final ArgumentCaptor<Iterable<CycleCountItem>> itemCaptor = ArgumentCaptor.forClass(Iterable.class);
+        verify(cycleCountItemRepository).saveAll(itemCaptor.capture());
+        assertThat(itemCaptor.getValue())
+                .singleElement()
+                .satisfies(savedItem -> {
+                    assertThat(savedItem.getCycleCountId()).isEqualTo(10L);
+                    assertThat(savedItem.getInventoryId()).isEqualTo(100L);
+                    assertThat(savedItem.getExpectedQuantity()).isEqualTo(7);
+                });
+        assertThat(dto.status()).isEqualTo(CycleCountStatus.PENDING);
+        assertThat(dto.items()).singleElement().extracting(CycleCountItemDTO::expectedQuantity).isEqualTo(7);
     }
 
     /**
-     * Verifies that negative counted quantities are rejected.
+     * Verifies that duplicate inventory ids are rejected before persistence.
      */
     @Test
-    void recordCountRejectsNegativeQuantity() {
+    void createCycleCountRejectsDuplicateInventoryIds() {
+        final CreateCycleCountRequest request = new CreateCycleCountRequest(LocalDate.of(2026, 4, 9), 300L, List.of(100L, 100L));
+
+        when(userRepository.existsById(9L)).thenReturn(true);
+        when(locationRepository.existsById(300L)).thenReturn(true);
+
         assertThrows(InvalidOperationException.class,
-                () -> cycleCountService.recordCount(1L, -1, 9L, null));
+                () -> cycleCountService.createCycleCount(request, 9L));
     }
 
     /**
-     * Verifies that items are returned for a cycle count.
+     * Verifies that starting a pending cycle count updates its workflow state.
      */
     @Test
-    void getItemsReturnsDtos() {
+    void startCycleCountTransitionsPendingCountToInProgress() {
         final CycleCount cycleCount = new CycleCount();
         cycleCount.setId(10L);
+        cycleCount.setStatus(CycleCountStatus.PENDING);
 
         final CycleCountItem item = new CycleCountItem();
         item.setId(1L);
@@ -141,29 +138,57 @@ class CycleCountServiceTest {
         item.setInventoryId(100L);
         item.setExpectedQuantity(5);
 
-        final Inventory inventory = new Inventory();
-        inventory.setId(100L);
-        inventory.setProductId(200L);
-        inventory.setLocationId(300L);
+        when(userRepository.existsById(9L)).thenReturn(true);
+        when(cycleCountRepository.findById(10L)).thenReturn(Optional.of(cycleCount));
+        when(cycleCountRepository.save(any(CycleCount.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(cycleCountItemRepository.findByCycleCountIdOrderByIdAsc(10L)).thenReturn(List.of(item));
 
-        final Product product = new Product();
-        product.setId(200L);
-        product.setName("Water");
+        final CycleCountDTO dto = cycleCountService.startCycleCount(10L, 9L);
 
-        final Location location = new Location();
-        location.setId(300L);
-        location.setCode("B-02");
+        assertThat(dto.status()).isEqualTo(CycleCountStatus.IN_PROGRESS);
+        final ArgumentCaptor<CycleCount> cycleCountCaptor = ArgumentCaptor.forClass(CycleCount.class);
+        verify(cycleCountRepository).save(cycleCountCaptor.capture());
+        assertThat(cycleCountCaptor.getValue().getStatus()).isEqualTo(CycleCountStatus.IN_PROGRESS);
+    }
 
+    /**
+     * Verifies that completing a cycle count stores final quantities and variance metadata.
+     */
+    @Test
+    void completeCycleCountStoresActualQuantitiesAndMarksCountCompleted() {
+        final CycleCount cycleCount = new CycleCount();
+        cycleCount.setId(10L);
+        cycleCount.setStatus(CycleCountStatus.IN_PROGRESS);
+
+        final CycleCountItem item = new CycleCountItem();
+        item.setId(1L);
+        item.setCycleCountId(10L);
+        item.setInventoryId(100L);
+        item.setExpectedQuantity(7);
+
+        final CompleteCycleCountRequest request = new CompleteCycleCountRequest(
+                List.of(new CompleteCycleCountItemRequest(1L, 10, "checked twice")));
+
+        when(userRepository.existsById(9L)).thenReturn(true);
         when(cycleCountRepository.findById(10L)).thenReturn(Optional.of(cycleCount));
         when(cycleCountItemRepository.findByCycleCountIdOrderByIdAsc(10L)).thenReturn(List.of(item));
-        when(inventoryRepository.findById(100L)).thenReturn(Optional.of(inventory));
-        when(productRepository.findById(200L)).thenReturn(Optional.of(product));
-        when(locationRepository.findById(300L)).thenReturn(Optional.of(location));
+        when(cycleCountItemRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(cycleCountRepository.save(any(CycleCount.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        final List<CycleCountItemDTO> items = cycleCountService.getItems(10L);
+        final CycleCountDTO dto = cycleCountService.completeCycleCount(10L, request, 9L);
 
-        assertThat(items).hasSize(1);
-        assertThat(items.get(0).productName()).isEqualTo("Water");
-        assertThat(items.get(0).locationCode()).isEqualTo("B-02");
+        assertThat(dto.status()).isEqualTo(CycleCountStatus.COMPLETED);
+        assertThat(dto.completedBy()).isEqualTo(9L);
+        assertThat(dto.items()).singleElement().satisfies(savedItem -> {
+            assertThat(savedItem.actualQuantity()).isEqualTo(10);
+            assertThat(savedItem.variance()).isEqualTo(3);
+            assertThat(savedItem.countedBy()).isEqualTo(9L);
+            assertThat(savedItem.notes()).isEqualTo("checked twice");
+        });
+        final ArgumentCaptor<CycleCount> cycleCountCaptor = ArgumentCaptor.forClass(CycleCount.class);
+        verify(cycleCountRepository).save(cycleCountCaptor.capture());
+        assertThat(cycleCountCaptor.getValue().getStatus()).isEqualTo(CycleCountStatus.COMPLETED);
+        assertThat(cycleCountCaptor.getValue().getCompletedBy()).isEqualTo(9L);
+        assertThat(cycleCountCaptor.getValue().getCompletedAt()).isNotNull();
     }
 }

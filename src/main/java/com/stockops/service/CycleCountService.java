@@ -17,6 +17,7 @@ import com.stockops.repository.InventoryRepository;
 import com.stockops.repository.LocationRepository;
 import com.stockops.repository.UserRepository;
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -202,7 +203,7 @@ public class CycleCountService {
     }
 
     private void ensureUniqueIdentifiers(final List<Long> ids, final String message) {
-        final Set<Long> uniqueIds = Set.copyOf(ids);
+        final Set<Long> uniqueIds = new HashSet<>(ids);
         if (uniqueIds.size() != ids.size()) {
             throw new InvalidOperationException(message);
         }

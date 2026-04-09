@@ -64,14 +64,3 @@ spring:
     username: ${STOCKOPS_DATASOURCE_USERNAME}
     password: ${STOCKOPS_DATASOURCE_PASSWORD}
     driver-class-name: org.postgresql.Driver
-
----
-spring:
-  config:
-    activate:
-      on-profile: pi
-  datasource:
-    url: ${STOCKOPS_DATASOURCE_URL:jdbc:postgresql://192.168.0.11:5432/stockops}
-    username: ${STOCKOPS_DATASOURCE_USERNAME:stockops}
-    password: ${STOCKOPS_DATASOURCE_PASSWORD:stockops}
-    driver-class-name: org.postgresql.Driver

@@ -1,6 +1,8 @@
 package com.stockops.service;
 
 import com.stockops.dto.DashboardSummaryDTO;
+import com.stockops.entity.CycleCountStatus;
+import com.stockops.repository.CycleCountRepository;
 import com.stockops.repository.ExpiryAlertRepository;
 import com.stockops.repository.InboundRepository;
 import com.stockops.repository.InventoryRepository;
@@ -11,6 +13,7 @@ import com.stockops.repository.StockAdjustmentRepository;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
  * @since 1.0
  * @see ProductRepository
  * @see InventoryRepository
+ * @see CycleCountRepository
  * @see InboundRepository
  * @see OutboundRepository
  * @see StockAdjustmentRepository
@@ -37,6 +41,7 @@ public class DashboardService {
 
     private final ProductRepository productRepository;
     private final InventoryRepository inventoryRepository;
+    private final CycleCountRepository cycleCountRepository;
     private final InboundRepository inboundRepository;
     private final OutboundRepository outboundRepository;
     private final StockAdjustmentRepository stockAdjustmentRepository;
@@ -107,12 +112,12 @@ public class DashboardService {
     }
 
     /**
-     * Counts pending review items using the existing stock adjustment queue.
+     * Counts cycle counts that are not yet completed or cancelled.
      *
-     * @return pending cycle count items
+     * @return pending cycle count total
      */
     public long calculatePendingCycleCounts() {
-        return stockAdjustmentRepository.countByStatus("PENDING");
+        return cycleCountRepository.countByStatusIn(List.of(CycleCountStatus.PENDING, CycleCountStatus.IN_PROGRESS));
     }
 
     /**
