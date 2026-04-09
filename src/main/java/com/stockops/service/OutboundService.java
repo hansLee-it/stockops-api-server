@@ -59,6 +59,25 @@ public class OutboundService {
     private final ProductRepository productRepository;
 
     /**
+     * Returns a list of outbounds, optionally filtered by status.
+     *
+     * @param status optional status filter (DRAFT, CONFIRMED), null returns all
+     * @return list of outbound DTOs
+     */
+    @Transactional(readOnly = true)
+    public List<OutboundDTO> getOutbounds(final String status) {
+        final List<Outbound> outbounds;
+        if (status != null && !status.isBlank()) {
+            outbounds = outboundRepository.findByStatus(status.toUpperCase());
+        } else {
+            outbounds = outboundRepository.findAll();
+        }
+        return outbounds.stream()
+                .map(this::toDTO)
+                .toList();
+    }
+
+    /**
      * Creates a draft outbound header.
      *
      * @param request outbound creation payload

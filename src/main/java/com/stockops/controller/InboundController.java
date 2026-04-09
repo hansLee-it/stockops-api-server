@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -32,6 +33,21 @@ import org.springframework.web.bind.annotation.RestController;
 public class InboundController {
 
     private final InboundService inboundService;
+
+    /**
+     * Returns all inbounds, optionally filtered by status.
+     *
+     * @param status optional status filter (DRAFT, CONFIRMED)
+     * @return list of inbound DTOs
+     */
+    @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF')")
+    public ResponseEntity<List<InboundDTO>> getAllInbounds(@RequestParam(required = false) final String status) {
+        if (status != null) {
+            return ResponseEntity.ok(inboundService.getInboundsByStatus(status));
+        }
+        return ResponseEntity.ok(inboundService.getAllInbounds());
+    }
 
     /**
      * Creates a draft inbound.

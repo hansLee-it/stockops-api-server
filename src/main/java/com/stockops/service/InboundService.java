@@ -157,6 +157,31 @@ public class InboundService {
     }
 
     /**
+     * Returns all inbounds.
+     *
+     * @return list of inbound DTOs
+     */
+    @Transactional(readOnly = true)
+    public List<InboundDTO> getAllInbounds() {
+        return inboundRepository.findAll().stream()
+                .map(this::toDTO)
+                .toList();
+    }
+
+    /**
+     * Returns inbounds filtered by status.
+     *
+     * @param status status filter
+     * @return list of inbound DTOs
+     */
+    @Transactional(readOnly = true)
+    public List<InboundDTO> getInboundsByStatus(final String status) {
+        return inboundRepository.findByStatus(status).stream()
+                .map(this::toDTO)
+                .toList();
+    }
+
+    /**
      * Returns all items for an inbound header.
      *
      * @param inboundId inbound identifier
