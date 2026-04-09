@@ -4,6 +4,7 @@ import java.time.Instant;
 
 /**
  * Outbound item response payload.
+ * Confirmed outbounds may return multiple rows for one requested product when FEFO splits the quantity across lots.
  *
  * @param id outbound item id
  * @param outboundId outbound id

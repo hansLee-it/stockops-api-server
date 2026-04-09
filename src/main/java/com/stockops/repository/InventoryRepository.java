@@ -1,7 +1,6 @@
 package com.stockops.repository;
 
 import com.stockops.entity.Inventory;
-import com.stockops.entity.InventoryStatus;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
@@ -11,6 +10,12 @@ import org.springframework.data.repository.query.Param;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Repository for inventory balance persistence and locked stock operations.
+ *
+ * @author StockOps Team
+ * @since 1.0
+ */
 public interface InventoryRepository extends JpaRepository<Inventory, Long> {
 
     /**
@@ -47,7 +52,22 @@ public interface InventoryRepository extends JpaRepository<Inventory, Long> {
 
     List<Inventory> findByLocationId(Long locationId);
 
+    /**
+     * Finds all inventory rows associated with a lot.
+     *
+     * @param lotId lot identifier
+     * @return inventory rows tied to the lot
+     */
     List<Inventory> findByLotId(Long lotId);
+
+    /**
+     * Finds inventory rows for a product and lot across all locations.
+     *
+     * @param productId product id
+     * @param lotId lot id
+     * @return matching inventory rows
+     */
+    List<Inventory> findByProductIdAndLotId(Long productId, Long lotId);
 
     /**
      * Loads an inventory row by id with a pessimistic write lock.
@@ -59,16 +79,4 @@ public interface InventoryRepository extends JpaRepository<Inventory, Long> {
     @Query("SELECT i FROM Inventory i WHERE i.id = :id")
     Optional<Inventory> findByIdForUpdate(@Param("id") Long id);
 
-    /**
-     * Finds in-stock inventory rows for a product and lot sorted by location id.
-     *
-     * @param productId product id
-     * @param lotId lot id
-     * @param quantity minimum quantity threshold
-     * @return matching inventory rows
-     */
-    List<Inventory> findByProductIdAndLotIdAndStatusAndQuantityGreaterThanOrderByLocationIdAsc(Long productId,
-                                                                                                Long lotId,
-                                                                                                InventoryStatus status,
-                                                                                                Integer quantity);
 }

@@ -14,6 +14,7 @@ import java.time.Instant;
 
 /**
  * Outbound item entity.
+ * Draft rows initially store requested product quantities and, after confirmation, are rewritten into concrete lot allocations.
  *
  * @author StockOps Team
  * @since 1.0

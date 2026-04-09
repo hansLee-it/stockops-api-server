@@ -7,6 +7,7 @@ import com.stockops.dto.OutboundItemDTO;
 import com.stockops.entity.Inventory;
 import com.stockops.entity.InventoryStatus;
 import com.stockops.entity.Lot;
+import com.stockops.entity.LotStatus;
 import com.stockops.entity.Outbound;
 import com.stockops.entity.OutboundItem;
 import com.stockops.entity.Product;
@@ -20,6 +21,7 @@ import com.stockops.repository.OutboundRepository;
 import com.stockops.repository.ProductRepository;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -123,15 +125,14 @@ public class OutboundService {
         final Outbound outbound = findOutboundById(outboundId);
         validateDraft(outbound);
 
-        final List<OutboundItem> requestedItems = outboundItemRepository.findByOutboundId(outboundId);
-        if (requestedItems.isEmpty()) {
+        final List<OutboundItem> items = outboundItemRepository.findByOutboundId(outboundId);
+        if (items.isEmpty()) {
             throw new InvalidOperationException("Cannot confirm outbound with no items");
         }
 
-        for (final OutboundItem requestedItem : requestedItems) {
-            final List<OutboundItem> allocatedItems = allocateInventoryByFefo(requestedItem, outboundId, userId);
-            outboundItemRepository.delete(requestedItem);
-            outboundItemRepository.saveAll(allocatedItems);
+        for (final OutboundItem item : items) {
+            final List<OutboundLotAllocation> allocations = allocateLotsByFefo(item, outboundId, userId);
+            applyAllocations(item, outboundId, allocations);
         }
 
         outbound.setStatus(STATUS_CONFIRMED);
@@ -170,21 +171,35 @@ public class OutboundService {
                 .toList();
     }
 
-    private List<OutboundItem> allocateInventoryByFefo(final OutboundItem requestedItem,
-                                                       final Long outboundId,
-                                                       final Long userId) {
-        int remainingQuantity = nullSafeQuantity(requestedItem.getQuantity());
-        final List<Lot> lots = lotRepository.findByProductIdOrderByExpiryDateAsc(requestedItem.getProductId());
-        final List<OutboundItem> allocatedItems = new ArrayList<>();
+    /**
+     * Allocates a requested outbound item against active lots in FEFO order.
+     *
+     * @param item requested outbound item
+     * @param outboundId outbound id
+     * @param userId operator user id
+     * @return concrete lot allocations used to satisfy the request
+     * @throws InsufficientStockException when FEFO-eligible stock is not enough
+     */
+    private List<OutboundLotAllocation> allocateLotsByFefo(final OutboundItem item,
+                                                           final Long outboundId,
+                                                           final Long userId) {
+        final int requestedQuantity = nullSafeQuantity(item.getQuantity());
+        int remainingQuantity = requestedQuantity;
+        final List<Lot> lots = lotRepository.findActiveLotsByProductIdOrderByExpiryDateAsc(
+                item.getProductId(), LotStatus.ACTIVE);
+        final List<OutboundLotAllocation> allocations = new ArrayList<>();
 
         for (final Lot lot : lots) {
             if (remainingQuantity <= 0) {
                 break;
             }
 
-            final List<Inventory> inventories = inventoryRepository
-                    .findByProductIdAndLotIdAndStatusAndQuantityGreaterThanOrderByLocationIdAsc(
-                            requestedItem.getProductId(), lot.getId(), InventoryStatus.ACTIVE, 0);
+            final List<Inventory> inventories = inventoryRepository.findByProductIdAndLotId(item.getProductId(), lot.getId())
+                    .stream()
+                    .filter(inventory -> inventory.getStatus() == InventoryStatus.ACTIVE)
+                    .filter(inventory -> nullSafeQuantity(inventory.getQuantity()) > 0)
+                    .sorted(Comparator.comparing(Inventory::getLocationId))
+                    .toList();
 
             for (final Inventory inventory : inventories) {
                 if (remainingQuantity <= 0) {
@@ -198,7 +213,7 @@ public class OutboundService {
 
                 final int deductedQuantity = Math.min(remainingQuantity, availableQuantity);
                 inventoryService.decreaseStock(
-                        requestedItem.getProductId(),
+                        item.getProductId(),
                         inventory.getLocationId(),
                         lot.getId(),
                         deductedQuantity,
@@ -206,19 +221,48 @@ public class OutboundService {
                         outboundId,
                         userId);
 
-                allocatedItems.add(createAllocatedItem(outboundId, requestedItem.getProductId(), lot.getId(), deductedQuantity));
+                allocations.add(new OutboundLotAllocation(lot.getId(), deductedQuantity));
                 remainingQuantity -= deductedQuantity;
             }
         }
 
         if (remainingQuantity > 0) {
             throw new InsufficientStockException(
-                    requestedItem.getProductId(),
-                    nullSafeQuantity(requestedItem.getQuantity()),
-                    nullSafeQuantity(requestedItem.getQuantity()) - remainingQuantity);
+                    item.getProductId(),
+                    requestedQuantity,
+                    requestedQuantity - remainingQuantity);
         }
 
-        return allocatedItems;
+        return allocations;
+    }
+
+    /**
+     * Persists FEFO allocations by updating the original item with the primary lot and creating split items for additional lots.
+     *
+     * @param item original draft item
+     * @param outboundId outbound id
+     * @param allocations FEFO lot allocations
+     */
+    private void applyAllocations(final OutboundItem item,
+                                  final Long outboundId,
+                                  final List<OutboundLotAllocation> allocations) {
+        if (allocations.isEmpty()) {
+            throw new InvalidOperationException("Cannot confirm outbound without FEFO allocations");
+        }
+
+        final OutboundLotAllocation primaryAllocation = allocations.getFirst();
+        item.setLotId(primaryAllocation.lotId());
+        item.setQuantity(primaryAllocation.quantity());
+        outboundItemRepository.save(item);
+
+        for (int i = 1; i < allocations.size(); i++) {
+            final OutboundLotAllocation allocation = allocations.get(i);
+            outboundItemRepository.save(createAllocatedItem(
+                    outboundId,
+                    item.getProductId(),
+                    allocation.lotId(),
+                    allocation.quantity()));
+        }
     }
 
     private Outbound findOutboundById(final Long outboundId) {
