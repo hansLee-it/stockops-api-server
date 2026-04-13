@@ -3,12 +3,10 @@ package com.stockops.controller;
 import com.stockops.dto.CompleteCycleCountRequest;
 import com.stockops.dto.CreateCycleCountRequest;
 import com.stockops.dto.CycleCountDTO;
-import com.stockops.exception.InvalidOperationException;
-import com.stockops.repository.UserRepository;
+import com.stockops.security.CurrentUserProvider;
 import com.stockops.service.CycleCountService;
 import jakarta.validation.Valid;
 import java.net.URI;
-import java.security.Principal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -33,7 +31,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class CycleCountController {
 
     private final CycleCountService cycleCountService;
-    private final UserRepository userRepository;
+    private final CurrentUserProvider currentUserProvider;
 
     /**
      * Creates a new cycle count.
@@ -43,10 +41,9 @@ public class CycleCountController {
      * @return created cycle count response
      */
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    public ResponseEntity<CycleCountDTO> createCycleCount(@Valid @RequestBody final CreateCycleCountRequest request,
-                                                          final Principal principal) {
-        final CycleCountDTO created = cycleCountService.createCycleCount(request, getCurrentUserId(principal));
+    @PreAuthorize("@permissionChecker.hasPermission('CYCLE_COUNT_CREATE')")
+    public ResponseEntity<CycleCountDTO> createCycleCount(@Valid @RequestBody final CreateCycleCountRequest request) {
+        final CycleCountDTO created = cycleCountService.createCycleCount(request, currentUserProvider.getCurrentUserId());
         return ResponseEntity.created(URI.create("/api/v1/cycle-counts/" + created.id())).body(created);
     }
 
@@ -57,7 +54,7 @@ public class CycleCountController {
      * @return cycle count response
      */
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PreAuthorize("@permissionChecker.hasPermission('CYCLE_COUNT_READ')")
     public ResponseEntity<CycleCountDTO> getCycleCount(@PathVariable final Long id) {
         return ResponseEntity.ok(cycleCountService.getCycleCount(id));
     }
@@ -70,10 +67,9 @@ public class CycleCountController {
      * @return started cycle count response
      */
     @PostMapping("/{id}/start")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    public ResponseEntity<CycleCountDTO> startCycleCount(@PathVariable final Long id,
-                                                         final Principal principal) {
-        return ResponseEntity.ok(cycleCountService.startCycleCount(id, getCurrentUserId(principal)));
+    @PreAuthorize("@permissionChecker.hasPermission('CYCLE_COUNT_EXECUTE')")
+    public ResponseEntity<CycleCountDTO> startCycleCount(@PathVariable final Long id) {
+        return ResponseEntity.ok(cycleCountService.startCycleCount(id, currentUserProvider.getCurrentUserId()));
     }
 
     /**
@@ -85,20 +81,9 @@ public class CycleCountController {
      * @return completed cycle count response
      */
     @PostMapping("/{id}/complete")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PreAuthorize("@permissionChecker.hasPermission('CYCLE_COUNT_EXECUTE')")
     public ResponseEntity<CycleCountDTO> completeCycleCount(@PathVariable final Long id,
-                                                            @Valid @RequestBody final CompleteCycleCountRequest request,
-                                                            final Principal principal) {
-        return ResponseEntity.ok(cycleCountService.completeCycleCount(id, request, getCurrentUserId(principal)));
-    }
-
-    private Long getCurrentUserId(final Principal principal) {
-        if (principal == null || principal.getName() == null || principal.getName().isBlank()) {
-            throw new InvalidOperationException("Authenticated user is required");
-        }
-
-        return userRepository.findByEmail(principal.getName())
-                .map(user -> user.getId())
-                .orElseThrow(() -> new InvalidOperationException("Authenticated user not found"));
+                                                            @Valid @RequestBody final CompleteCycleCountRequest request) {
+        return ResponseEntity.ok(cycleCountService.completeCycleCount(id, request, currentUserProvider.getCurrentUserId()));
     }
 }

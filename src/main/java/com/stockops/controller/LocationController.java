@@ -47,7 +47,7 @@ public class LocationController {
      * @return created location DTO
      */
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PreAuthorize("@permissionChecker.hasPermission('LOCATION_CREATE')")
     public ResponseEntity<LocationDTO> createLocation(@Valid @RequestBody final CreateLocationRequest request) {
         return ResponseEntity.created(URI.create("/api/v1/locations")).body(locationService.createLocation(request));
     }
@@ -59,7 +59,7 @@ public class LocationController {
      * @return location DTO
      */
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF')")
+    @PreAuthorize("@permissionChecker.hasPermission('LOCATION_READ')")
     public ResponseEntity<LocationDTO> getLocation(@PathVariable final Long id) {
         return ResponseEntity.ok(locationService.getLocationById(id));
     }
@@ -71,7 +71,7 @@ public class LocationController {
      * @return location DTO
      */
     @GetMapping("/code/{code}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF')")
+    @PreAuthorize("@permissionChecker.hasPermission('LOCATION_READ')")
     public ResponseEntity<LocationDTO> getLocationByCode(@PathVariable final String code) {
         return ResponseEntity.ok(locationService.getLocationByCode(code));
     }
@@ -83,7 +83,7 @@ public class LocationController {
      * @return location DTOs
      */
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF')")
+    @PreAuthorize("@permissionChecker.hasPermission('LOCATION_READ')")
     public ResponseEntity<List<LocationDTO>> getAllLocations(@RequestParam(required = false) final String type) {
         if (type != null) {
             return ResponseEntity.ok(locationService.getLocationsByType(type));
@@ -99,7 +99,7 @@ public class LocationController {
      * @return updated location DTO
      */
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PreAuthorize("@permissionChecker.hasPermission('LOCATION_UPDATE')")
     public ResponseEntity<LocationDTO> updateLocation(
             @PathVariable final Long id,
             @Valid @RequestBody final UpdateLocationRequest request) {
@@ -113,7 +113,7 @@ public class LocationController {
      * @return empty response
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("@permissionChecker.hasPermission('LOCATION_DELETE')")
     public ResponseEntity<Void> deleteLocation(@PathVariable final Long id) {
         locationService.deleteLocation(id);
         return ResponseEntity.noContent().build();

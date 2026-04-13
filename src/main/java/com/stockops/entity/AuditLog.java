@@ -34,6 +34,9 @@ public class AuditLog {
     @Column(name = "entity_id", nullable = false)
     private Long entityId;
 
+    @Column(name = "target_identifier")
+    private String targetIdentifier;
+
     @Column(name = "action", nullable = false)
     private String action;
 
@@ -45,6 +48,9 @@ public class AuditLog {
 
     @Column(name = "performed_by")
     private Long performedBy;
+
+    @Column(name = "performed_by_email")
+    private String performedByEmail;
 
     @Column(name = "performed_at", nullable = false)
     private Instant performedAt;

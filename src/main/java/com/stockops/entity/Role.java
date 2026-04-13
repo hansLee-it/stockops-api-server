@@ -2,6 +2,7 @@ package com.stockops.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -22,6 +23,7 @@ import java.time.Instant;
 @Entity
 @Table(name = "roles")
 @NoArgsConstructor
+@EntityListeners(com.stockops.audit.MutationAuditEntityListener.class)
 public class Role {
 
     @Id

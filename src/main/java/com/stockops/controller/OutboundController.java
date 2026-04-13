@@ -7,7 +7,6 @@ import com.stockops.dto.OutboundItemDTO;
 import com.stockops.service.OutboundService;
 import jakarta.validation.Valid;
 import java.net.URI;
-import java.security.Principal;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -33,6 +32,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class OutboundController {
 
     private final OutboundService outboundService;
+    private final com.stockops.security.CurrentUserProvider currentUserProvider;
 
     /**
      * Returns a list of outbounds, optionally filtered by status.
@@ -41,7 +41,7 @@ public class OutboundController {
      * @return list of outbound responses
      */
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF')")
+    @PreAuthorize("@permissionChecker.hasPermission('OUTBOUND_READ')")
     public ResponseEntity<List<OutboundDTO>> getOutbounds(
             @RequestParam(required = false) final String status) {
         return ResponseEntity.ok(outboundService.getOutbounds(status));
@@ -55,10 +55,9 @@ public class OutboundController {
      * @return created outbound response
      */
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF')")
-    public ResponseEntity<OutboundDTO> createOutbound(@Valid @RequestBody final CreateOutboundRequest request,
-                                                      final Principal principal) {
-        final OutboundDTO outbound = outboundService.createOutbound(request, getCurrentUserId(principal));
+    @PreAuthorize("@permissionChecker.hasPermission('OUTBOUND_CREATE')")
+    public ResponseEntity<OutboundDTO> createOutbound(@Valid @RequestBody final CreateOutboundRequest request) {
+        final OutboundDTO outbound = outboundService.createOutbound(request, currentUserProvider.getCurrentUserId());
         return ResponseEntity.created(URI.create("/api/v1/outbounds/" + outbound.id())).body(outbound);
     }
 
@@ -70,7 +69,7 @@ public class OutboundController {
      * @return created outbound item response
      */
     @PostMapping("/{id}/items")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF')")
+    @PreAuthorize("@permissionChecker.hasPermission('OUTBOUND_CREATE')")
     public ResponseEntity<OutboundItemDTO> addItem(@PathVariable final Long id,
                                                    @Valid @RequestBody final AddOutboundItemRequest request) {
         return ResponseEntity.ok(outboundService.addItem(id, request));
@@ -84,10 +83,9 @@ public class OutboundController {
      * @return confirmed outbound response
      */
     @PostMapping("/{id}/confirm")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    public ResponseEntity<OutboundDTO> confirmOutbound(@PathVariable final Long id,
-                                                       final Principal principal) {
-        return ResponseEntity.ok(outboundService.confirmOutbound(id, getCurrentUserId(principal)));
+    @PreAuthorize("@permissionChecker.hasPermission('OUTBOUND_CONFIRM')")
+    public ResponseEntity<OutboundDTO> confirmOutbound(@PathVariable final Long id) {
+        return ResponseEntity.ok(outboundService.confirmOutbound(id, currentUserProvider.getCurrentUserId()));
     }
 
     /**
@@ -97,7 +95,7 @@ public class OutboundController {
      * @return outbound response
      */
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF')")
+    @PreAuthorize("@permissionChecker.hasPermission('OUTBOUND_READ')")
     public ResponseEntity<OutboundDTO> getOutbound(@PathVariable final Long id) {
         return ResponseEntity.ok(outboundService.getOutbound(id));
     }
@@ -109,12 +107,8 @@ public class OutboundController {
      * @return outbound item responses
      */
     @GetMapping("/{id}/items")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF')")
+    @PreAuthorize("@permissionChecker.hasPermission('OUTBOUND_READ')")
     public ResponseEntity<List<OutboundItemDTO>> getOutboundItems(@PathVariable final Long id) {
         return ResponseEntity.ok(outboundService.getOutboundItems(id));
-    }
-
-    private Long getCurrentUserId(final Principal principal) {
-        return 1L; // TODO: Extract from JWT-backed principal.
     }
 }

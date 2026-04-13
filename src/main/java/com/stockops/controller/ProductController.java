@@ -10,6 +10,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -48,6 +49,7 @@ public class ProductController {
      * @return created product
      */
     @PostMapping
+    @PreAuthorize("@permissionChecker.hasPermission('PRODUCT_CREATE')")
     public ResponseEntity<ProductDTO> createProduct(@Valid @RequestBody final CreateProductRequest request) {
         final ProductDTO product = productService.createProduct(request);
         return ResponseEntity.created(URI.create("/api/v1/products/" + product.id())).body(product);
@@ -60,6 +62,7 @@ public class ProductController {
      * @return product response
      */
     @GetMapping("/{id}")
+    @PreAuthorize("@permissionChecker.hasPermission('PRODUCT_READ')")
     public ResponseEntity<ProductDTO> getProduct(@PathVariable final Long id) {
         return ResponseEntity.ok(productService.getProductById(id));
     }
@@ -71,6 +74,7 @@ public class ProductController {
      * @return product response
      */
     @GetMapping("/barcode/{barcode}")
+    @PreAuthorize("@permissionChecker.hasPermission('PRODUCT_READ')")
     public ResponseEntity<ProductDTO> getProductByBarcode(@PathVariable final String barcode) {
         return ResponseEntity.ok(productService.getProductByBarcode(barcode));
     }
@@ -82,6 +86,7 @@ public class ProductController {
      * @return paged product response
      */
     @GetMapping
+    @PreAuthorize("@permissionChecker.hasPermission('PRODUCT_READ')")
     public ResponseEntity<Page<ProductDTO>> getAllProducts(
             @PageableDefault(size = 20) final Pageable pageable) {
         return ResponseEntity.ok(productService.getProducts(pageable));
@@ -96,6 +101,7 @@ public class ProductController {
      * @return updated product
      */
     @PutMapping("/{id}")
+    @PreAuthorize("@permissionChecker.hasPermission('PRODUCT_UPDATE')")
     public ResponseEntity<ProductDTO> updateProduct(
             @PathVariable final Long id,
             @Valid @RequestBody final UpdateProductRequest request) {
@@ -109,6 +115,7 @@ public class ProductController {
      * @return no content response
      */
     @DeleteMapping("/{id}")
+    @PreAuthorize("@permissionChecker.hasPermission('PRODUCT_DELETE')")
     public ResponseEntity<Void> deleteProduct(@PathVariable final Long id) {
         productService.deleteProduct(id);
         return ResponseEntity.noContent().build();

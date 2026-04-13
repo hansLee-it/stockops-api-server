@@ -7,7 +7,6 @@ import com.stockops.dto.InboundItemDTO;
 import com.stockops.service.InboundService;
 import jakarta.validation.Valid;
 import java.net.URI;
-import java.security.Principal;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -33,6 +32,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class InboundController {
 
     private final InboundService inboundService;
+    private final com.stockops.security.CurrentUserProvider currentUserProvider;
 
     /**
      * Returns all inbounds, optionally filtered by status.
@@ -41,7 +41,7 @@ public class InboundController {
      * @return list of inbound DTOs
      */
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF')")
+    @PreAuthorize("@permissionChecker.hasPermission('INBOUND_READ')")
     public ResponseEntity<List<InboundDTO>> getAllInbounds(@RequestParam(required = false) final String status) {
         if (status != null) {
             return ResponseEntity.ok(inboundService.getInboundsByStatus(status));
@@ -57,10 +57,9 @@ public class InboundController {
      * @return created inbound DTO
      */
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF')")
-    public ResponseEntity<InboundDTO> createInbound(@Valid @RequestBody final CreateInboundRequest request,
-                                                    final Principal principal) {
-        final InboundDTO inbound = inboundService.createInbound(request, getCurrentUserId(principal));
+    @PreAuthorize("@permissionChecker.hasPermission('INBOUND_CREATE')")
+    public ResponseEntity<InboundDTO> createInbound(@Valid @RequestBody final CreateInboundRequest request) {
+        final InboundDTO inbound = inboundService.createInbound(request, currentUserProvider.getCurrentUserId());
         return ResponseEntity.created(URI.create("/api/v1/inbounds/" + inbound.id())).body(inbound);
     }
 
@@ -72,7 +71,7 @@ public class InboundController {
      * @return created item DTO
      */
     @PostMapping("/{id}/items")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF')")
+    @PreAuthorize("@permissionChecker.hasPermission('INBOUND_CREATE')")
     public ResponseEntity<InboundItemDTO> addItem(@PathVariable final Long id,
                                                   @Valid @RequestBody final AddInboundItemRequest request) {
         return ResponseEntity.ok(inboundService.addItem(id, request));
@@ -86,10 +85,9 @@ public class InboundController {
      * @return confirmed inbound DTO
      */
     @PostMapping("/{id}/confirm")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    public ResponseEntity<InboundDTO> confirmInbound(@PathVariable final Long id,
-                                                     final Principal principal) {
-        return ResponseEntity.ok(inboundService.confirmInbound(id, getCurrentUserId(principal)));
+    @PreAuthorize("@permissionChecker.hasPermission('INBOUND_CONFIRM')")
+    public ResponseEntity<InboundDTO> confirmInbound(@PathVariable final Long id) {
+        return ResponseEntity.ok(inboundService.confirmInbound(id, currentUserProvider.getCurrentUserId()));
     }
 
     /**
@@ -99,7 +97,7 @@ public class InboundController {
      * @return inbound DTO
      */
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF')")
+    @PreAuthorize("@permissionChecker.hasPermission('INBOUND_READ')")
     public ResponseEntity<InboundDTO> getInbound(@PathVariable final Long id) {
         return ResponseEntity.ok(inboundService.getInbound(id));
     }
@@ -111,12 +109,8 @@ public class InboundController {
      * @return inbound item DTOs
      */
     @GetMapping("/{id}/items")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF')")
+    @PreAuthorize("@permissionChecker.hasPermission('INBOUND_READ')")
     public ResponseEntity<List<InboundItemDTO>> getInboundItems(@PathVariable final Long id) {
         return ResponseEntity.ok(inboundService.getInboundItems(id));
-    }
-
-    private Long getCurrentUserId(final Principal principal) {
-        return 1L;
     }
 }

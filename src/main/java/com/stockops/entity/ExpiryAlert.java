@@ -2,6 +2,7 @@ package com.stockops.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -25,6 +26,7 @@ import lombok.Setter;
 @Entity
 @Table(name = "expiry_alerts")
 @NoArgsConstructor
+@EntityListeners(com.stockops.audit.MutationAuditEntityListener.class)
 public class ExpiryAlert {
 
     @Id

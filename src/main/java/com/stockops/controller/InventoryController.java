@@ -27,7 +27,7 @@ public class InventoryController {
     private final InventoryQueryService inventoryQueryService;
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF')")
+    @PreAuthorize("@permissionChecker.hasPermission('INVENTORY_READ')")
     public ResponseEntity<List<InventoryDTO>> getAllInventory(
             @RequestParam(required = false) final Long productId,
             @RequestParam(required = false) final Long locationId,
@@ -50,13 +50,13 @@ public class InventoryController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF')")
+    @PreAuthorize("@permissionChecker.hasPermission('INVENTORY_READ')")
     public ResponseEntity<InventoryDTO> getInventory(@PathVariable final Long id) {
         return ResponseEntity.ok(inventoryQueryService.getInventoryById(id));
     }
 
     @GetMapping("/transactions")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF')")
+    @PreAuthorize("@permissionChecker.hasPermission('INVENTORY_READ')")
     public ResponseEntity<List<InventoryTransactionDTO>> getTransactions(
             @RequestParam(required = false) final Long productId,
             @RequestParam(required = false) final Long locationId,
@@ -69,7 +69,7 @@ public class InventoryController {
     }
 
     @GetMapping("/transactions/recent")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF')")
+    @PreAuthorize("@permissionChecker.hasPermission('INVENTORY_READ')")
     public ResponseEntity<List<InventoryTransactionDTO>> getRecentTransactions() {
         return ResponseEntity.ok(inventoryQueryService.getRecentTransactions(50));
     }

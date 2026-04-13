@@ -24,7 +24,7 @@ import java.time.Instant;
 @Setter
 @NoArgsConstructor
 @MappedSuperclass
-@EntityListeners(AuditingEntityListener.class)
+@EntityListeners({AuditingEntityListener.class, com.stockops.audit.MutationAuditEntityListener.class})
 public abstract class BaseEntity {
 
     @CreatedDate

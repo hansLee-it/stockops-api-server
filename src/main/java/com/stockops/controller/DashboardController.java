@@ -28,7 +28,7 @@ public class DashboardController {
      * @return dashboard summary
      */
     @GetMapping("/summary")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF')")
+    @PreAuthorize("@permissionChecker.hasPermission('DASHBOARD_READ')")
     public ResponseEntity<DashboardSummaryDTO> getSummary() {
         return ResponseEntity.ok(dashboardService.getSummary());
     }

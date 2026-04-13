@@ -44,7 +44,7 @@ public class RoleController {
      * @return role list
      */
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PreAuthorize("@permissionChecker.hasPermission('ROLE_READ')")
     public ResponseEntity<List<RoleDTO>> getAllRoles() {
         return ResponseEntity.ok(roleService.getAllRoles());
     }
@@ -56,7 +56,7 @@ public class RoleController {
      * @return role response
      */
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PreAuthorize("@permissionChecker.hasPermission('ROLE_READ')")
     public ResponseEntity<RoleDTO> getRoleById(@PathVariable final Long id) {
         return ResponseEntity.ok(roleService.getRoleById(id));
     }
@@ -68,7 +68,7 @@ public class RoleController {
      * @return created role
      */
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("@permissionChecker.hasPermission('ROLE_CREATE')")
     public ResponseEntity<RoleDTO> createRole(@Valid @RequestBody final RoleRequest request) {
         return ResponseEntity.status(201).body(roleService.createRole(request.name(), request.description()));
     }
@@ -81,7 +81,7 @@ public class RoleController {
      * @return updated role
      */
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("@permissionChecker.hasPermission('ROLE_UPDATE')")
     public ResponseEntity<RoleDTO> updateRole(@PathVariable final Long id,
                                               @Valid @RequestBody final RoleRequest request) {
         return ResponseEntity.ok(roleService.updateRole(id, request.name(), request.description()));
@@ -94,7 +94,7 @@ public class RoleController {
      * @return no content response
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("@permissionChecker.hasPermission('ROLE_DELETE')")
     public ResponseEntity<Void> deleteRole(@PathVariable final Long id) {
         roleService.deleteRole(id);
         return ResponseEntity.noContent().build();

@@ -1,6 +1,7 @@
 package com.stockops.auth;
 
 import com.stockops.entity.User;
+import com.stockops.repository.RolePermissionRepository;
 import com.stockops.repository.UserRepository;
 import com.stockops.security.JwtTokenProvider;
 import org.springframework.http.HttpStatus;
@@ -24,6 +25,7 @@ public class AuthService {
 
     private final AuthenticationManager authenticationManager;
     private final UserRepository userRepository;
+    private final RolePermissionRepository rolePermissionRepository;
     private final JwtTokenProvider jwtTokenProvider;
 
     /**
@@ -31,13 +33,16 @@ public class AuthService {
      *
      * @param authenticationManager Spring Security authentication manager
      * @param userRepository user repository
+     * @param rolePermissionRepository role-permission repository
      * @param jwtTokenProvider JWT utility component
      */
     public AuthService(final AuthenticationManager authenticationManager,
                        final UserRepository userRepository,
+                       final RolePermissionRepository rolePermissionRepository,
                        final JwtTokenProvider jwtTokenProvider) {
         this.authenticationManager = authenticationManager;
         this.userRepository = userRepository;
+        this.rolePermissionRepository = rolePermissionRepository;
         this.jwtTokenProvider = jwtTokenProvider;
     }
 
@@ -59,7 +64,7 @@ public class AuthService {
         final User user = userRepository.findByEmail(loginRequest.getEmail())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
 
-        return buildResponse(jwtTokenProvider.generateAccessToken(user));
+        return buildResponse(jwtTokenProvider.generateAccessToken(user), user);
     }
 
     /**
@@ -77,14 +82,29 @@ public class AuthService {
         }
 
         try {
-            return buildResponse(jwtTokenProvider.refreshAccessToken(token));
+            final Long userId = jwtTokenProvider.extractUserId(token);
+            final User user = userId == null
+                    ? userRepository.findByEmail(jwtTokenProvider.extractEmail(token))
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"))
+                    : userRepository.findById(userId)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
+            return buildResponse(jwtTokenProvider.refreshAccessToken(token), user);
         } catch (RuntimeException exception) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid JWT token", exception);
         }
     }
 
-    private LoginResponse buildResponse(final String accessToken) {
-        return new LoginResponse(accessToken, TOKEN_TYPE, jwtTokenProvider.getExpiration());
+    private LoginResponse buildResponse(final String accessToken, final User user) {
+        return new LoginResponse(
+                accessToken,
+                TOKEN_TYPE,
+                jwtTokenProvider.getExpiration(),
+                new LoginResponse.AuthenticatedUser(
+                        user.getId(),
+                        user.getEmail(),
+                        user.getName(),
+                        user.getRole().getName(),
+                        rolePermissionRepository.findPermissionCodesByRoleId(user.getRole().getId())));
     }
 
     private String resolveBearerToken(final String authorizationHeader) {

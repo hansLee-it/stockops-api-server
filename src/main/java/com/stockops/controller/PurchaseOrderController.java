@@ -4,9 +4,10 @@ import com.stockops.entity.PurchaseOrder;
 import com.stockops.entity.PurchaseOrderShipment;
 import com.stockops.entity.User;
 import com.stockops.service.PurchaseOrderService;
+import com.stockops.service.UserService;
+import java.security.Principal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -25,6 +26,7 @@ import java.util.Map;
 public class PurchaseOrderController {
 
     private final PurchaseOrderService purchaseOrderService;
+    private final UserService userService;
 
     @GetMapping
     public List<PurchaseOrder> getAllPurchaseOrders() {
@@ -50,7 +52,8 @@ public class PurchaseOrderController {
     public PurchaseOrder createPurchaseOrder(
             @RequestParam Long centerId,
             @RequestParam(required = false) Long warehouseId,
-            @AuthenticationPrincipal User currentUser) {
+            Principal principal) {
+        final User currentUser = userService.getUserByEmail(principal.getName());
         return purchaseOrderService.create(centerId, warehouseId, currentUser);
     }
 

@@ -27,6 +27,7 @@ public class PurchaseOrderService {
     private final PurchaseOrderShipmentRepository shipmentRepository;
     private final CenterService centerService;
     private final WarehouseService warehouseService;
+    private final NotificationService notificationService;
 
     public List<PurchaseOrder> findAll() {
         return purchaseOrderRepository.findAll();
@@ -93,8 +94,10 @@ public class PurchaseOrderService {
         
         po.setStatus(PurchaseOrderStatus.REQUESTED);
         po.setRequestedAt(LocalDateTime.now());
-        
-        return purchaseOrderRepository.save(po);
+
+        final PurchaseOrder savedPurchaseOrder = purchaseOrderRepository.save(po);
+        notificationService.createPurchaseOrderStatusNotification(savedPurchaseOrder, savedPurchaseOrder.getStatus());
+        return savedPurchaseOrder;
     }
 
     public PurchaseOrder accept(Long poId, String erpReference) {
@@ -107,8 +110,10 @@ public class PurchaseOrderService {
         po.setStatus(PurchaseOrderStatus.ACCEPTED);
         po.setErpReference(erpReference);
         po.setErpRespondedAt(LocalDateTime.now());
-        
-        return purchaseOrderRepository.save(po);
+
+        final PurchaseOrder savedPurchaseOrder = purchaseOrderRepository.save(po);
+        notificationService.createPurchaseOrderStatusNotification(savedPurchaseOrder, savedPurchaseOrder.getStatus());
+        return savedPurchaseOrder;
     }
 
     public PurchaseOrder reject(Long poId, String reason) {
@@ -121,8 +126,10 @@ public class PurchaseOrderService {
         po.setStatus(PurchaseOrderStatus.REJECTED);
         po.setCancelReason(reason);
         po.setErpRespondedAt(LocalDateTime.now());
-        
-        return purchaseOrderRepository.save(po);
+
+        final PurchaseOrder savedPurchaseOrder = purchaseOrderRepository.save(po);
+        notificationService.createPurchaseOrderStatusNotification(savedPurchaseOrder, savedPurchaseOrder.getStatus());
+        return savedPurchaseOrder;
     }
 
     public PurchaseOrder cancel(Long poId, String reason) {
@@ -134,8 +141,10 @@ public class PurchaseOrderService {
         
         po.setStatus(PurchaseOrderStatus.CANCELLED);
         po.setCancelReason(reason);
-        
-        return purchaseOrderRepository.save(po);
+
+        final PurchaseOrder savedPurchaseOrder = purchaseOrderRepository.save(po);
+        notificationService.createPurchaseOrderStatusNotification(savedPurchaseOrder, savedPurchaseOrder.getStatus());
+        return savedPurchaseOrder;
     }
 
     public PurchaseOrderShipment createShipment(Long poId, String shipmentNumber, String carrier, String trackingNumber) {
@@ -154,9 +163,11 @@ public class PurchaseOrderService {
         shipment.setStatus(ShipmentStatus.CREATED);
         
         po.setStatus(PurchaseOrderStatus.SHIPMENT_CREATED);
-        
+
         shipmentRepository.save(shipment);
-        return purchaseOrderRepository.save(po).getShipments().get(po.getShipments().size() - 1);
+        final PurchaseOrder savedPurchaseOrder = purchaseOrderRepository.save(po);
+        notificationService.createPurchaseOrderStatusNotification(savedPurchaseOrder, savedPurchaseOrder.getStatus());
+        return savedPurchaseOrder.getShipments().get(savedPurchaseOrder.getShipments().size() - 1);
     }
 
     public PurchaseOrder complete(Long poId) {
@@ -167,8 +178,10 @@ public class PurchaseOrderService {
         }
         
         po.setStatus(PurchaseOrderStatus.COMPLETED);
-        
-        return purchaseOrderRepository.save(po);
+
+        final PurchaseOrder savedPurchaseOrder = purchaseOrderRepository.save(po);
+        notificationService.createPurchaseOrderStatusNotification(savedPurchaseOrder, savedPurchaseOrder.getStatus());
+        return savedPurchaseOrder;
     }
 
     private String generatePoNumber() {

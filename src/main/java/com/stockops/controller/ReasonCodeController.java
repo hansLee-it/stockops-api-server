@@ -48,7 +48,7 @@ public class ReasonCodeController {
      * @return created reason code
      */
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("@permissionChecker.hasPermission('REASON_CODE_CREATE')")
     public ResponseEntity<ReasonCodeDTO> createReasonCode(@Valid @RequestBody final CreateReasonCodeRequest request) {
         final ReasonCodeDTO created = reasonCodeService.createReasonCode(request);
         return ResponseEntity.created(URI.create("/api/v1/reason-codes/" + created.id())).body(created);
@@ -61,7 +61,7 @@ public class ReasonCodeController {
      * @return reason code response
      */
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF')")
+    @PreAuthorize("@permissionChecker.hasPermission('REASON_CODE_READ')")
     public ResponseEntity<ReasonCodeDTO> getReasonCode(@PathVariable final Long id) {
         return ResponseEntity.ok(reasonCodeService.getReasonCodeById(id));
     }
@@ -73,7 +73,7 @@ public class ReasonCodeController {
      * @return reason code list
      */
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF')")
+    @PreAuthorize("@permissionChecker.hasPermission('REASON_CODE_READ')")
     public ResponseEntity<List<ReasonCodeDTO>> getAllReasonCodes(@RequestParam(required = false) final String category) {
         if (category != null) {
             return ResponseEntity.ok(reasonCodeService.getReasonCodesByCategory(category));
@@ -90,7 +90,7 @@ public class ReasonCodeController {
      * @return updated reason code
      */
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("@permissionChecker.hasPermission('REASON_CODE_UPDATE')")
     public ResponseEntity<ReasonCodeDTO> updateReasonCode(@PathVariable final Long id,
                                                           @Valid @RequestBody final UpdateReasonCodeRequest request) {
         return ResponseEntity.ok(reasonCodeService.updateReasonCode(id, request));
@@ -103,7 +103,7 @@ public class ReasonCodeController {
      * @return no content response
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("@permissionChecker.hasPermission('REASON_CODE_DELETE')")
     public ResponseEntity<Void> deleteReasonCode(@PathVariable final Long id) {
         reasonCodeService.deleteReasonCode(id);
         return ResponseEntity.noContent().build();

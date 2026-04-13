@@ -40,7 +40,7 @@ public class AuditLogController {
      * @return matching audit logs
      */
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PreAuthorize("@permissionChecker.hasPermission('AUDIT_LOG_READ')")
     public ResponseEntity<List<AuditLogDTO>> getAuditLogs(
             @RequestParam(required = false) final String entityType,
             @RequestParam(required = false) final Long entityId,
@@ -57,7 +57,7 @@ public class AuditLogController {
      * @return recent audit logs
      */
     @GetMapping("/recent")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PreAuthorize("@permissionChecker.hasPermission('AUDIT_LOG_READ')")
     public ResponseEntity<List<AuditLogDTO>> getRecentAuditLogs() {
         return ResponseEntity.ok(auditLogService.getRecentAuditLogs(50));
     }

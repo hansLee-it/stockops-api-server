@@ -1,6 +1,7 @@
 package com.stockops.repository;
 
 import com.stockops.entity.Location;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -14,4 +15,6 @@ public interface LocationRepository extends JpaRepository<Location, Long> {
     List<Location> findByType(String type);
 
     List<Location> findByWarehouseId(Long warehouseId);
+
+    List<Location> findByWarehouseIdIn(Collection<Long> warehouseIds);
 }

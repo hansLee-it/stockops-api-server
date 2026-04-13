@@ -42,7 +42,7 @@ public class ExpiryAlertController {
      * @return expiry alert list
      */
     @GetMapping("/expiry")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF')")
+    @PreAuthorize("@permissionChecker.hasPermission('EXPIRY_ALERT_READ')")
     public ResponseEntity<List<ExpiryAlertDTO>> getExpiryAlerts(
             @RequestParam(required = false) final String level,
             @RequestParam(required = false, defaultValue = "false") final boolean includeAcknowledged) {
@@ -67,7 +67,7 @@ public class ExpiryAlertController {
      * @return empty success response
      */
     @PostMapping("/{id}/acknowledge")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF')")
+    @PreAuthorize("@permissionChecker.hasPermission('EXPIRY_ALERT_MANAGE')")
     public ResponseEntity<Void> acknowledgeAlert(@PathVariable final Long id) {
         final ExpiryAlert alert = expiryAlertRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Alert not found"));
@@ -84,7 +84,7 @@ public class ExpiryAlertController {
      * @return alert counts by severity
      */
     @GetMapping("/expiry/summary")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF')")
+    @PreAuthorize("@permissionChecker.hasPermission('EXPIRY_ALERT_READ')")
     public ResponseEntity<Map<String, Object>> getExpiryAlertSummary() {
         final List<ExpiryAlert> allAlerts = expiryAlertRepository.findByAcknowledgedFalse();
 

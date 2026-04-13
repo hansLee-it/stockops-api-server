@@ -120,11 +120,13 @@ public class AuditLogService {
                 auditLog.getId(),
                 auditLog.getEntityType(),
                 auditLog.getEntityId(),
+                auditLog.getTargetIdentifier(),
                 auditLog.getAction(),
                 auditLog.getOldValue(),
                 auditLog.getNewValue(),
                 auditLog.getPerformedBy(),
                 performer == null ? null : performer.getName(),
+                auditLog.getPerformedByEmail(),
                 auditLog.getPerformedAt());
     }
 }

@@ -2,6 +2,7 @@ package com.stockops.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
@@ -26,6 +27,7 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(name = "cycle_counts")
 @NoArgsConstructor
+@EntityListeners(com.stockops.audit.MutationAuditEntityListener.class)
 public class CycleCount {
 
     @Id

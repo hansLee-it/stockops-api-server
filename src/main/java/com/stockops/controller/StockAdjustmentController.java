@@ -45,7 +45,7 @@ public class StockAdjustmentController {
      * @return created adjustment response
      */
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF')")
+    @PreAuthorize("@permissionChecker.hasPermission('INVENTORY_ADJUST_CREATE')")
     public ResponseEntity<StockAdjustmentDTO> createAdjustment(@Valid @RequestBody final CreateStockAdjustmentRequest request,
                                                                final Principal principal) {
         final Long userId = getCurrentUserId(principal);
@@ -62,7 +62,7 @@ public class StockAdjustmentController {
      * @return processed adjustment response
      */
     @PostMapping("/{id}/approve")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("@permissionChecker.hasPermission('INVENTORY_ADJUST_APPROVE')")
     public ResponseEntity<StockAdjustmentDTO> approveAdjustment(@PathVariable final Long id,
                                                                 @Valid @RequestBody final ApproveStockAdjustmentRequest request,
                                                                 final Principal principal) {
@@ -81,7 +81,7 @@ public class StockAdjustmentController {
      * @return stock adjustment response
      */
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF')")
+    @PreAuthorize("@permissionChecker.hasPermission('INVENTORY_ADJUST_READ')")
     public ResponseEntity<StockAdjustmentDTO> getAdjustment(@PathVariable final Long id) {
         return ResponseEntity.ok(adjustmentService.getAdjustment(id));
     }
@@ -92,7 +92,7 @@ public class StockAdjustmentController {
      * @return pending adjustment list
      */
     @GetMapping("/pending")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PreAuthorize("@permissionChecker.hasPermission('INVENTORY_ADJUST_APPROVE')")
     public ResponseEntity<List<StockAdjustmentDTO>> getPendingAdjustments() {
         return ResponseEntity.ok(adjustmentService.getPendingAdjustments());
     }
@@ -104,7 +104,7 @@ public class StockAdjustmentController {
      * @return adjustment history list
      */
     @GetMapping("/inventory/{inventoryId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF')")
+    @PreAuthorize("@permissionChecker.hasPermission('INVENTORY_ADJUST_READ')")
     public ResponseEntity<List<StockAdjustmentDTO>> getAdjustmentsByInventory(@PathVariable final Long inventoryId) {
         return ResponseEntity.ok(adjustmentService.getAdjustmentsByInventory(inventoryId));
     }

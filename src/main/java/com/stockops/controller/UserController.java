@@ -45,7 +45,7 @@ public class UserController {
      * @return user list
      */
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("@permissionChecker.hasPermission('USER_READ')")
     public ResponseEntity<List<UserDTO>> getAllUsers() {
         return ResponseEntity.ok(userService.getAllUsers());
     }
@@ -57,7 +57,7 @@ public class UserController {
      * @return user response
      */
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PreAuthorize("@permissionChecker.hasPermission('USER_READ')")
     public ResponseEntity<UserDTO> getUserById(@PathVariable final Long id) {
         return ResponseEntity.ok(userService.getUserById(id));
     }
@@ -69,7 +69,7 @@ public class UserController {
      * @return created user
      */
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("@permissionChecker.hasPermission('USER_CREATE')")
     public ResponseEntity<UserDTO> createUser(@Valid @RequestBody final CreateUserRequest request) {
         return ResponseEntity.status(201).body(userService.createUser(request));
     }
@@ -82,7 +82,7 @@ public class UserController {
      * @return updated user
      */
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PreAuthorize("@permissionChecker.hasPermission('USER_UPDATE')")
     public ResponseEntity<UserDTO> updateUser(@PathVariable final Long id,
                                               @RequestBody final UpdateUserRequest request) {
         return ResponseEntity.ok(userService.updateUser(id, request));
@@ -95,7 +95,7 @@ public class UserController {
      * @return no content response
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("@permissionChecker.hasPermission('USER_DELETE')")
     public ResponseEntity<Void> deleteUser(@PathVariable final Long id) {
         userService.deleteUser(id);
         return ResponseEntity.noContent().build();
