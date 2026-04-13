@@ -24,7 +24,7 @@ public class WarehouseService {
     private final CenterService centerService;
 
     public List<Warehouse> findAll() {
-        return warehouseRepository.findAll();
+        return warehouseRepository.findAllWithCenter();
     }
 
     public List<Warehouse> findByCenterId(Long centerId) {

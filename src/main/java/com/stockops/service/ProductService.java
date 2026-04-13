@@ -6,6 +6,7 @@ import com.stockops.dto.UpdateProductRequest;
 import com.stockops.entity.Product;
 import com.stockops.exception.ResourceNotFoundException;
 import com.stockops.repository.ProductRepository;
+import java.math.BigDecimal;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -50,6 +51,8 @@ public class ProductService {
         product.setCategory(request.category());
         product.setUnit(request.unit());
         product.setExpiryManaged(request.expiryManaged());
+        product.setDefaultPrice(resolveDefaultPrice(request.defaultPrice()));
+        product.setSafetyStockQuantity(resolveSafetyStockQuantity(request.safetyStockQuantity()));
 
         return toDTO(productRepository.save(product));
     }
@@ -114,6 +117,12 @@ public class ProductService {
         if (request.expiryManaged() != null) {
             product.setExpiryManaged(request.expiryManaged());
         }
+        if (request.defaultPrice() != null) {
+            product.setDefaultPrice(request.defaultPrice());
+        }
+        if (request.safetyStockQuantity() != null) {
+            product.setSafetyStockQuantity(request.safetyStockQuantity());
+        }
 
         return toDTO(productRepository.save(product));
     }
@@ -146,7 +155,17 @@ public class ProductService {
                 product.getCategory(),
                 product.getUnit(),
                 product.isExpiryManaged(),
+                product.getDefaultPrice(),
+                product.getSafetyStockQuantity(),
                 product.getCreatedAt(),
                 product.getUpdatedAt());
+    }
+
+    private BigDecimal resolveDefaultPrice(final BigDecimal defaultPrice) {
+        return defaultPrice == null ? BigDecimal.ZERO : defaultPrice;
+    }
+
+    private Integer resolveSafetyStockQuantity(final Integer safetyStockQuantity) {
+        return safetyStockQuantity == null ? 0 : safetyStockQuantity;
     }
 }

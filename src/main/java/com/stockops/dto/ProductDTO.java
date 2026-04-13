@@ -1,5 +1,6 @@
 package com.stockops.dto;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 
 /**
@@ -16,6 +17,8 @@ public record ProductDTO(
         String category,
         String unit,
         boolean expiryManaged,
+        BigDecimal defaultPrice,
+        Integer safetyStockQuantity,
         Instant createdAt,
         Instant updatedAt) {
 }

@@ -11,6 +11,9 @@ import java.util.Optional;
 
 @Repository
 public interface WarehouseRepository extends JpaRepository<Warehouse, Long> {
+    @Query("SELECT w FROM Warehouse w LEFT JOIN FETCH w.center")
+    List<Warehouse> findAllWithCenter();
+
     List<Warehouse> findByCenterId(Long centerId);
     Optional<Warehouse> findByCenterIdAndCode(Long centerId, String code);
     boolean existsByCenterIdAndCode(Long centerId, String code);

@@ -42,6 +42,7 @@ public class ProductController {
 
     /**
      * Creates a product.
+     * Supports optional default pricing and safety stock targets for downstream planning.
      *
      * @param request creation payload
      * @return created product
@@ -88,6 +89,7 @@ public class ProductController {
 
     /**
      * Updates a product.
+     * Accepts additive inventory planning fields without changing the existing endpoint contract.
      *
      * @param id product id
      * @param request update payload

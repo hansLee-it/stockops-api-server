@@ -6,6 +6,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import java.math.BigDecimal;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
@@ -44,4 +45,10 @@ public class Product extends BaseEntity {
 
     @Column(name = "expiry_managed", nullable = false)
     private boolean expiryManaged;
+
+    @Column(name = "default_price", nullable = false, precision = 12, scale = 2)
+    private BigDecimal defaultPrice = BigDecimal.ZERO;
+
+    @Column(name = "safety_stock_quantity", nullable = false)
+    private Integer safetyStockQuantity = 0;
 }

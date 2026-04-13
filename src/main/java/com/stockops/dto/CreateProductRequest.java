@@ -1,6 +1,9 @@
 package com.stockops.dto;
 
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import java.math.BigDecimal;
 
 /**
  * Product creation request payload.
@@ -14,5 +17,7 @@ public record CreateProductRequest(
         String description,
         String category,
         @NotBlank String unit,
-        boolean expiryManaged) {
+        boolean expiryManaged,
+        @DecimalMin("0") BigDecimal defaultPrice,
+        @Min(0) Integer safetyStockQuantity) {
 }
