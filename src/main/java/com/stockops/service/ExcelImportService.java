@@ -18,6 +18,7 @@ import com.stockops.repository.ProductRepository;
 import com.stockops.repository.PurchaseOrderItemRepository;
 import com.stockops.repository.PurchaseOrderRepository;
 import com.stockops.repository.WarehouseRepository;
+import com.stockops.security.CurrentUserProvider;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
 import java.io.ByteArrayOutputStream;
@@ -74,6 +75,7 @@ public class ExcelImportService {
     private final WarehouseRepository warehouseRepository;
     private final PurchaseOrderRepository purchaseOrderRepository;
     private final PurchaseOrderItemRepository purchaseOrderItemRepository;
+    private final CurrentUserProvider currentUserProvider;
     private final Validator validator;
 
     /**
@@ -168,6 +170,7 @@ public class ExcelImportService {
         int totalRows = 0;
         int successCount = 0;
         final DataFormatter dataFormatter = new DataFormatter(Locale.ROOT);
+        final Long currentUserId = currentUserProvider.getCurrentUserId();
 
         for (int rowIndex = DATA_START_ROW_INDEX; rowIndex <= sheet.getLastRowNum(); rowIndex++) {
             final Row row = sheet.getRow(rowIndex);
@@ -189,7 +192,7 @@ public class ExcelImportService {
                 final Integer quantity = parseInteger(row, 6, dataFormatter, "quantity", true);
                 final String locationCode = requireText(getTrimmedString(row, 7, dataFormatter), "locationCode");
 
-                final Product product = productRepository.findByBarcode(productBarcode)
+                final Product product = productRepository.findByBarcodeAndDeletedFalse(productBarcode)
                         .orElseThrow(() -> new InvalidOperationException("Product not found: " + productBarcode));
                 final Location location = locationRepository.findByCode(locationCode)
                         .orElseThrow(() -> new InvalidOperationException("Location not found: " + locationCode));
@@ -207,7 +210,9 @@ public class ExcelImportService {
                     validateInboundHeaderConsistency(context, inboundDate, supplier, reference);
                     inboundService.addItem(context.inboundId(), itemRequest);
                 } else {
-                    final Long inboundId = inboundService.createInbound(new CreateInboundRequest(inboundDate, supplier), 1L).id();
+                    final Long inboundId = inboundService.createInbound(
+                            new CreateInboundRequest(inboundDate, supplier),
+                            currentUserId).id();
                     inboundContexts.put(reference, new InboundContext(inboundId, inboundDate, supplier));
                     inboundService.addItem(inboundId, itemRequest);
                 }
@@ -252,7 +257,7 @@ public class ExcelImportService {
                 final Center center = centerRepository.findByCode(centerCode)
                         .orElseThrow(() -> new InvalidOperationException("Center not found: " + centerCode));
                 final Long warehouseId = resolveWarehouseId(center.getId(), warehouseCode);
-                final Product product = productRepository.findByBarcode(productBarcode)
+                final Product product = productRepository.findByBarcodeAndDeletedFalse(productBarcode)
                         .orElseThrow(() -> new InvalidOperationException("Product not found: " + productBarcode));
 
                 final PurchaseOrderContext existingContext = purchaseOrderContexts.get(reference);

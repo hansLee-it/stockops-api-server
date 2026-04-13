@@ -10,9 +10,11 @@ import java.math.BigDecimal;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.SQLRestriction;
 
 /**
  * Product master entity.
+ * Soft-deleted products remain stored for audit/history while staying hidden from active queries.
  *
  * @author StockOps Team
  * @since 1.0
@@ -22,13 +24,14 @@ import lombok.NoArgsConstructor;
 @Table(name = "products")
 @NoArgsConstructor
 @EqualsAndHashCode(callSuper = true)
+@SQLRestriction("deleted = false")
 public class Product extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "barcode", nullable = false, unique = true)
+    @Column(name = "barcode", nullable = false)
     private String barcode;
 
     @Column(name = "name", nullable = false)
@@ -51,4 +54,7 @@ public class Product extends BaseEntity {
 
     @Column(name = "safety_stock_quantity", nullable = false)
     private Integer safetyStockQuantity = 0;
+
+    @Column(name = "deleted", nullable = false)
+    private boolean deleted;
 }

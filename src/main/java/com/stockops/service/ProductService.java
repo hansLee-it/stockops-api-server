@@ -40,7 +40,7 @@ public class ProductService {
      */
     @Transactional
     public ProductDTO createProduct(final CreateProductRequest request) {
-        if (productRepository.existsByBarcode(request.barcode())) {
+        if (productRepository.existsByBarcodeAndDeletedFalse(request.barcode())) {
             throw new IllegalArgumentException("Barcode already exists");
         }
 
@@ -76,7 +76,7 @@ public class ProductService {
      */
     @Transactional(readOnly = true)
     public ProductDTO getProductByBarcode(final String barcode) {
-        return toDTO(productRepository.findByBarcode(barcode)
+        return toDTO(productRepository.findByBarcodeAndDeletedFalse(barcode)
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found: " + barcode)));
     }
 
@@ -88,7 +88,7 @@ public class ProductService {
      */
     @Transactional(readOnly = true)
     public Page<ProductDTO> getProducts(final Pageable pageable) {
-        return productRepository.findAll(pageable).map(this::toDTO);
+        return productRepository.findAllByDeletedFalse(pageable).map(this::toDTO);
     }
 
     /**
@@ -128,21 +128,20 @@ public class ProductService {
     }
 
     /**
-     * Deletes a product.
+     * Soft deletes a product.
+     * Preserves the row for history while removing it from active product lookups.
      *
      * @param id product id
      */
     @Transactional
     public void deleteProduct(final Long id) {
-        if (!productRepository.existsById(id)) {
-            throw new ResourceNotFoundException("Product not found: " + id);
-        }
-
-        productRepository.deleteById(id);
+        final Product product = findProductById(id);
+        product.setDeleted(true);
+        productRepository.save(product);
     }
 
     private Product findProductById(final Long id) {
-        return productRepository.findById(id)
+        return productRepository.findByIdAndDeletedFalse(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found: " + id));
     }
 

@@ -109,7 +109,8 @@ public class ProductController {
     }
 
     /**
-     * Deletes a product.
+     * Soft deletes a product.
+     * The product remains stored for history but disappears from active product APIs.
      *
      * @param id product id
      * @return no content response
