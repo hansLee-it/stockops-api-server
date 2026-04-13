@@ -1,12 +1,14 @@
 package com.stockops.service;
 
 import com.stockops.entity.Center;
+import com.stockops.exception.InvalidOperationException;
 import com.stockops.repository.CenterRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Service for Center management.
@@ -43,8 +45,20 @@ public class CenterService {
         return centerRepository.save(center);
     }
 
+    /**
+     * Updates mutable center fields while preserving the original center code.
+     *
+     * @param id center identifier
+     * @param center requested center state
+     * @return updated center entity
+     * @throws InvalidOperationException when the request attempts to change the center code
+     */
     public Center update(Long id, Center center) {
         Center existing = findById(id);
+        if (!Objects.equals(existing.getCode(), center.getCode())) {
+            throw new InvalidOperationException("센터 코드는 변경할 수 없습니다");
+        }
+
         existing.setName(center.getName());
         existing.setAddress(center.getAddress());
         existing.setPhone(center.getPhone());
