@@ -55,3 +55,7 @@ logging:
 jwt:
   secret: ${JWT_SECRET}
   expiration: ${JWT_EXPIRATION:86400000}
+
+stockops:
+  sensimul:
+    base-url: ${STOCKOPS_SENSIMUL_BASE_URL:http://192.168.0.11:18080}

@@ -1,1 +1,9 @@
+/workspace/stockops/backend/src/test/java/com/stockops/service/ControllerCommandServiceTest.java
+/workspace/stockops/backend/src/test/java/com/stockops/service/EnvironmentControllerServiceTest.java
+/workspace/stockops/backend/src/test/java/com/stockops/service/CycleCountServiceTest.java
+/workspace/stockops/backend/src/test/java/com/stockops/environment/ingestion/TelemetryIngestionServiceTest.java
+/workspace/stockops/backend/src/test/java/com/stockops/environment/util/TimeUtilsTest.java
 /workspace/stockops/backend/src/test/java/com/stockops/service/ExpiryQuarantineServiceTest.java
+/workspace/stockops/backend/src/test/java/com/stockops/service/SensorDeviceServiceTest.java
+/workspace/stockops/backend/src/test/java/com/stockops/service/EnvironmentQueryServiceTest.java
+/workspace/stockops/backend/src/test/java/com/stockops/environment/retention/EnvironmentRetentionServiceTest.java

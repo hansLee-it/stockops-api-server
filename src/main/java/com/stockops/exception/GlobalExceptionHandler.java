@@ -1,5 +1,8 @@
 package com.stockops.exception;
 
+import com.stockops.integration.sensimul.SensimulIntegrationException;
+
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -23,6 +26,17 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleNotFound(final ResourceNotFoundException ex) {
         return ResponseEntity.status(404).body(new ErrorResponse(404, ex.getMessage()));
+    }
+
+    /**
+     * Handles resource state conflicts.
+     *
+     * @param ex conflict exception
+     * @return 409 error response
+     */
+    @ExceptionHandler(ConflictException.class)
+    public ResponseEntity<ErrorResponse> handleConflict(final ConflictException ex) {
+        return ResponseEntity.status(409).body(new ErrorResponse(409, ex.getMessage()));
     }
 
     /**
@@ -56,5 +70,22 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleValidation(final MethodArgumentNotValidException ex) {
         return ResponseEntity.badRequest().body(new ErrorResponse(400, "Validation failed"));
+    }
+
+    /**
+     * Handles downstream Sensimul integration failures.
+     *
+     * @param ex Sensimul integration exception
+     * @return 502/503 error response based on integration failure type
+     */
+    @ExceptionHandler(SensimulIntegrationException.class)
+    public ResponseEntity<ErrorResponse> handleSensimulIntegration(final SensimulIntegrationException ex) {
+        final HttpStatus status = resolveIntegrationStatus(ex);
+        return ResponseEntity.status(status).body(new ErrorResponse(status.value(), ex.getMessage()));
+    }
+
+    private HttpStatus resolveIntegrationStatus(final SensimulIntegrationException ex) {
+        final String message = ex.getMessage() == null ? "" : ex.getMessage();
+        return message.startsWith("Failed to ") ? HttpStatus.SERVICE_UNAVAILABLE : HttpStatus.BAD_GATEWAY;
     }
 }

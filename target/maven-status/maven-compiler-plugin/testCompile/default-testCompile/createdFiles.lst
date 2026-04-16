@@ -1,1 +1,5 @@
+com/stockops/service/EnvironmentControllerServiceTest$1.class
+com/stockops/service/CycleCountServiceTest.class
+com/stockops/environment/util/TimeUtilsTest.class
 com/stockops/service/ExpiryQuarantineServiceTest.class
+com/stockops/environment/retention/EnvironmentRetentionServiceTest.class
