@@ -39,7 +39,7 @@ public class EnvironmentQueryController {
      * @return dashboard response
      */
     @GetMapping("/dashboard")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'USER')")
+    @PreAuthorize("@permissionChecker.hasPermission('ENVIRONMENT_READ')")
     public ResponseEntity<DashboardResponse> getDashboard() {
         return ResponseEntity.ok(environmentQueryService.getDashboard());
     }
@@ -51,7 +51,7 @@ public class EnvironmentQueryController {
      * @return newest-first alerts
      */
     @GetMapping("/alerts")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'USER')")
+    @PreAuthorize("@permissionChecker.hasPermission('ENVIRONMENT_READ')")
     public ResponseEntity<List<SensorAlertResponse>> getAlerts(@RequestParam(required = false) final Integer days) {
         return ResponseEntity.ok(environmentQueryService.getAlerts(days));
     }
@@ -64,7 +64,7 @@ public class EnvironmentQueryController {
      * @return oldest-first time-series readings
      */
     @GetMapping("/history")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'USER')")
+    @PreAuthorize("@permissionChecker.hasPermission('ENVIRONMENT_READ')")
     public ResponseEntity<List<SensorHistoryResponse>> getHistory(
             @RequestParam final Long sensorId,
             @RequestParam(required = false) final Integer days) {

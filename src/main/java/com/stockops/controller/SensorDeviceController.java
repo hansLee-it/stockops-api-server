@@ -47,7 +47,7 @@ public class SensorDeviceController {
      * @return created sensor device
      */
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PreAuthorize("@permissionChecker.hasPermission('ENVIRONMENT_MANAGE')")
     public ResponseEntity<SensorDeviceResponse> createSensorDevice(@Valid @RequestBody final SensorDeviceRequest request) {
         final SensorDeviceResponse sensorDevice = sensorDeviceService.createSensorDevice(request);
         return ResponseEntity.created(URI.create("/api/v1/environment/sensors/" + sensorDevice.id())).body(sensorDevice);
@@ -60,7 +60,7 @@ public class SensorDeviceController {
      * @return paged active sensors
      */
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'USER')")
+    @PreAuthorize("@permissionChecker.hasPermission('ENVIRONMENT_READ')")
     public ResponseEntity<Page<SensorDeviceResponse>> getSensorDevices(
             @PageableDefault(size = 20) final Pageable pageable) {
         return ResponseEntity.ok(sensorDeviceService.getSensorDevices(pageable));
@@ -73,7 +73,7 @@ public class SensorDeviceController {
      * @return sensor device response
      */
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'USER')")
+    @PreAuthorize("@permissionChecker.hasPermission('ENVIRONMENT_READ')")
     public ResponseEntity<SensorDeviceResponse> getSensorDevice(@PathVariable final Long id) {
         return ResponseEntity.ok(sensorDeviceService.getSensorDeviceById(id));
     }
@@ -86,7 +86,7 @@ public class SensorDeviceController {
      * @return updated sensor device
      */
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PreAuthorize("@permissionChecker.hasPermission('ENVIRONMENT_MANAGE')")
     public ResponseEntity<SensorDeviceResponse> updateSensorDevice(
             @PathVariable final Long id,
             @Valid @RequestBody final SensorDeviceRequest request) {
@@ -100,7 +100,7 @@ public class SensorDeviceController {
      * @return no content response
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PreAuthorize("@permissionChecker.hasPermission('ENVIRONMENT_MANAGE')")
     public ResponseEntity<Void> deleteSensorDevice(@PathVariable final Long id) {
         sensorDeviceService.deleteSensorDevice(id);
         return ResponseEntity.noContent().build();
@@ -113,7 +113,7 @@ public class SensorDeviceController {
      * @return reactivated sensor device
      */
     @PostMapping("/{id}/reactivate")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PreAuthorize("@permissionChecker.hasPermission('ENVIRONMENT_MANAGE')")
     public ResponseEntity<SensorDeviceResponse> reactivateSensorDevice(@PathVariable final Long id) {
         return ResponseEntity.ok(sensorDeviceService.reactivateSensorDevice(id));
     }
@@ -126,7 +126,7 @@ public class SensorDeviceController {
      * @return sensor device response
      */
     @GetMapping("/external/{siteId}/{sensorId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'USER')")
+    @PreAuthorize("@permissionChecker.hasPermission('ENVIRONMENT_READ')")
     public ResponseEntity<SensorDeviceResponse> getSensorDeviceByExternalIds(
             @PathVariable final String siteId,
             @PathVariable final String sensorId) {

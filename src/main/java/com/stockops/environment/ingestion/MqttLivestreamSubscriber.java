@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PreDestroy;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
+import org.eclipse.paho.mqttv5.client.MqttCallback;
 import org.eclipse.paho.mqttv5.client.MqttClient;
 import org.eclipse.paho.mqttv5.client.MqttConnectionOptions;
 import org.eclipse.paho.mqttv5.client.persist.MemoryPersistence;
@@ -67,9 +68,16 @@ public class MqttLivestreamSubscriber implements SmartInitializingSingleton {
             options.setAutomaticReconnect(true);
             options.setCleanStart(false);
 
-            mqttClient.connect(options);
-            mqttClient.subscribe(SensimulTopics.liveSensorFilter(), properties.getQos(), this::handleMessage);
+            mqttClient.setCallback(createCallback());
 
+            mqttClient.connect(options);
+            mqttClient.subscribe(SensimulTopics.liveSensorFilter(), properties.getQos());
+
+            LOGGER.info(
+                    "MQTT connection established broker={} topicFilter={} qos={}",
+                    properties.getBrokerUrl(),
+                    SensimulTopics.liveSensorFilter(),
+                    properties.getQos());
             LOGGER.info(
                     "Subscribed to Sensimul live telemetry topic filter={} broker={} qos={}",
                     SensimulTopics.liveSensorFilter(),
@@ -96,6 +104,31 @@ public class MqttLivestreamSubscriber implements SmartInitializingSingleton {
         } catch (MqttException exception) {
             LOGGER.debug("Failed to close MQTT client cleanly", exception);
         }
+    }
+
+    private MqttCallback createCallback() {
+        return (MqttCallback) java.lang.reflect.Proxy.newProxyInstance(
+                MqttCallback.class.getClassLoader(),
+                new Class<?>[]{MqttCallback.class},
+                (proxy, method, args) -> {
+                    final String methodName = method.getName();
+                    if ("messageArrived".equals(methodName) && args != null && args.length == 2) {
+                        handleMessage((String) args[0], (MqttMessage) args[1]);
+                        return null;
+                    }
+                    if (("connectionLost".equals(methodName) || "disconnected".equals(methodName))
+                            && args != null
+                            && args.length == 1) {
+                        final Throwable cause = args[0] instanceof Throwable ? (Throwable) args[0] : null;
+                        LOGGER.warn("Disconnected from MQTT broker={}", properties.getBrokerUrl(), cause);
+                        return null;
+                    }
+                    if ("mqttErrorOccurred".equals(methodName) && args != null && args.length == 1 && args[0] instanceof Throwable) {
+                        LOGGER.warn("MQTT client error while connected to broker={}", properties.getBrokerUrl(), (Throwable) args[0]);
+                        return null;
+                    }
+                    return null;
+                });
     }
 
     private void handleMessage(final String topic, final MqttMessage message) {

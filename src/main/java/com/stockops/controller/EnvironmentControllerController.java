@@ -47,7 +47,7 @@ public class EnvironmentControllerController {
      * @return created controller response
      */
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PreAuthorize("@permissionChecker.hasPermission('ENVIRONMENT_MANAGE')")
     public ResponseEntity<EnvironmentControllerResponse> createEnvironmentController(
             @Valid @RequestBody final EnvironmentControllerRequest request) {
         final EnvironmentControllerResponse controller =
@@ -62,7 +62,7 @@ public class EnvironmentControllerController {
      * @return paged active controllers
      */
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'USER')")
+    @PreAuthorize("@permissionChecker.hasPermission('ENVIRONMENT_READ')")
     public ResponseEntity<Page<EnvironmentControllerResponse>> getEnvironmentControllers(
             @PageableDefault(size = 20) final Pageable pageable) {
         return ResponseEntity.ok(environmentControllerService.getEnvironmentControllers(pageable));
@@ -75,7 +75,7 @@ public class EnvironmentControllerController {
      * @return controller response
      */
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'USER')")
+    @PreAuthorize("@permissionChecker.hasPermission('ENVIRONMENT_READ')")
     public ResponseEntity<EnvironmentControllerResponse> getEnvironmentController(@PathVariable final Long id) {
         return ResponseEntity.ok(environmentControllerService.getEnvironmentControllerById(id));
     }
@@ -88,7 +88,7 @@ public class EnvironmentControllerController {
      * @return updated controller response
      */
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PreAuthorize("@permissionChecker.hasPermission('ENVIRONMENT_MANAGE')")
     public ResponseEntity<EnvironmentControllerResponse> updateEnvironmentController(
             @PathVariable final Long id,
             @Valid @RequestBody final EnvironmentControllerRequest request) {
@@ -102,7 +102,7 @@ public class EnvironmentControllerController {
      * @return no-content response
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PreAuthorize("@permissionChecker.hasPermission('ENVIRONMENT_MANAGE')")
     public ResponseEntity<Void> deleteEnvironmentController(@PathVariable final Long id) {
         environmentControllerService.deleteEnvironmentController(id);
         return ResponseEntity.noContent().build();
@@ -115,7 +115,7 @@ public class EnvironmentControllerController {
      * @return reactivated controller response
      */
     @PostMapping("/{id}/reactivate")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PreAuthorize("@permissionChecker.hasPermission('ENVIRONMENT_MANAGE')")
     public ResponseEntity<EnvironmentControllerResponse> reactivateEnvironmentController(@PathVariable final Long id) {
         return ResponseEntity.ok(environmentControllerService.reactivateEnvironmentController(id));
     }
@@ -128,7 +128,7 @@ public class EnvironmentControllerController {
      * @return controller response
      */
     @GetMapping("/external/{siteId}/{controllerId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'USER')")
+    @PreAuthorize("@permissionChecker.hasPermission('ENVIRONMENT_READ')")
     public ResponseEntity<EnvironmentControllerResponse> getEnvironmentControllerByExternalIds(
             @PathVariable final String siteId,
             @PathVariable final String controllerId) {

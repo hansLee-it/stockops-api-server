@@ -45,7 +45,7 @@ public class ControllerCommandController {
      * @return accepted command response
      */
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PreAuthorize("@permissionChecker.hasPermission('ENVIRONMENT_COMMAND')")
     public ResponseEntity<ControllerCommandResponse> sendCommand(
             @PathVariable final Long controllerId,
             @Valid @RequestBody final ControllerCommandRequest request) {
@@ -60,7 +60,7 @@ public class ControllerCommandController {
      * @return recent command history
      */
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PreAuthorize("@permissionChecker.hasPermission('ENVIRONMENT_COMMAND')")
     public ResponseEntity<List<ControllerCommandResponse>> getCommandHistory(
             @PathVariable final Long controllerId,
             @PageableDefault(size = 20) final Pageable pageable) {
