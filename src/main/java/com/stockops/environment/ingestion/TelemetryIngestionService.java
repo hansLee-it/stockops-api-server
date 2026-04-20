@@ -73,7 +73,7 @@ public class TelemetryIngestionService {
         }
 
         final String mqttTopic = SensimulTopics.liveSensorTopic(payload.siteId(), payload.sensorId());
-        final Optional<SensorDevice> sensorDevice = sensorDeviceRepository.findByMqttTopicAndDeletedFalse(mqttTopic);
+        final Optional<SensorDevice> sensorDevice = sensorDeviceRepository.findByMqttTopic(mqttTopic);
         if (sensorDevice.isEmpty()) {
             LOGGER.warn("Skipping telemetry for unknown or deleted sensor topic: {}", mqttTopic);
             return;
@@ -181,12 +181,22 @@ public class TelemetryIngestionService {
     }
 
     private boolean isPayloadValid(final SensimulPayload payload) {
-        return payload != null
-                && StringUtils.hasText(payload.siteId())
-                && StringUtils.hasText(payload.sensorId())
-                && payload.value() != null
-                && StringUtils.hasText(payload.status())
-                && StringUtils.hasText(payload.timestamp());
+        if (payload == null) {
+            return false;
+        }
+        if (!StringUtils.hasText(payload.siteId())) {
+            return false;
+        }
+        if (!StringUtils.hasText(payload.sensorId())) {
+            return false;
+        }
+        if (!StringUtils.hasText(payload.status())) {
+            return false;
+        }
+        if (!StringUtils.hasText(payload.timestamp())) {
+            return false;
+        }
+        return true;
     }
 
     private Instant parseRecordedAt(final String timestamp) {
