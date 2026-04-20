@@ -2,6 +2,7 @@
 -- 1. Add updated_at to sensor_readings (required by BaseEntity)
 -- 2. Make value_kind nullable (Sensimul can send null valueKind)
 -- 3. Fix controller_type to use uppercase enum values
+-- 4. Add updated_at to controller_commands (required by BaseEntity)
 
 -- 1. Add updated_at column to sensor_readings
 ALTER TABLE sensor_readings ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP;
@@ -20,3 +21,6 @@ UPDATE environment_controllers SET controller_type = 'HEATING' WHERE controller_
 UPDATE environment_controllers SET controller_type = 'HUMIDIFYING' WHERE controller_type = 'humidifying';
 UPDATE environment_controllers SET controller_type = 'DEHUMIDIFYING' WHERE controller_type = 'dehumidifying';
 UPDATE environment_controllers SET controller_type = 'VENTILATION' WHERE controller_type = 'ventilation';
+
+-- 4. Add updated_at column to controller_commands
+ALTER TABLE controller_commands ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP;
