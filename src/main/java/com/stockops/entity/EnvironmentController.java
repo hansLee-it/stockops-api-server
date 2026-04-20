@@ -38,6 +38,9 @@ public class EnvironmentController extends BaseEntity {
     @Column(name = "external_controller_id", nullable = false)
     private String externalControllerId;
 
+    @Column(name = "mqtt_topic")
+    private String mqttTopic;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "controller_type", nullable = false, length = 50)
     private ControllerType controllerType = ControllerType.VENTILATION;

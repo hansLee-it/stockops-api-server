@@ -116,9 +116,12 @@ public class ControllerCommandService {
     }
 
     private ParsedControllerTopic parseTopic(final EnvironmentController controller) {
-        return SensimulTopics.parseLiveControllerTopic(controller.getExternalControllerId())
+        final String topic = controller.getMqttTopic() != null
+                ? controller.getMqttTopic()
+                : controller.getExternalControllerId();
+        return SensimulTopics.parseLiveControllerTopic(topic)
                 .orElseThrow(() -> new IllegalStateException(
-                        "Environment controller topic is invalid: " + controller.getExternalControllerId()));
+                        "Environment controller topic is invalid: " + topic));
     }
 
     private HttpStatus resolveIntegrationStatus(final SensimulIntegrationException ex) {
