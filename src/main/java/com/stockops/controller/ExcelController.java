@@ -40,7 +40,7 @@ public class ExcelController {
      * @return XLSX template download
      */
     @GetMapping("/templates/{entityType}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF')")
+    @PreAuthorize("@permissionChecker.hasExcelTemplatePermission(#entityTypePath)")
     public ResponseEntity<byte[]> downloadTemplate(@PathVariable("entityType") final String entityTypePath) {
         final ExcelEntityType entityType = ExcelEntityType.fromPathValue(entityTypePath);
         final byte[] templateBytes = excelImportService.generateTemplate(entityType);
@@ -60,7 +60,7 @@ public class ExcelController {
      * @return row-level import summary
      */
     @PostMapping(path = "/import/{entityType}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF')")
+    @PreAuthorize("@permissionChecker.hasExcelImportPermission(#entityTypePath)")
     public ResponseEntity<ExcelImportResult> importWorkbook(
             @PathVariable("entityType") final String entityTypePath,
             @RequestPart("file") final MultipartFile file) {

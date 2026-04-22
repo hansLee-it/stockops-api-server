@@ -1,9 +1,12 @@
 package com.stockops.service;
 
 import com.stockops.dto.RoleDTO;
+import com.stockops.dto.ScopeMetadataDTO;
+import com.stockops.dto.ScopeAssignmentRequest;
 import com.stockops.entity.Role;
 import com.stockops.exception.ResourceNotFoundException;
 import com.stockops.repository.RoleRepository;
+import com.stockops.security.ScopeAccessService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,14 +22,17 @@ import java.util.List;
 public class RoleService {
 
     private final RoleRepository roleRepository;
+    private final ScopeAccessService scopeAccessService;
 
     /**
      * Creates the service.
      *
      * @param roleRepository role repository
      */
-    public RoleService(final RoleRepository roleRepository) {
+    public RoleService(final RoleRepository roleRepository,
+                       final ScopeAccessService scopeAccessService) {
         this.roleRepository = roleRepository;
+        this.scopeAccessService = scopeAccessService;
     }
 
     /**
@@ -37,10 +43,13 @@ public class RoleService {
      * @return created role
      */
     @Transactional
-    public RoleDTO createRole(final String name, final String description) {
+    public RoleDTO createRole(final String name,
+                              final String description,
+                              final List<ScopeAssignmentRequest> scopeAssignments) {
         final Role role = new Role();
         role.setName(name);
         role.setDescription(description);
+        role.setScopeAssignments(scopeAccessService.normalizeAssignments(scopeAssignments));
         return toDto(roleRepository.save(role));
     }
 
@@ -86,10 +95,14 @@ public class RoleService {
      * @return updated role response
      */
     @Transactional
-    public RoleDTO updateRole(final Long id, final String name, final String description) {
+    public RoleDTO updateRole(final Long id,
+                              final String name,
+                              final String description,
+                              final List<ScopeAssignmentRequest> scopeAssignments) {
         final Role role = findRoleEntityById(id);
         role.setName(name);
         role.setDescription(description);
+        role.setScopeAssignments(scopeAccessService.normalizeAssignments(scopeAssignments));
         return toDto(roleRepository.save(role));
     }
 
@@ -113,6 +126,7 @@ public class RoleService {
     }
 
     private RoleDTO toDto(final Role role) {
-        return new RoleDTO(role.getId(), role.getName(), role.getDescription(), role.getCreatedAt());
+        final ScopeMetadataDTO scopeMetadata = scopeAccessService.buildRoleProfile(role).toDto();
+        return new RoleDTO(role.getId(), role.getName(), role.getDescription(), scopeMetadata, role.getCreatedAt());
     }
 }

@@ -1,17 +1,24 @@
 package com.stockops.entity;
 
+import com.stockops.security.ScopeAssignment;
+import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.Instant;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 /**
  * Role master entity.
@@ -38,6 +45,13 @@ public class Role {
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
+
+    /**
+     * Data scopes granted to all users assigned to this role.
+     */
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "role_scope_assignments", joinColumns = @JoinColumn(name = "role_id"))
+    private Set<ScopeAssignment> scopeAssignments = new LinkedHashSet<>();
 
     @PrePersist
     protected void onCreate() {

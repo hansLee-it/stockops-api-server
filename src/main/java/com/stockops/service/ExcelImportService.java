@@ -19,6 +19,7 @@ import com.stockops.repository.PurchaseOrderItemRepository;
 import com.stockops.repository.PurchaseOrderRepository;
 import com.stockops.repository.WarehouseRepository;
 import com.stockops.security.CurrentUserProvider;
+import com.stockops.security.ScopeGuard;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
 import java.io.ByteArrayOutputStream;
@@ -76,6 +77,7 @@ public class ExcelImportService {
     private final PurchaseOrderRepository purchaseOrderRepository;
     private final PurchaseOrderItemRepository purchaseOrderItemRepository;
     private final CurrentUserProvider currentUserProvider;
+    private final ScopeGuard scopeGuard;
     private final Validator validator;
 
     /**
@@ -196,6 +198,7 @@ public class ExcelImportService {
                         .orElseThrow(() -> new InvalidOperationException("Product not found: " + productBarcode));
                 final Location location = locationRepository.findByCode(locationCode)
                         .orElseThrow(() -> new InvalidOperationException("Location not found: " + locationCode));
+                scopeGuard.assertLocationAccess(location.getId());
 
                 final AddInboundItemRequest itemRequest = new AddInboundItemRequest(
                         product.getId(),
@@ -257,6 +260,7 @@ public class ExcelImportService {
                 final Center center = centerRepository.findByCode(centerCode)
                         .orElseThrow(() -> new InvalidOperationException("Center not found: " + centerCode));
                 final Long warehouseId = resolveWarehouseId(center.getId(), warehouseCode);
+                scopeGuard.assertCenterWarehouseAccess(center.getId(), warehouseId);
                 final Product product = productRepository.findByBarcodeAndDeletedFalse(productBarcode)
                         .orElseThrow(() -> new InvalidOperationException("Product not found: " + productBarcode));
 

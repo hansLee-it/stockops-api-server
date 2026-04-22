@@ -3,6 +3,8 @@ package com.stockops.dto;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 
+import java.util.List;
+
 /**
  * User creation request payload.
  *
@@ -13,6 +15,7 @@ public record CreateUserRequest(
         @NotBlank @Email String email,
         @NotBlank String password,
         @NotBlank String name,
-        String role
+        String role,
+        List<ScopeAssignmentRequest> scopeAssignments
 ) {
 }

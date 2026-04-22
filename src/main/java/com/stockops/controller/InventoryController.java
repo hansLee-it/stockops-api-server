@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * Inventory query API controller.
+ * Collection endpoints return only rows inside the caller's effective scope.
  *
  * @author StockOps Team
  * @since 1.0

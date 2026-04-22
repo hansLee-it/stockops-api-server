@@ -1,6 +1,7 @@
 package com.stockops.service;
 
 import com.stockops.dto.CreateUserRequest;
+import com.stockops.dto.ScopeMetadataDTO;
 import com.stockops.dto.UpdateUserRequest;
 import com.stockops.dto.UserDTO;
 import com.stockops.entity.Role;
@@ -8,6 +9,7 @@ import com.stockops.entity.User;
 import com.stockops.exception.ResourceNotFoundException;
 import com.stockops.repository.RoleRepository;
 import com.stockops.repository.UserRepository;
+import com.stockops.security.ScopeAccessService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +30,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
+    private final ScopeAccessService scopeAccessService;
 
     /**
      * Creates the service.
@@ -38,10 +41,12 @@ public class UserService {
      */
     public UserService(final UserRepository userRepository,
                        final RoleRepository roleRepository,
-                       final PasswordEncoder passwordEncoder) {
+                       final PasswordEncoder passwordEncoder,
+                       final ScopeAccessService scopeAccessService) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.passwordEncoder = passwordEncoder;
+        this.scopeAccessService = scopeAccessService;
     }
 
     /**
@@ -60,6 +65,7 @@ public class UserService {
         user.setName(request.name());
         user.setEnabled(true);
         user.setRole(role);
+        user.setScopeAssignments(scopeAccessService.normalizeAssignments(request.scopeAssignments()));
 
         return toDto(userRepository.save(user));
     }
@@ -104,6 +110,10 @@ public class UserService {
             user.setRole(resolveRole(request.role()));
         }
 
+        if (request.scopeAssignments() != null) {
+            user.setScopeAssignments(scopeAccessService.normalizeAssignments(request.scopeAssignments()));
+        }
+
         return toDto(userRepository.save(user));
     }
 
@@ -145,11 +155,13 @@ public class UserService {
     }
 
     private UserDTO toDto(final User user) {
+        final ScopeMetadataDTO scopeMetadata = scopeAccessService.buildUserProfile(user).toDto();
         return new UserDTO(
                 user.getId(),
                 user.getEmail(),
                 user.getName(),
                 user.getRole().getName(),
+                scopeMetadata,
                 user.getCreatedAt(),
                 user.getUpdatedAt());
     }

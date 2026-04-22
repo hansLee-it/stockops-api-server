@@ -22,6 +22,7 @@ public class CustomUserDetailsService implements UserDetailsService {
 
     private final UserRepository userRepository;
     private final RolePermissionRepository rolePermissionRepository;
+    private final ScopeAccessService scopeAccessService;
 
     /**
      * Creates the service.
@@ -30,9 +31,11 @@ public class CustomUserDetailsService implements UserDetailsService {
      * @param rolePermissionRepository role-permission repository
      */
     public CustomUserDetailsService(final UserRepository userRepository,
-                                    final RolePermissionRepository rolePermissionRepository) {
+                                    final RolePermissionRepository rolePermissionRepository,
+                                    final ScopeAccessService scopeAccessService) {
         this.userRepository = userRepository;
         this.rolePermissionRepository = rolePermissionRepository;
+        this.scopeAccessService = scopeAccessService;
     }
 
     /**
@@ -52,11 +55,12 @@ public class CustomUserDetailsService implements UserDetailsService {
         rolePermissionRepository.findPermissionCodesByRoleId(user.getRole().getId())
                 .forEach(permission -> authorities.add(new SimpleGrantedAuthority(permission)));
 
-        return org.springframework.security.core.userdetails.User.builder()
-                .username(user.getEmail())
-                .password(user.getPassword())
-                .disabled(!user.isEnabled())
-                .authorities(authorities)
-                .build();
+        return new ScopedUserDetails(
+                user.getId(),
+                user.getEmail(),
+                user.getPassword(),
+                user.isEnabled(),
+                authorities,
+                scopeAccessService.buildUserProfile(user));
     }
 }

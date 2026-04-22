@@ -2,6 +2,8 @@ package com.stockops.dto;
 
 import jakarta.validation.constraints.NotBlank;
 
+import java.util.List;
+
 /**
  * Role write request payload.
  *
@@ -10,6 +12,7 @@ import jakarta.validation.constraints.NotBlank;
  */
 public record RoleRequest(
         @NotBlank String name,
-        String description
+        String description,
+        List<ScopeAssignmentRequest> scopeAssignments
 ) {
 }

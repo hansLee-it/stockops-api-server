@@ -13,6 +13,7 @@ public record UserDTO(
         String email,
         String name,
         String role,
+        ScopeMetadataDTO scopeMetadata,
         Instant createdAt,
         Instant updatedAt
 ) {

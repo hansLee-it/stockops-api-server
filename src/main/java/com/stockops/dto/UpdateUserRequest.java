@@ -1,5 +1,7 @@
 package com.stockops.dto;
 
+import java.util.List;
+
 /**
  * User update request payload.
  *
@@ -8,6 +10,7 @@ package com.stockops.dto;
  */
 public record UpdateUserRequest(
         String name,
-        String role
+        String role,
+        List<ScopeAssignmentRequest> scopeAssignments
 ) {
 }

@@ -4,6 +4,7 @@ import com.stockops.entity.User;
 import com.stockops.repository.RolePermissionRepository;
 import com.stockops.repository.UserRepository;
 import com.stockops.security.JwtTokenProvider;
+import com.stockops.security.ScopeAccessService;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -27,6 +28,7 @@ public class AuthService {
     private final UserRepository userRepository;
     private final RolePermissionRepository rolePermissionRepository;
     private final JwtTokenProvider jwtTokenProvider;
+    private final ScopeAccessService scopeAccessService;
 
     /**
      * Creates the authentication service.
@@ -39,11 +41,13 @@ public class AuthService {
     public AuthService(final AuthenticationManager authenticationManager,
                        final UserRepository userRepository,
                        final RolePermissionRepository rolePermissionRepository,
-                       final JwtTokenProvider jwtTokenProvider) {
+                       final JwtTokenProvider jwtTokenProvider,
+                       final ScopeAccessService scopeAccessService) {
         this.authenticationManager = authenticationManager;
         this.userRepository = userRepository;
         this.rolePermissionRepository = rolePermissionRepository;
         this.jwtTokenProvider = jwtTokenProvider;
+        this.scopeAccessService = scopeAccessService;
     }
 
     /**
@@ -104,7 +108,8 @@ public class AuthService {
                         user.getEmail(),
                         user.getName(),
                         user.getRole().getName(),
-                        rolePermissionRepository.findPermissionCodesByRoleId(user.getRole().getId())));
+                        rolePermissionRepository.findPermissionCodesByRoleId(user.getRole().getId()),
+                        scopeAccessService.buildUserProfile(user).toDto())));
     }
 
     private String resolveBearerToken(final String authorizationHeader) {

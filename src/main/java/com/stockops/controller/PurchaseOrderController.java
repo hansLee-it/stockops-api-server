@@ -8,6 +8,7 @@ import com.stockops.service.UserService;
 import java.security.Principal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -29,26 +30,31 @@ public class PurchaseOrderController {
     private final UserService userService;
 
     @GetMapping
+    @PreAuthorize("@permissionChecker.hasPermission('PURCHASE_ORDER_READ')")
     public List<PurchaseOrder> getAllPurchaseOrders() {
         return purchaseOrderService.findAll();
     }
 
     @GetMapping("/center/{centerId}")
+    @PreAuthorize("@permissionChecker.hasPermission('PURCHASE_ORDER_READ')")
     public List<PurchaseOrder> getPurchaseOrdersByCenter(@PathVariable Long centerId) {
         return purchaseOrderService.findByCenterId(centerId);
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("@permissionChecker.hasPermission('PURCHASE_ORDER_READ')")
     public PurchaseOrder getPurchaseOrderById(@PathVariable Long id) {
         return purchaseOrderService.findById(id);
     }
 
     @GetMapping("/po-number/{poNumber}")
+    @PreAuthorize("@permissionChecker.hasPermission('PURCHASE_ORDER_READ')")
     public PurchaseOrder getPurchaseOrderByPoNumber(@PathVariable String poNumber) {
         return purchaseOrderService.findByPoNumber(poNumber);
     }
 
     @PostMapping
+    @PreAuthorize("@permissionChecker.hasPermission('PURCHASE_ORDER_CREATE')")
     public PurchaseOrder createPurchaseOrder(
             @RequestParam Long centerId,
             @RequestParam(required = false) Long warehouseId,
@@ -58,6 +64,7 @@ public class PurchaseOrderController {
     }
 
     @PostMapping("/{id}/items")
+    @PreAuthorize("@permissionChecker.hasPermission('PURCHASE_ORDER_CREATE')")
     public PurchaseOrder addItem(
             @PathVariable Long id,
             @RequestParam Long productId,
@@ -66,11 +73,13 @@ public class PurchaseOrderController {
     }
 
     @PostMapping("/{id}/submit")
+    @PreAuthorize("@permissionChecker.hasPermission('PURCHASE_ORDER_CREATE')")
     public PurchaseOrder submitPurchaseOrder(@PathVariable Long id) {
         return purchaseOrderService.submit(id);
     }
 
     @PostMapping("/{id}/accept")
+    @PreAuthorize("@permissionChecker.hasPermission('PURCHASE_ORDER_MANAGE')")
     public PurchaseOrder acceptPurchaseOrder(
             @PathVariable Long id,
             @RequestParam String erpReference) {
@@ -78,6 +87,7 @@ public class PurchaseOrderController {
     }
 
     @PostMapping("/{id}/reject")
+    @PreAuthorize("@permissionChecker.hasPermission('PURCHASE_ORDER_MANAGE')")
     public PurchaseOrder rejectPurchaseOrder(
             @PathVariable Long id,
             @RequestParam String reason) {
@@ -85,6 +95,7 @@ public class PurchaseOrderController {
     }
 
     @PostMapping("/{id}/cancel")
+    @PreAuthorize("@permissionChecker.hasPermission('PURCHASE_ORDER_MANAGE')")
     public PurchaseOrder cancelPurchaseOrder(
             @PathVariable Long id,
             @RequestParam String reason) {
@@ -92,6 +103,7 @@ public class PurchaseOrderController {
     }
 
     @PostMapping("/{id}/shipments")
+    @PreAuthorize("@permissionChecker.hasPermission('PURCHASE_ORDER_MANAGE')")
     public PurchaseOrderShipment createShipment(
             @PathVariable Long id,
             @RequestBody Map<String, String> shipmentData) {
@@ -104,6 +116,7 @@ public class PurchaseOrderController {
     }
 
     @PostMapping("/{id}/complete")
+    @PreAuthorize("@permissionChecker.hasPermission('PURCHASE_ORDER_MANAGE')")
     public PurchaseOrder completePurchaseOrder(@PathVariable Long id) {
         return purchaseOrderService.complete(id);
     }

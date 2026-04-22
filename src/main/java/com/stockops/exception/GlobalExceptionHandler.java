@@ -40,6 +40,17 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * Handles scoped authorization failures.
+     *
+     * @param ex forbidden exception
+     * @return 403 error response
+     */
+    @ExceptionHandler(ForbiddenException.class)
+    public ResponseEntity<ErrorResponse> handleForbidden(final ForbiddenException ex) {
+        return ResponseEntity.status(403).body(new ErrorResponse(403, ex.getMessage()));
+    }
+
+    /**
      * Handles stock conflicts caused by insufficient inventory.
      *
      * @param ex insufficient stock exception

@@ -18,18 +18,28 @@ import com.stockops.dto.InventoryDTO;
 import com.stockops.dto.InventoryReportFilter;
 import com.stockops.dto.InventoryTransactionDTO;
 import com.stockops.dto.TransactionReportFilter;
+import com.stockops.dto.analytics.AnalyticsQueryFilter;
+import com.stockops.dto.analytics.ExpiryWasteReportResponse;
+import com.stockops.dto.analytics.FillRateReportResponse;
+import com.stockops.dto.analytics.PurchaseOrderLeadTimeReportResponse;
+import com.stockops.dto.analytics.StockAgingReportResponse;
+import com.stockops.dto.analytics.StockoutRateReportResponse;
 import com.stockops.entity.Center;
 import com.stockops.entity.Location;
 import com.stockops.entity.Warehouse;
 import com.stockops.repository.CenterRepository;
 import com.stockops.repository.LocationRepository;
 import com.stockops.repository.WarehouseRepository;
+import com.stockops.security.ScopeGuard;
+import com.stockops.service.analytics.AnalyticsReportingService;
 import java.io.ByteArrayOutputStream;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -67,9 +77,11 @@ public class PdfReportService {
     private static final Font HEADER_FONT = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
 
     private final InventoryQueryService inventoryQueryService;
+    private final AnalyticsReportingService analyticsReportingService;
     private final LocationRepository locationRepository;
     private final WarehouseRepository warehouseRepository;
     private final CenterRepository centerRepository;
+    private final ScopeGuard scopeGuard;
 
     /**
      * Generates an inventory snapshot report.
@@ -78,6 +90,7 @@ public class PdfReportService {
      * @return binary PDF content
      */
     public byte[] generateInventoryReport(final InventoryReportFilter filter) {
+        scopeGuard.assertCenterWarehouseAccess(filter.centerId(), filter.warehouseId());
         final List<InventoryDTO> inventory = inventoryQueryService.getAllInventory();
         final Map<Long, LocationHierarchy> locationHierarchy = loadLocationHierarchy(
                 inventory.stream()
@@ -124,9 +137,169 @@ public class PdfReportService {
         return generateTransactionReport("OUTBOUND", "Outbound Transaction Report", filter);
     }
 
+    /**
+     * Generates a stock-aging analytics PDF.
+     *
+     * @param filter scoped analytics filter
+     * @return binary PDF content
+     */
+    public byte[] generateStockAgingAnalyticsReport(final AnalyticsQueryFilter filter) {
+        final StockAgingReportResponse report = analyticsReportingService.getStockAgingReport(filter);
+        final Map<String, String> summary = new LinkedHashMap<>();
+        summary.put("Total Available Qty", String.valueOf(report.summary().totalAvailableQuantity()));
+        summary.put("0-30 Days Qty", String.valueOf(report.summary().zeroToThirtyQuantity()));
+        summary.put("31-60 Days Qty", String.valueOf(report.summary().thirtyOneToSixtyQuantity()));
+        summary.put("61-90 Days Qty", String.valueOf(report.summary().sixtyOneToNinetyQuantity()));
+        summary.put("90+ Days Qty", String.valueOf(report.summary().overNinetyQuantity()));
+        summary.put("No Demand Qty", String.valueOf(report.summary().noDemandQuantity()));
+        return buildAnalyticsPdf(
+                "Stock Aging Report",
+                filter,
+                report.rows().size(),
+                summary,
+                List.of("Product", "Center", "Warehouse", "Business Date", "Available", "Avg Demand", "Coverage", "Bucket"),
+                report.rows().stream()
+                        .map(row -> List.of(
+                                row.productName(),
+                                row.centerName(),
+                                row.warehouseName(),
+                                formatDate(row.businessDate()),
+                                String.valueOf(row.availableQuantity()),
+                                formatDecimal(row.averageDailyDemand()),
+                                formatDecimal(row.estimatedCoverageDays()),
+                                row.agingBucket()))
+                        .toList());
+    }
+
+    /**
+     * Generates a stockout-rate analytics PDF.
+     *
+     * @param filter scoped analytics filter
+     * @return binary PDF content
+     */
+    public byte[] generateStockoutRateAnalyticsReport(final AnalyticsQueryFilter filter) {
+        final StockoutRateReportResponse report = analyticsReportingService.getStockoutRateReport(filter);
+        final Map<String, String> summary = new LinkedHashMap<>();
+        summary.put("Observed Days", String.valueOf(report.summary().observedDayCount()));
+        summary.put("Stockout Days", String.valueOf(report.summary().stockoutDayCount()));
+        summary.put("Overall Stockout Rate", formatRatio(report.summary().overallStockoutRate()));
+        return buildAnalyticsPdf(
+                "Stockout Rate Report",
+                filter,
+                report.rows().size(),
+                summary,
+                List.of("Product", "Center", "Warehouse", "Observed Days", "Stockout Days", "Rate", "Latest Available"),
+                report.rows().stream()
+                        .map(row -> List.of(
+                                row.productName(),
+                                row.centerName(),
+                                row.warehouseName(),
+                                String.valueOf(row.observedDayCount()),
+                                String.valueOf(row.stockoutDayCount()),
+                                formatRatio(row.stockoutRate()),
+                                String.valueOf(row.latestAvailableQuantity())))
+                        .toList());
+    }
+
+    /**
+     * Generates an expiry-waste analytics PDF.
+     *
+     * @param filter scoped analytics filter
+     * @return binary PDF content
+     */
+    public byte[] generateExpiryWasteAnalyticsReport(final AnalyticsQueryFilter filter) {
+        final ExpiryWasteReportResponse report = analyticsReportingService.getExpiryWasteReport(filter);
+        final Map<String, String> summary = new LinkedHashMap<>();
+        summary.put("Quarantined Qty", String.valueOf(report.summary().quarantinedQuantity()));
+        summary.put("Quarantined Lot Count", String.valueOf(report.summary().quarantinedLotCount()));
+        return buildAnalyticsPdf(
+                "Expiry Waste Report",
+                filter,
+                report.rows().size(),
+                summary,
+                List.of("Product", "Center", "Warehouse", "Quarantined Qty", "Quarantined Lots"),
+                report.rows().stream()
+                        .map(row -> List.of(
+                                row.productName(),
+                                row.centerName(),
+                                row.warehouseName(),
+                                String.valueOf(row.quarantinedQuantity()),
+                                String.valueOf(row.quarantinedLotCount())))
+                        .toList());
+    }
+
+    /**
+     * Generates a purchase-order lead-time analytics PDF.
+     *
+     * @param filter scoped analytics filter
+     * @return binary PDF content
+     */
+    public byte[] generatePurchaseOrderLeadTimeAnalyticsReport(final AnalyticsQueryFilter filter) {
+        final PurchaseOrderLeadTimeReportResponse report = analyticsReportingService.getPurchaseOrderLeadTimeReport(filter);
+        final Map<String, String> summary = new LinkedHashMap<>();
+        summary.put("Purchase Orders", String.valueOf(report.summary().purchaseOrderCount()));
+        summary.put("Lead Time Samples", String.valueOf(report.summary().leadTimeSampleCount()));
+        summary.put("Total Lead Time Hours", String.valueOf(report.summary().totalLeadTimeHours()));
+        summary.put("Average Lead Time Hours", formatDecimal(report.summary().averageLeadTimeHours()));
+        return buildAnalyticsPdf(
+                "Purchase Order Lead Time Report",
+                filter,
+                report.rows().size(),
+                summary,
+                List.of("Product", "Center", "Warehouse", "PO Count", "Samples", "Total Hours", "Avg Hours"),
+                report.rows().stream()
+                        .map(row -> List.of(
+                                row.productName(),
+                                row.centerName(),
+                                row.warehouseName(),
+                                String.valueOf(row.purchaseOrderCount()),
+                                String.valueOf(row.leadTimeSampleCount()),
+                                String.valueOf(row.totalLeadTimeHours()),
+                                formatDecimal(row.averageLeadTimeHours())))
+                        .toList());
+    }
+
+    /**
+     * Generates a fill-rate analytics PDF.
+     *
+     * @param filter scoped analytics filter
+     * @return binary PDF content
+     */
+    public byte[] generateFillRateAnalyticsReport(final AnalyticsQueryFilter filter) {
+        final FillRateReportResponse report = analyticsReportingService.getFillRateReport(filter);
+        final Map<String, String> summary = new LinkedHashMap<>();
+        summary.put("Purchase Orders", String.valueOf(report.summary().purchaseOrderCount()));
+        summary.put("Requested Qty", String.valueOf(report.summary().requestedQuantity()));
+        summary.put("Accepted Qty", String.valueOf(report.summary().acceptedQuantity()));
+        summary.put("Cancelled Qty", String.valueOf(report.summary().cancelledQuantity()));
+        summary.put("Shipped Qty", String.valueOf(report.summary().shippedQuantity()));
+        summary.put("Acceptance Rate", formatPercent(report.summary().acceptanceRate()));
+        summary.put("Shipped Fill Rate", formatPercent(report.summary().shippedFillRate()));
+        return buildAnalyticsPdf(
+                "Fill Rate Report",
+                filter,
+                report.rows().size(),
+                summary,
+                List.of("Product", "Center", "Warehouse", "PO Count", "Requested", "Accepted", "Cancelled", "Shipped", "Acceptance Rate", "Shipped Rate"),
+                report.rows().stream()
+                        .map(row -> List.of(
+                                row.productName(),
+                                row.centerName(),
+                                row.warehouseName(),
+                                String.valueOf(row.purchaseOrderCount()),
+                                String.valueOf(row.requestedQuantity()),
+                                String.valueOf(row.acceptedQuantity()),
+                                String.valueOf(row.cancelledQuantity()),
+                                String.valueOf(row.shippedQuantity()),
+                                formatPercent(row.acceptanceRate()),
+                                formatPercent(row.shippedFillRate())))
+                        .toList());
+    }
+
     private byte[] generateTransactionReport(final String transactionType,
                                              final String title,
                                              final TransactionReportFilter filter) {
+        scopeGuard.assertCenterWarehouseAccess(filter.centerId(), filter.warehouseId());
         final List<InventoryTransactionDTO> history = inventoryQueryService.getTransactionHistory(null, null, null);
         final Map<Long, LocationHierarchy> locationHierarchy = loadLocationHierarchy(
                 history.stream()
@@ -241,6 +414,46 @@ public class PdfReportService {
         return outputStream.toByteArray();
     }
 
+    private byte[] buildAnalyticsPdf(final String title,
+                                     final AnalyticsQueryFilter filter,
+                                     final int rowCount,
+                                     final Map<String, String> summary,
+                                     final List<String> headers,
+                                     final List<List<String>> rows) {
+        final ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        final Instant generatedAt = Instant.now();
+        final Document document = new Document(PageSize.A4.rotate(), 36, 36, 72, 54);
+
+        try {
+            final PdfWriter writer = PdfWriter.getInstance(document, outputStream);
+            writer.setPageEvent(new ReportPageEvent(title, generatedAt));
+            document.open();
+
+            addDocumentHeader(document, title, buildAnalyticsFilters(filter, rowCount), generatedAt);
+            addAnalyticsSummary(document, summary);
+            if (rows.isEmpty()) {
+                addEmptyState(document);
+            } else {
+                final PdfPTable table = new PdfPTable(headers.size());
+                table.setWidthPercentage(100);
+                table.setWidths(equalWidths(headers.size()));
+                addHeaderCells(table, headers);
+                for (final List<String> row : rows) {
+                    for (final String cellValue : row) {
+                        addBodyCell(table, cellValue);
+                    }
+                }
+                document.add(table);
+            }
+        } catch (final DocumentException exception) {
+            throw new IllegalStateException("Failed to generate analytics PDF report", exception);
+        } finally {
+            document.close();
+        }
+
+        return outputStream.toByteArray();
+    }
+
     private void addDocumentHeader(final Document document,
                                    final String title,
                                    final Map<String, String> filters,
@@ -274,6 +487,22 @@ public class PdfReportService {
         final Paragraph emptyParagraph = new Paragraph("No rows matched the selected filters.", BODY_FONT);
         emptyParagraph.setSpacingBefore(12F);
         document.add(emptyParagraph);
+    }
+
+    private void addAnalyticsSummary(final Document document,
+                                     final Map<String, String> summary) throws DocumentException {
+        final Paragraph summaryTitle = new Paragraph("Metric Summary", SECTION_FONT);
+        summaryTitle.setSpacingAfter(6F);
+        document.add(summaryTitle);
+        for (final Map.Entry<String, String> entry : summary.entrySet()) {
+            final Paragraph paragraph = new Paragraph(entry.getKey() + ": " + entry.getValue(), BODY_FONT);
+            paragraph.setSpacingAfter(2F);
+            document.add(paragraph);
+        }
+
+        final Paragraph spacer = new Paragraph(" ", BODY_FONT);
+        spacer.setSpacingAfter(8F);
+        document.add(spacer);
     }
 
     private void addHeaderCells(final PdfPTable table, final List<String> titles) {
@@ -466,6 +695,33 @@ public class PdfReportService {
 
     private String filterDisplayValue(final String value) {
         return normalizeFilter(value) == null ? "All" : value;
+    }
+
+    private Map<String, String> buildAnalyticsFilters(final AnalyticsQueryFilter filter, final int rowCount) {
+        final Map<String, String> filters = new LinkedHashMap<>();
+        filters.put("Date Range", formatDateRange(filter.from(), filter.to()));
+        filters.put("Center", resolveCenterName(filter.centerId()));
+        filters.put("Warehouse", resolveWarehouseName(filter.warehouseId()));
+        filters.put("Rows", String.valueOf(rowCount));
+        return filters;
+    }
+
+    private float[] equalWidths(final int columnCount) {
+        final float[] widths = new float[columnCount];
+        Arrays.fill(widths, 1F);
+        return widths;
+    }
+
+    private String formatDecimal(final BigDecimal value) {
+        return value == null ? "-" : value.stripTrailingZeros().toPlainString();
+    }
+
+    private String formatRatio(final BigDecimal value) {
+        return value == null ? "0" : value.stripTrailingZeros().toPlainString();
+    }
+
+    private String formatPercent(final BigDecimal value) {
+        return value == null ? "0%" : value.stripTrailingZeros().toPlainString() + "%";
     }
 
     private String cellDisplayValue(final String value) {

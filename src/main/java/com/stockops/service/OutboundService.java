@@ -6,19 +6,24 @@ import com.stockops.dto.OutboundDTO;
 import com.stockops.dto.OutboundItemDTO;
 import com.stockops.entity.Inventory;
 import com.stockops.entity.InventoryStatus;
+import com.stockops.entity.InventoryTransaction;
 import com.stockops.entity.Lot;
 import com.stockops.entity.LotStatus;
 import com.stockops.entity.Outbound;
 import com.stockops.entity.OutboundItem;
 import com.stockops.entity.Product;
+import com.stockops.exception.ForbiddenException;
 import com.stockops.exception.InsufficientStockException;
 import com.stockops.exception.InvalidOperationException;
 import com.stockops.exception.ResourceNotFoundException;
 import com.stockops.repository.InventoryRepository;
+import com.stockops.repository.InventoryTransactionRepository;
 import com.stockops.repository.LotRepository;
 import com.stockops.repository.OutboundItemRepository;
 import com.stockops.repository.OutboundRepository;
 import com.stockops.repository.ProductRepository;
+import com.stockops.security.CurrentUserProvider;
+import com.stockops.security.ScopeGuard;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -55,8 +60,11 @@ public class OutboundService {
     private final OutboundItemRepository outboundItemRepository;
     private final InventoryService inventoryService;
     private final InventoryRepository inventoryRepository;
+    private final InventoryTransactionRepository inventoryTransactionRepository;
     private final LotRepository lotRepository;
     private final ProductRepository productRepository;
+    private final ScopeGuard scopeGuard;
+    private final CurrentUserProvider currentUserProvider;
 
     /**
      * Returns a list of outbounds, optionally filtered by status.
@@ -72,7 +80,9 @@ public class OutboundService {
         } else {
             outbounds = outboundRepository.findAll();
         }
+        final Long currentUserId = currentUserProvider.getCurrentUserId();
         return outbounds.stream()
+                .filter(outbound -> canAccessOutbound(outbound, currentUserId))
                 .map(this::toDTO)
                 .toList();
     }
@@ -108,7 +118,7 @@ public class OutboundService {
      */
     @Transactional
     public OutboundItemDTO addItem(final Long outboundId, final AddOutboundItemRequest request) {
-        final Outbound outbound = findOutboundById(outboundId);
+        final Outbound outbound = findAccessibleOutboundById(outboundId);
         validateDraft(outbound);
         final Product product = findProductById(request.productId());
 
@@ -141,7 +151,7 @@ public class OutboundService {
      */
     @Transactional
     public OutboundDTO confirmOutbound(final Long outboundId, final Long userId) {
-        final Outbound outbound = findOutboundById(outboundId);
+        final Outbound outbound = findAccessibleOutboundById(outboundId);
         validateDraft(outbound);
 
         final List<OutboundItem> items = outboundItemRepository.findByOutboundId(outboundId);
@@ -167,7 +177,7 @@ public class OutboundService {
      */
     @Transactional(readOnly = true)
     public OutboundDTO getOutbound(final Long id) {
-        return toDTO(findOutboundById(id));
+        return toDTO(findAccessibleOutboundById(id));
     }
 
     /**
@@ -179,7 +189,7 @@ public class OutboundService {
      */
     @Transactional(readOnly = true)
     public List<OutboundItemDTO> getOutboundItems(final Long outboundId) {
-        findOutboundById(outboundId);
+        findAccessibleOutboundById(outboundId);
 
         final List<OutboundItem> items = outboundItemRepository.findByOutboundId(outboundId);
         final Map<Long, String> productNames = loadProductNames(items);
@@ -204,6 +214,8 @@ public class OutboundService {
                                                            final Long userId) {
         final int requestedQuantity = nullSafeQuantity(item.getQuantity());
         int remainingQuantity = requestedQuantity;
+        int totalEligibleQuantity = 0;
+        int totalAccessibleQuantity = 0;
         final List<Lot> lots = lotRepository.findActiveLotsByProductIdOrderByExpiryDateAsc(
                 item.getProductId(), LotStatus.ACTIVE);
         final List<OutboundLotAllocation> allocations = new ArrayList<>();
@@ -213,12 +225,15 @@ public class OutboundService {
                 break;
             }
 
-            final List<Inventory> inventories = inventoryRepository.findByProductIdAndLotId(item.getProductId(), lot.getId())
+            final List<Inventory> candidateInventories = inventoryRepository.findByProductIdAndLotId(item.getProductId(), lot.getId())
                     .stream()
                     .filter(inventory -> inventory.getStatus() == InventoryStatus.ACTIVE)
                     .filter(inventory -> nullSafeQuantity(inventory.getQuantity()) > 0)
                     .sorted(Comparator.comparing(Inventory::getLocationId))
                     .toList();
+            final List<Inventory> inventories = scopeGuard.filterByLocationScope(candidateInventories, Inventory::getLocationId);
+            totalEligibleQuantity += candidateInventories.stream().mapToInt(inventory -> nullSafeQuantity(inventory.getQuantity())).sum();
+            totalAccessibleQuantity += inventories.stream().mapToInt(inventory -> nullSafeQuantity(inventory.getQuantity())).sum();
 
             for (final Inventory inventory : inventories) {
                 if (remainingQuantity <= 0) {
@@ -246,6 +261,9 @@ public class OutboundService {
         }
 
         if (remainingQuantity > 0) {
+            if (totalEligibleQuantity > totalAccessibleQuantity) {
+                throw new ForbiddenException("Access denied for outbound inventory allocation");
+            }
             throw new InsufficientStockException(
                     item.getProductId(),
                     requestedQuantity,
@@ -287,6 +305,27 @@ public class OutboundService {
     private Outbound findOutboundById(final Long outboundId) {
         return outboundRepository.findById(outboundId)
                 .orElseThrow(() -> new ResourceNotFoundException("Outbound not found: " + outboundId));
+    }
+
+    private Outbound findAccessibleOutboundById(final Long outboundId) {
+        final Outbound outbound = findOutboundById(outboundId);
+        assertOutboundAccess(outbound);
+        return outbound;
+    }
+
+    private void assertOutboundAccess(final Outbound outbound) {
+        if (!canAccessOutbound(outbound, currentUserProvider.getCurrentUserId())) {
+            throw new ForbiddenException("Access denied for outbound: " + outbound.getId());
+        }
+    }
+
+    private boolean canAccessOutbound(final Outbound outbound, final Long currentUserId) {
+        final List<InventoryTransaction> allocations = inventoryTransactionRepository
+                .findByTypeAndReferenceIdOrderByCreatedAtDesc(OUTBOUND_REFERENCE_TYPE, outbound.getId());
+        if (allocations.isEmpty()) {
+            return Objects.equals(outbound.getCreatedBy(), currentUserId);
+        }
+        return scopeGuard.filterByLocationScope(allocations, InventoryTransaction::getLocationId).size() == allocations.size();
     }
 
     private void validateDraft(final Outbound outbound) {

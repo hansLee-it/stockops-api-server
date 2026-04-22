@@ -1,7 +1,9 @@
 package com.stockops.service;
 
 import com.stockops.entity.*;
+import com.stockops.exception.InvalidOperationException;
 import com.stockops.repository.*;
+import com.stockops.security.ScopeGuard;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,30 +30,46 @@ public class PurchaseOrderService {
     private final CenterService centerService;
     private final WarehouseService warehouseService;
     private final NotificationService notificationService;
+    private final ScopeGuard scopeGuard;
 
+    @Transactional(readOnly = true)
     public List<PurchaseOrder> findAll() {
-        return purchaseOrderRepository.findAll();
+        return filterScopedPurchaseOrders(purchaseOrderRepository.findAll());
     }
 
+    @Transactional(readOnly = true)
     public List<PurchaseOrder> findByCenterId(Long centerId) {
-        return purchaseOrderRepository.findByRequestingCenterId(centerId);
+        if (!scopeGuard.filterCenterIds(List.of(centerId)).contains(centerId)) {
+            return List.of();
+        }
+        return filterScopedPurchaseOrders(purchaseOrderRepository.findByRequestingCenterId(centerId));
     }
 
+    @Transactional(readOnly = true)
     public PurchaseOrder findById(Long id) {
-        return purchaseOrderRepository.findById(id)
+        PurchaseOrder purchaseOrder = purchaseOrderRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Purchase Order not found: " + id));
+        assertPurchaseOrderAccess(purchaseOrder);
+        return purchaseOrder;
     }
 
+    @Transactional(readOnly = true)
     public PurchaseOrder findByPoNumber(String poNumber) {
-        return purchaseOrderRepository.findByPoNumber(poNumber)
+        PurchaseOrder purchaseOrder = purchaseOrderRepository.findByPoNumber(poNumber)
                 .orElseThrow(() -> new RuntimeException("Purchase Order not found: " + poNumber));
+        assertPurchaseOrderAccess(purchaseOrder);
+        return purchaseOrder;
     }
 
     public PurchaseOrder create(Long centerId, Long warehouseId, User currentUser) {
+        scopeGuard.assertCenterWarehouseAccess(centerId, warehouseId);
         Center center = centerService.findById(centerId);
         Warehouse warehouse = null;
         if (warehouseId != null) {
             warehouse = warehouseService.findById(warehouseId);
+            if (warehouse.getCenter() == null || !centerId.equals(warehouse.getCenter().getId())) {
+                throw new InvalidOperationException("Target warehouse must belong to the requesting center");
+            }
         }
 
         PurchaseOrder po = new PurchaseOrder();
@@ -182,6 +200,19 @@ public class PurchaseOrderService {
         final PurchaseOrder savedPurchaseOrder = purchaseOrderRepository.save(po);
         notificationService.createPurchaseOrderStatusNotification(savedPurchaseOrder, savedPurchaseOrder.getStatus());
         return savedPurchaseOrder;
+    }
+
+    private List<PurchaseOrder> filterScopedPurchaseOrders(final List<PurchaseOrder> purchaseOrders) {
+        return scopeGuard.filterByCenterWarehouseScope(
+                purchaseOrders,
+                purchaseOrder -> purchaseOrder.getRequestingCenter() == null ? null : purchaseOrder.getRequestingCenter().getId(),
+                purchaseOrder -> purchaseOrder.getTargetWarehouse() == null ? null : purchaseOrder.getTargetWarehouse().getId());
+    }
+
+    private void assertPurchaseOrderAccess(final PurchaseOrder purchaseOrder) {
+        scopeGuard.assertCenterWarehouseAccess(
+                purchaseOrder.getRequestingCenter() == null ? null : purchaseOrder.getRequestingCenter().getId(),
+                purchaseOrder.getTargetWarehouse() == null ? null : purchaseOrder.getTargetWarehouse().getId());
     }
 
     private String generatePoNumber() {

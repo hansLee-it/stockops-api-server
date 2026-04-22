@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * Outbound registration API controller.
  * Supports draft creation, item registration, FEFO confirmation, and outbound detail queries.
+ * Detail access and inventory-consuming mutations are validated against the caller's effective scope.
  *
  * @author StockOps Team
  * @since 1.0

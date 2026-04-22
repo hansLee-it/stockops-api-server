@@ -1,5 +1,6 @@
 package com.stockops.auth;
 
+import com.stockops.dto.ScopeMetadataDTO;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
@@ -28,13 +29,15 @@ public class LoginResponse {
      * @param name user display name
      * @param role role name
      * @param permissions granted permission codes
+     * @param scopeMetadata effective visibility metadata for scoped filtering
      */
     public record AuthenticatedUser(
             Long id,
             String email,
             String name,
             String role,
-            List<String> permissions
+            List<String> permissions,
+            ScopeMetadataDTO scopeMetadata
     ) {
     }
 }

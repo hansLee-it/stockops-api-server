@@ -1,6 +1,9 @@
 package com.stockops.entity;
 
+import com.stockops.security.ScopeAssignment;
+import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
@@ -12,6 +15,9 @@ import jakarta.persistence.Table;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 /**
  * User account entity.
@@ -47,4 +53,11 @@ public class User extends BaseEntity {
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "role_id", nullable = false)
     private Role role;
+
+    /**
+     * User-specific scope assignments merged with role scope assignments.
+     */
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "user_scope_assignments", joinColumns = @JoinColumn(name = "user_id"))
+    private Set<ScopeAssignment> scopeAssignments = new LinkedHashSet<>();
 }

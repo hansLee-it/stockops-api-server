@@ -13,6 +13,7 @@ import com.stockops.repository.InventoryTransactionRepository;
 import com.stockops.repository.LotRepository;
 import com.stockops.repository.LocationRepository;
 import com.stockops.repository.ProductRepository;
+import com.stockops.security.ScopeGuard;
 import java.util.Comparator;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -37,32 +38,74 @@ public class InventoryQueryService {
     private final ProductRepository productRepository;
     private final LocationRepository locationRepository;
     private final LotRepository lotRepository;
+    private final ScopeGuard scopeGuard;
 
+    /**
+     * Returns all inventory rows visible to the current scope.
+     *
+     * @return filtered inventory list
+     */
     public List<InventoryDTO> getAllInventory() {
-        return inventoryRepository.findAll().stream().map(this::toDTO).toList();
+        return toInventoryDtos(scopeGuard.filterByLocationScope(inventoryRepository.findAll(), Inventory::getLocationId));
     }
 
+    /**
+     * Returns inventory rows for a product, filtered to the current scope.
+     *
+     * @param productId product identifier
+     * @return filtered inventory list
+     */
     public List<InventoryDTO> getInventoryByProduct(final Long productId) {
-        return inventoryRepository.findByProductId(productId).stream().map(this::toDTO).toList();
+        return toInventoryDtos(scopeGuard.filterByLocationScope(
+                inventoryRepository.findByProductId(productId),
+                Inventory::getLocationId));
     }
 
+    /**
+     * Returns inventory rows for a location when the location is in scope.
+     *
+     * @param locationId location identifier
+     * @return filtered inventory list, or an empty list when the location is outside scope
+     */
     public List<InventoryDTO> getInventoryByLocation(final Long locationId) {
-        return inventoryRepository.findByLocationId(locationId).stream().map(this::toDTO).toList();
+        if (!scopeGuard.canAccessLocation(locationId)) {
+            return List.of();
+        }
+        return toInventoryDtos(inventoryRepository.findByLocationId(locationId));
     }
 
+    /**
+     * Returns inventory rows for a lot, filtered to the current scope.
+     *
+     * @param lotId lot identifier
+     * @return filtered inventory list
+     */
     public List<InventoryDTO> getInventoryByLot(final Long lotId) {
-        return inventoryRepository.findByLotId(lotId).stream().map(this::toDTO).toList();
+        return toInventoryDtos(scopeGuard.filterByLocationScope(
+                inventoryRepository.findByLotId(lotId),
+                Inventory::getLocationId));
     }
 
+    /**
+     * Returns a single inventory row and rejects direct access outside scope.
+     *
+     * @param id inventory identifier
+     * @return inventory DTO
+     */
     public InventoryDTO getInventoryById(final Long id) {
         final Inventory inventory = inventoryRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Inventory not found: " + id));
+        scopeGuard.assertLocationAccess(inventory.getLocationId());
         return toDTO(inventory);
     }
 
     public List<InventoryTransactionDTO> getTransactionHistory(final Long productId,
                                                                final Long locationId,
                                                                final Long lotId) {
+        if (locationId != null && !scopeGuard.canAccessLocation(locationId)) {
+            return List.of();
+        }
+
         final List<InventoryTransaction> transactions;
         if (productId != null) {
             transactions = transactionRepository.findByProductIdOrderByCreatedAtDesc(productId);
@@ -77,14 +120,29 @@ public class InventoryQueryService {
                     Comparator.nullsLast(Comparator.reverseOrder())));
         }
 
-        return transactions.stream().map(this::toTransactionDTO).toList();
+        return scopeGuard.filterByLocationScope(transactions, InventoryTransaction::getLocationId).stream()
+                .map(this::toTransactionDTO)
+                .toList();
     }
 
+    /**
+     * Returns the most recent visible inventory transactions.
+     *
+     * @param limit maximum number of rows to return
+     * @return filtered recent transactions
+     */
     public List<InventoryTransactionDTO> getRecentTransactions(final int limit) {
-        return transactionRepository.findTop50ByOrderByCreatedAtDesc().stream()
+        return scopeGuard.filterByLocationScope(
+                        transactionRepository.findTop50ByOrderByCreatedAtDesc(),
+                        InventoryTransaction::getLocationId)
+                .stream()
                 .limit(Math.max(0, limit))
                 .map(this::toTransactionDTO)
                 .toList();
+    }
+
+    private List<InventoryDTO> toInventoryDtos(final List<Inventory> inventory) {
+        return inventory.stream().map(this::toDTO).toList();
     }
 
     private InventoryDTO toDTO(final Inventory inventory) {

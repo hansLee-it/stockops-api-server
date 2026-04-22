@@ -53,5 +53,7 @@ public interface InventoryTransactionRepository extends JpaRepository<InventoryT
      */
     long countByCreatedAtBetween(Instant start, Instant end);
 
+    List<InventoryTransaction> findByTypeAndReferenceIdOrderByCreatedAtDesc(String type, Long referenceId);
+
     List<InventoryTransaction> findTop50ByOrderByCreatedAtDesc();
 }

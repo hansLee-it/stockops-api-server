@@ -70,7 +70,8 @@ public class RoleController {
     @PostMapping
     @PreAuthorize("@permissionChecker.hasPermission('ROLE_CREATE')")
     public ResponseEntity<RoleDTO> createRole(@Valid @RequestBody final RoleRequest request) {
-        return ResponseEntity.status(201).body(roleService.createRole(request.name(), request.description()));
+        return ResponseEntity.status(201)
+                .body(roleService.createRole(request.name(), request.description(), request.scopeAssignments()));
     }
 
     /**
@@ -84,7 +85,8 @@ public class RoleController {
     @PreAuthorize("@permissionChecker.hasPermission('ROLE_UPDATE')")
     public ResponseEntity<RoleDTO> updateRole(@PathVariable final Long id,
                                               @Valid @RequestBody final RoleRequest request) {
-        return ResponseEntity.ok(roleService.updateRole(id, request.name(), request.description()));
+        return ResponseEntity.ok(
+                roleService.updateRole(id, request.name(), request.description(), request.scopeAssignments()));
     }
 
     /**

@@ -46,6 +46,22 @@ stockops:
     broker-url: ${STOCKOPS_MQTT_INGESTION_BROKER_URL:tcp://192.168.0.11:1883}
     qos: ${STOCKOPS_MQTT_INGESTION_QOS:1}
     client-id: ${STOCKOPS_MQTT_INGESTION_CLIENT_ID:}
+  analytics:
+    enabled: true
+    business-zone: Asia/Seoul
+    incremental-lookback-days: 30
+    backfill-days: 365
+    refresh-cron: 0 15 1 * * ?
+    backfill-cron: 0 0 2 * * SUN
+  ai:
+    enabled: true
+    business-zone: Asia/Seoul
+    forecast-history-days: 28
+    trailing-average-days: 7
+    same-weekday-lookback-weeks: 4
+    lead-time-lookback-days: 90
+    default-lead-time-days: 1
+    daily-cron: 0 45 1 * * ?
 
 ---
 spring:
