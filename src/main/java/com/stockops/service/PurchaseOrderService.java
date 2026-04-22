@@ -2,6 +2,7 @@ package com.stockops.service;
 
 import com.stockops.entity.*;
 import com.stockops.exception.InvalidOperationException;
+import com.stockops.exception.ResourceNotFoundException;
 import com.stockops.repository.*;
 import com.stockops.security.ScopeGuard;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +28,7 @@ public class PurchaseOrderService {
     private final PurchaseOrderRepository purchaseOrderRepository;
     private final PurchaseOrderItemRepository purchaseOrderItemRepository;
     private final PurchaseOrderShipmentRepository shipmentRepository;
+    private final ProductRepository productRepository;
     private final CenterService centerService;
     private final WarehouseService warehouseService;
     private final NotificationService notificationService;
@@ -48,7 +50,7 @@ public class PurchaseOrderService {
     @Transactional(readOnly = true)
     public PurchaseOrder findById(Long id) {
         PurchaseOrder purchaseOrder = purchaseOrderRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Purchase Order not found: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Purchase Order not found: " + id));
         assertPurchaseOrderAccess(purchaseOrder);
         return purchaseOrder;
     }
@@ -56,7 +58,7 @@ public class PurchaseOrderService {
     @Transactional(readOnly = true)
     public PurchaseOrder findByPoNumber(String poNumber) {
         PurchaseOrder purchaseOrder = purchaseOrderRepository.findByPoNumber(poNumber)
-                .orElseThrow(() -> new RuntimeException("Purchase Order not found: " + poNumber));
+                .orElseThrow(() -> new ResourceNotFoundException("Purchase Order not found: " + poNumber));
         assertPurchaseOrderAccess(purchaseOrder);
         return purchaseOrder;
     }
@@ -85,8 +87,7 @@ public class PurchaseOrderService {
     public PurchaseOrder addItem(Long poId, Long productId, Integer quantity) {
         PurchaseOrder po = findById(poId);
         
-        Product product = new Product();
-        product.setId(productId);
+        Product product = productRepository.getReferenceById(productId);
         
         PurchaseOrderItem item = new PurchaseOrderItem();
         item.setPurchaseOrder(po);
@@ -103,11 +104,11 @@ public class PurchaseOrderService {
         PurchaseOrder po = findById(poId);
         
         if (po.getStatus() != PurchaseOrderStatus.DRAFT) {
-            throw new RuntimeException("Only DRAFT orders can be submitted");
+            throw new InvalidOperationException("Only DRAFT orders can be submitted");
         }
         
         if (po.getItems().isEmpty()) {
-            throw new RuntimeException("Cannot submit an order without items");
+            throw new InvalidOperationException("Cannot submit an order without items");
         }
         
         po.setStatus(PurchaseOrderStatus.REQUESTED);
@@ -122,7 +123,7 @@ public class PurchaseOrderService {
         PurchaseOrder po = findById(poId);
         
         if (po.getStatus() != PurchaseOrderStatus.REQUESTED) {
-            throw new RuntimeException("Only REQUESTED orders can be accepted");
+            throw new InvalidOperationException("Only REQUESTED orders can be accepted");
         }
         
         po.setStatus(PurchaseOrderStatus.ACCEPTED);
@@ -138,7 +139,7 @@ public class PurchaseOrderService {
         PurchaseOrder po = findById(poId);
         
         if (po.getStatus() != PurchaseOrderStatus.REQUESTED) {
-            throw new RuntimeException("Only REQUESTED orders can be rejected");
+            throw new InvalidOperationException("Only REQUESTED orders can be rejected");
         }
         
         po.setStatus(PurchaseOrderStatus.REJECTED);
@@ -154,7 +155,7 @@ public class PurchaseOrderService {
         PurchaseOrder po = findById(poId);
         
         if (po.getStatus() == PurchaseOrderStatus.COMPLETED) {
-            throw new RuntimeException("Cannot cancel a COMPLETED order");
+            throw new InvalidOperationException("Cannot cancel a COMPLETED order");
         }
         
         po.setStatus(PurchaseOrderStatus.CANCELLED);
@@ -170,7 +171,7 @@ public class PurchaseOrderService {
         
         if (po.getStatus() != PurchaseOrderStatus.ACCEPTED && 
             po.getStatus() != PurchaseOrderStatus.PARTIALLY_ACCEPTED) {
-            throw new RuntimeException("Only ACCEPTED orders can have shipments created");
+            throw new InvalidOperationException("Only ACCEPTED orders can have shipments created");
         }
         
         PurchaseOrderShipment shipment = new PurchaseOrderShipment();
@@ -192,7 +193,7 @@ public class PurchaseOrderService {
         PurchaseOrder po = findById(poId);
         
         if (po.getStatus() != PurchaseOrderStatus.SHIPMENT_CREATED) {
-            throw new RuntimeException("Only orders with shipments can be completed");
+            throw new InvalidOperationException("Only orders with shipments can be completed");
         }
         
         po.setStatus(PurchaseOrderStatus.COMPLETED);
