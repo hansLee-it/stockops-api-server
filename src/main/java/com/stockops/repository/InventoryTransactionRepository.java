@@ -56,4 +56,19 @@ public interface InventoryTransactionRepository extends JpaRepository<InventoryT
     List<InventoryTransaction> findByTypeAndReferenceIdOrderByCreatedAtDesc(String type, Long referenceId);
 
     List<InventoryTransaction> findTop50ByOrderByCreatedAtDesc();
+
+    /**
+     * Returns transactions for a product within a date range.
+     * Used by demand forecasting to analyze historical outbound patterns.
+     *
+     * @param productId product id
+     * @param start range start
+     * @param end range end
+     * @return matching transactions sorted by newest first
+     */
+    @Query("SELECT t FROM InventoryTransaction t WHERE t.productId = :productId AND t.createdAt BETWEEN :start AND :end ORDER BY t.createdAt DESC")
+    List<InventoryTransaction> findByProductIdAndCreatedAtBetween(
+            @Param("productId") Long productId,
+            @Param("start") Instant start,
+            @Param("end") Instant end);
 }

@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -25,12 +26,13 @@ public class DemandForecastService {
         LocalDate end = today.minusDays(1);
 
         List<InventoryTransaction> history = transactionRepository
-            .findByProductIdAndTransactionDateBetween(productId, start, end);
+            .findByProductIdAndCreatedAtBetween(productId, start.atStartOfDay().toInstant(ZoneOffset.UTC), end.atTime(23, 59, 59).toInstant(ZoneOffset.UTC));
 
         Map<LocalDate, BigDecimal> dailyNet = new HashMap<>();
         for (InventoryTransaction tx : history) {
-            LocalDate d = tx.getTransactionDate();
-            dailyNet.merge(d, tx.getQuantity().negate(), BigDecimal::add);
+            LocalDate d = LocalDate.ofInstant(tx.getCreatedAt(), ZoneOffset.UTC);
+            int qty = tx.getQuantity();
+            dailyNet.merge(d, BigDecimal.valueOf(-qty), BigDecimal::add);
         }
 
         List<BigDecimal> values = new ArrayList<>(dailyNet.values());
