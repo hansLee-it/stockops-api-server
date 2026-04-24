@@ -81,6 +81,7 @@ class InventoryQueryServiceTest {
 
     private Inventory inventory(final Long id, final Long locationId, final Long productId, final int quantity) {
         final Inventory inventory = new Inventory();
+        inventory.setId(id);
         inventory.setLocationId(locationId);
         inventory.setProductId(productId);
         inventory.setQuantity(quantity);
@@ -97,6 +98,7 @@ class InventoryQueryServiceTest {
 
     private Location location(final Long id, final String code, final String name) {
         final Location location = new Location();
+        location.setId(id);
         location.setCode(code);
         location.setName(name);
         return location;
