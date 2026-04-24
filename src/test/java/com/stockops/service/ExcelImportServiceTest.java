@@ -125,7 +125,7 @@ class ExcelImportServiceTest {
             row.createCell(3).setCellValue("P-101");
             row.createCell(4).setCellValue("LOT-101");
             row.createCell(5).setCellValue(LocalDate.of(2026, 5, 21).toString());
-            row.createCell(6).setCellValue(5);
+            row.createCell(6).setCellValue("5");
             row.createCell(7).setCellValue("LOC-11");
 
             workbook.write(outputStream);

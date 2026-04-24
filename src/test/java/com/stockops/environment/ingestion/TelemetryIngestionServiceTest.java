@@ -55,7 +55,7 @@ class TelemetryIngestionServiceTest {
     void ingestPersistsReadingAndCreatesLatestProjection() throws Exception {
         final SensimulPayload payload = payload("site-a", "sensor-01", "", "2026-04-05T00:00:00Z", 10L);
         final SensorDevice sensorDevice = sensorDevice(5L, "sensimul/sites/site-a/sensors/sensor-01", "C");
-        when(sensorDeviceRepository.findByMqttTopicAndDeletedFalse(sensorDevice.getMqttTopic()))
+        when(sensorDeviceRepository.findByMqttTopic(sensorDevice.getMqttTopic()))
                 .thenReturn(Optional.of(sensorDevice));
         when(objectMapper.writeValueAsString(payload)).thenReturn("{json}");
         when(sensorLatestProjectionRepository.findBySensorDeviceId(5L)).thenReturn(Optional.empty());
@@ -94,7 +94,7 @@ class TelemetryIngestionServiceTest {
                 10L,
                 ""));
 
-        verify(sensorDeviceRepository, never()).findByMqttTopicAndDeletedFalse(any());
+        verify(sensorDeviceRepository, never()).findByMqttTopic(any());
         verify(sensorReadingRepository, never()).save(any());
     }
 
@@ -105,7 +105,7 @@ class TelemetryIngestionServiceTest {
     void ingestSkipsInvalidTimestamp() {
         telemetryIngestionService.ingest(payload("site-a", "sensor-01", "C", "not-a-timestamp", 10L));
 
-        verify(sensorDeviceRepository, never()).findByMqttTopicAndDeletedFalse(any());
+        verify(sensorDeviceRepository, never()).findByMqttTopic(any());
         verify(sensorReadingRepository, never()).save(any());
     }
 
@@ -115,8 +115,6 @@ class TelemetryIngestionServiceTest {
     @Test
     void ingestSkipsUnknownSensorTopic() {
         final SensimulPayload payload = payload("site-a", "sensor-01", "C", "2026-04-05T00:00:00Z", 10L);
-        when(sensorDeviceRepository.findByMqttTopicAndDeletedFalse("sensimul/sites/site-a/sensors/sensor-01"))
-                .thenReturn(Optional.empty());
 
         telemetryIngestionService.ingest(payload);
 
@@ -135,7 +133,7 @@ class TelemetryIngestionServiceTest {
         latest.setSensorDeviceId(5L);
         latest.setSequenceId(10L);
 
-        when(sensorDeviceRepository.findByMqttTopicAndDeletedFalse(sensorDevice.getMqttTopic()))
+        when(sensorDeviceRepository.findByMqttTopic(sensorDevice.getMqttTopic()))
                 .thenReturn(Optional.of(sensorDevice));
         when(objectMapper.writeValueAsString(payload)).thenReturn("{json}");
         when(sensorLatestProjectionRepository.findBySensorDeviceId(5L)).thenReturn(Optional.of(latest));
@@ -154,7 +152,7 @@ class TelemetryIngestionServiceTest {
     void ingestRetriesProjectionUpdateAfterConcurrentInsertConflict() throws Exception {
         final SensimulPayload payload = payload("site-a", "sensor-01", "C", "2026-04-05T00:00:00Z", 10L);
         final SensorDevice sensorDevice = sensorDevice(5L, "sensimul/sites/site-a/sensors/sensor-01", "C");
-        when(sensorDeviceRepository.findByMqttTopicAndDeletedFalse(sensorDevice.getMqttTopic()))
+        when(sensorDeviceRepository.findByMqttTopic(sensorDevice.getMqttTopic()))
                 .thenReturn(Optional.of(sensorDevice));
         when(objectMapper.writeValueAsString(payload)).thenReturn("{json}");
         when(sensorLatestProjectionRepository.findBySensorDeviceId(5L)).thenReturn(Optional.empty());
@@ -177,7 +175,7 @@ class TelemetryIngestionServiceTest {
     void ingestPropagatesSerializationFailure() throws Exception {
         final SensimulPayload payload = payload("site-a", "sensor-01", "C", "2026-04-05T00:00:00Z", 10L);
         final SensorDevice sensorDevice = sensorDevice(5L, "sensimul/sites/site-a/sensors/sensor-01", "C");
-        when(sensorDeviceRepository.findByMqttTopicAndDeletedFalse(sensorDevice.getMqttTopic()))
+        when(sensorDeviceRepository.findByMqttTopic(sensorDevice.getMqttTopic()))
                 .thenReturn(Optional.of(sensorDevice));
         when(objectMapper.writeValueAsString(payload)).thenThrow(new JsonProcessingException("boom") { });
 

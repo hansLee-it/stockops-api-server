@@ -60,6 +60,8 @@ class ScopeAccessServiceTest {
         user.setRole(role);
         user.setScopeAssignments(Set.of(new ScopeAssignment(ScopeType.WAREHOUSE, 1L, 10L)));
 
+        when(centerRepository.existsById(1L)).thenReturn(true);
+
         ScopeAccessProfile profile = scopeAccessService.buildUserProfile(user);
 
         assertThat(profile.global()).isFalse();
