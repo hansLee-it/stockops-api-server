@@ -135,9 +135,12 @@ class Phase2SmokeApiIntegrationTest {
     }
 
     private String loginAndExtractToken(final String email, final String password) {
+        final LoginRequest request = new LoginRequest();
+        request.setEmail(email);
+        request.setPassword(password);
         final ResponseEntity<String> response = restTemplate.postForEntity(
                 baseUrl() + "/api/v1/auth/login",
-                new LoginRequest(email, password),
+                request,
                 String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);

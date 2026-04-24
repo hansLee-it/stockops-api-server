@@ -345,8 +345,9 @@ class AnalyticsReportingServiceIntegrationTest {
     private String extractPdfText(final byte[] pdfBytes) throws IOException {
         try (PdfReader reader = new PdfReader(pdfBytes)) {
             final StringBuilder builder = new StringBuilder();
+            final PdfTextExtractor extractor = new PdfTextExtractor(reader);
             for (int pageNumber = 1; pageNumber <= reader.getNumberOfPages(); pageNumber++) {
-                builder.append(PdfTextExtractor.getTextFromPage(reader, pageNumber));
+                builder.append(extractor.getTextFromPage(pageNumber));
             }
             return builder.toString();
         }

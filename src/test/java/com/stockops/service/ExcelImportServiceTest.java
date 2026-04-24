@@ -77,11 +77,9 @@ class ExcelImportServiceTest {
     @Test
     void importWorkbookRecordsScopeErrorsForInboundRows() throws IOException {
         final Product product = new Product();
-        product.setId(101L);
         product.setBarcode("P-101");
 
         final Location location = new Location();
-        location.setId(11L);
         location.setCode("LOC-11");
 
         when(currentUserProvider.getCurrentUserId()).thenReturn(1L);
@@ -100,7 +98,7 @@ class ExcelImportServiceTest {
                         createInboundWorkbook()));
 
         assertThat(result.successCount()).isZero();
-        assertThat(result.errorCount()).isEqualTo(1);
+        assertThat(result.failureCount()).isEqualTo(1);
         assertThat(result.errors()).singleElement().satisfies(error -> {
             assertThat(error.rowNumber()).isEqualTo(2);
             assertThat(error.message()).contains("Access denied for location: 11");

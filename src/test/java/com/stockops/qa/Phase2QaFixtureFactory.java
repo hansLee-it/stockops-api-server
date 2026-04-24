@@ -158,7 +158,7 @@ public class Phase2QaFixtureFactory {
         leadTime.setWarehouseId(savedPrimaryWarehouse.getId());
         leadTime.setPurchaseOrderCount(1);
         leadTime.setLeadTimeSampleCount(1);
-        leadTime.setTotalLeadTimeHours(48);
+        leadTime.setTotalLeadTimeHours(48L);
         analyticsPurchaseOrderLeadTimeRepository.save(leadTime);
 
         final AnalyticsFillRateSource fillRateSource = new AnalyticsFillRateSource();
