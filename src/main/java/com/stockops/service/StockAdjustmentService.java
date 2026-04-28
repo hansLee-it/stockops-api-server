@@ -10,6 +10,7 @@ import com.stockops.entity.StockAdjustment;
 import com.stockops.entity.User;
 import com.stockops.exception.InvalidOperationException;
 import com.stockops.exception.ResourceNotFoundException;
+import com.stockops.config.MetricsConfig;
 import com.stockops.inventory.WebSocketStockPublisher;
 import com.stockops.repository.AuditLogRepository;
 import com.stockops.repository.InventoryRepository;
@@ -52,6 +53,7 @@ public class StockAdjustmentService {
     private final ReasonCodeRepository reasonCodeRepository;
     private final UserRepository userRepository;
     private final WebSocketStockPublisher webSocketStockPublisher;
+    private final MetricsConfig metricsConfig;
 
     /**
      * Creates a pending stock adjustment request.
@@ -138,6 +140,7 @@ public class StockAdjustmentService {
                     savedInventory.getQuantity());
 
             adjustment.setStatus(STATUS_APPROVED);
+            metricsConfig.recordInventoryOperation("adjustment");
         } else {
             recordAuditLog(adjustmentId, "REJECT", STATUS_PENDING, STATUS_REJECTED, approverId);
             adjustment.setStatus(STATUS_REJECTED);

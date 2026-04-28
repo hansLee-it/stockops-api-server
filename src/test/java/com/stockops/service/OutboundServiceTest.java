@@ -18,6 +18,7 @@ import com.stockops.repository.LotRepository;
 import com.stockops.repository.OutboundItemRepository;
 import com.stockops.repository.OutboundRepository;
 import com.stockops.repository.ProductRepository;
+import com.stockops.config.MetricsConfig;
 import com.stockops.security.CurrentUserProvider;
 import com.stockops.security.ScopeGuard;
 import java.time.LocalDate;
@@ -58,6 +59,9 @@ class OutboundServiceTest {
 
     @Mock
     private CurrentUserProvider currentUserProvider;
+
+    @Mock
+    private MetricsConfig metricsConfig;
 
     @InjectMocks
     private OutboundService outboundService;

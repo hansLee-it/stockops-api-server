@@ -21,6 +21,7 @@ import com.stockops.repository.LotRepository;
 import com.stockops.repository.ProductRepository;
 import java.time.LocalDate;
 import java.util.List;
+import com.stockops.config.MetricsConfig;
 import com.stockops.inventory.WebSocketStockPublisher;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
@@ -54,6 +55,7 @@ public class InboundService {
     private final ProductRepository productRepository;
     private final LocationRepository locationRepository;
     private final WebSocketStockPublisher webSocketStockPublisher;
+    private final MetricsConfig metricsConfig;
 
     /**
      * Creates a draft inbound header.
@@ -160,6 +162,7 @@ public class InboundService {
         }
 
         inbound.setStatus(STATUS_CONFIRMED);
+        metricsConfig.recordInventoryOperation("inbound");
         return toDTO(inboundRepository.save(inbound));
     }
 

@@ -16,11 +16,13 @@ import com.stockops.repository.InventoryRepository;
 import com.stockops.repository.LocationRepository;
 import com.stockops.repository.NotificationRepository;
 import com.stockops.repository.ProductRepository;
+import com.stockops.config.MetricsConfig;
 import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import lombok.RequiredArgsConstructor;
@@ -46,6 +48,7 @@ public class NotificationService {
     private final ProductRepository productRepository;
     private final LocationRepository locationRepository;
     private final ExpiryAlertRepository expiryAlertRepository;
+    private final MetricsConfig metricsConfig;
 
     /**
      * Returns notifications for the authenticated user.
@@ -137,6 +140,7 @@ public class NotificationService {
         notification.setEventKey(eventKey);
 
         notificationRepository.save(notification);
+        metricsConfig.recordNotificationSent("in_app");
     }
 
     private void syncSystemNotifications(final User user) {
@@ -222,19 +226,23 @@ public class NotificationService {
                                           final String eventKey,
                                           final String title,
                                           final String message) {
-        final Notification notification = notificationRepository.findByUserIdAndEventKey(userId, eventKey)
-                .orElseGet(Notification::new);
+        final Optional<Notification> existing = notificationRepository.findByUserIdAndEventKey(userId, eventKey);
+        final boolean isNew = existing.isEmpty();
+        final Notification notification = existing.orElseGet(Notification::new);
 
         notification.setUserId(userId);
         notification.setType(type);
         notification.setTitle(title);
         notification.setMessage(message);
         notification.setEventKey(eventKey);
-        if (notification.getId() == null) {
+        if (isNew) {
             notification.setRead(false);
         }
 
         notificationRepository.save(notification);
+        if (isNew) {
+            metricsConfig.recordNotificationSent("in_app");
+        }
     }
 
     private void removeInactiveNotifications(final Long userId,

@@ -1,5 +1,6 @@
 package com.stockops.service;
 
+import com.stockops.config.MetricsConfig;
 import com.stockops.dto.DashboardSummaryDTO;
 import com.stockops.entity.CycleCountStatus;
 import com.stockops.repository.CycleCountRepository;
@@ -48,6 +49,7 @@ public class DashboardService {
     private final StockAdjustmentRepository stockAdjustmentRepository;
     private final ExpiryAlertRepository expiryAlertRepository;
     private final InventoryTransactionRepository inventoryTransactionRepository;
+    private final MetricsConfig metricsConfig;
 
     /**
      * Builds the dashboard summary.
@@ -57,16 +59,21 @@ public class DashboardService {
      */
     @Cacheable(value = "dashboard::summary", sync = true)
     public DashboardSummaryDTO getSummary() {
-        return new DashboardSummaryDTO(
-                calculateTotalProducts(),
-                calculateTotalInventoryQuantity(),
-                calculateTodayInboundCount(),
-                calculateTodayOutboundCount(),
-                calculateLowStockCount(),
-                calculatePendingCycleCounts(),
-                calculateCriticalExpiryCount(),
-                calculateWarningExpiryCount(),
-                calculateRecentTransactionCount());
+        final io.micrometer.core.instrument.Timer.Sample sample = metricsConfig.startDashboardTimer();
+        try {
+            return new DashboardSummaryDTO(
+                    calculateTotalProducts(),
+                    calculateTotalInventoryQuantity(),
+                    calculateTodayInboundCount(),
+                    calculateTodayOutboundCount(),
+                    calculateLowStockCount(),
+                    calculatePendingCycleCounts(),
+                    calculateCriticalExpiryCount(),
+                    calculateWarningExpiryCount(),
+                    calculateRecentTransactionCount());
+        } finally {
+            metricsConfig.recordDashboardDuration(sample);
+        }
     }
 
     /**

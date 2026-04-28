@@ -26,6 +26,7 @@ import com.stockops.repository.LotRepository;
 import com.stockops.repository.OutboundItemRepository;
 import com.stockops.repository.OutboundRepository;
 import com.stockops.repository.ProductRepository;
+import com.stockops.config.MetricsConfig;
 import com.stockops.security.CurrentUserProvider;
 import com.stockops.security.ScopeGuard;
 import java.time.LocalDate;
@@ -72,6 +73,7 @@ public class OutboundService {
     private final ScopeGuard scopeGuard;
     private final CurrentUserProvider currentUserProvider;
     private final WebSocketStockPublisher webSocketStockPublisher;
+    private final MetricsConfig metricsConfig;
 
     /**
      * Returns a list of outbounds, optionally filtered by status.
@@ -174,6 +176,7 @@ public class OutboundService {
         }
 
         outbound.setStatus(STATUS_CONFIRMED);
+        metricsConfig.recordInventoryOperation("outbound");
         return toDTO(outboundRepository.save(outbound));
     }
 

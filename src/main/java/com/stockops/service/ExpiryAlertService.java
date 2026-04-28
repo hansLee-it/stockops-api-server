@@ -6,6 +6,7 @@ import com.stockops.entity.Lot;
 import com.stockops.repository.ExpiryAlertRepository;
 import com.stockops.repository.InventoryRepository;
 import com.stockops.repository.LotRepository;
+import com.stockops.config.MetricsConfig;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -38,6 +39,7 @@ public class ExpiryAlertService {
     private final ExpiryAlertRepository expiryAlertRepository;
     private final LotRepository lotRepository;
     private final InventoryRepository inventoryRepository;
+    private final MetricsConfig metricsConfig;
 
     /**
      * Recalculates near-expiry alerts once per day at 01:00.
@@ -91,6 +93,7 @@ public class ExpiryAlertService {
         alert.setAcknowledged(false);
 
         expiryAlertRepository.save(alert);
+        metricsConfig.recordEscalationAlert(alert.getAlertLevel());
 
         log.info("Created {} alert for lot {} ({} days until expiry)",
                 alert.getAlertLevel(),
