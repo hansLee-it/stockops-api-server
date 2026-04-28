@@ -15,6 +15,15 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+  redis:
+    host: ${REDIS_HOST:redis}
+    port: ${REDIS_PORT:6379}
+    timeout: 2000ms
+    lettuce:
+      pool:
+        max-active: 8
+        max-idle: 8
+        min-idle: 2
 
 server:
   port: ${SERVER_PORT:8080}
@@ -59,3 +68,10 @@ jwt:
 stockops:
   sensimul:
     base-url: ${STOCKOPS_SENSIMUL_BASE_URL:http://192.168.0.11:18080}
+
+sms:
+  enabled: ${SMS_ENABLED:false}
+  twilio:
+    account-sid: ${SMS_TWILIO_ACCOUNT_SID:}
+    auth-token: ${SMS_TWILIO_AUTH_TOKEN:}
+    from-number: ${SMS_TWILIO_FROM_NUMBER:}
