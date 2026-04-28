@@ -16,6 +16,7 @@ public record CreateProductRequest(
         @NotBlank String name,
         String description,
         String category,
+        Long categoryId,
         @NotBlank String unit,
         boolean expiryManaged,
         @DecimalMin("0") BigDecimal defaultPrice,

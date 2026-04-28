@@ -14,6 +14,7 @@ public record UpdateProductRequest(
         String name,
         String description,
         String category,
+        Long categoryId,
         String unit,
         Boolean expiryManaged,
         @DecimalMin("0") BigDecimal defaultPrice,

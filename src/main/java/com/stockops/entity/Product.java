@@ -47,6 +47,9 @@ public class Product extends BaseEntity {
     @Column(name = "category")
     private String category;
 
+    @Column(name = "category_id")
+    private Long categoryId;
+
     @Column(name = "unit", nullable = false)
     private String unit;
 

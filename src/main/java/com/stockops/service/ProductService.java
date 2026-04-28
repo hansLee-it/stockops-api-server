@@ -3,8 +3,10 @@ package com.stockops.service;
 import com.stockops.dto.CreateProductRequest;
 import com.stockops.dto.ProductDTO;
 import com.stockops.dto.UpdateProductRequest;
+import com.stockops.entity.Category;
 import com.stockops.entity.Product;
 import com.stockops.exception.ResourceNotFoundException;
+import com.stockops.repository.CategoryRepository;
 import com.stockops.repository.ProductRepository;
 import java.math.BigDecimal;
 import org.springframework.data.domain.Page;
@@ -22,18 +24,23 @@ import org.springframework.transaction.annotation.Transactional;
 public class ProductService {
 
     private final ProductRepository productRepository;
+    private final CategoryRepository categoryRepository;
 
     /**
      * Creates the product service.
      *
      * @param productRepository product repository
+     * @param categoryRepository category repository
      */
-    public ProductService(final ProductRepository productRepository) {
+    public ProductService(final ProductRepository productRepository,
+                          final CategoryRepository categoryRepository) {
         this.productRepository = productRepository;
+        this.categoryRepository = categoryRepository;
     }
 
     /**
      * Creates a new product.
+     * If categoryId is provided, validates that the category exists.
      *
      * @param request creation payload
      * @return created product
@@ -49,10 +56,15 @@ public class ProductService {
         product.setName(request.name());
         product.setDescription(request.description());
         product.setCategory(request.category());
+        product.setCategoryId(request.categoryId());
         product.setUnit(request.unit());
         product.setExpiryManaged(request.expiryManaged());
         product.setDefaultPrice(resolveDefaultPrice(request.defaultPrice()));
         product.setSafetyStockQuantity(resolveSafetyStockQuantity(request.safetyStockQuantity()));
+
+        if (request.categoryId() != null) {
+            validateCategoryExists(request.categoryId());
+        }
 
         return toDTO(productRepository.save(product));
     }
@@ -93,6 +105,7 @@ public class ProductService {
 
     /**
      * Updates an existing product.
+     * If categoryId is provided in the request, validates that the category exists.
      *
      * @param id product id
      * @param request update payload
@@ -110,6 +123,10 @@ public class ProductService {
         }
         if (request.category() != null) {
             product.setCategory(request.category());
+        }
+        if (request.categoryId() != null) {
+            validateCategoryExists(request.categoryId());
+            product.setCategoryId(request.categoryId());
         }
         if (request.unit() != null) {
             product.setUnit(request.unit());
@@ -145,6 +162,20 @@ public class ProductService {
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found: " + id));
     }
 
+    private void validateCategoryExists(final Long categoryId) {
+        categoryRepository.findById(categoryId)
+                .orElseThrow(() -> new ResourceNotFoundException("Category not found: " + categoryId));
+    }
+
+    private String resolveCategoryName(final Long categoryId) {
+        if (categoryId == null) {
+            return "";
+        }
+        return categoryRepository.findById(categoryId)
+                .map(Category::getName)
+                .orElse("");
+    }
+
     private ProductDTO toDTO(final Product product) {
         return new ProductDTO(
                 product.getId(),
@@ -152,6 +183,8 @@ public class ProductService {
                 product.getName(),
                 product.getDescription(),
                 product.getCategory(),
+                product.getCategoryId(),
+                resolveCategoryName(product.getCategoryId()),
                 product.getUnit(),
                 product.isExpiryManaged(),
                 product.getDefaultPrice(),

@@ -15,6 +15,8 @@ public record ProductDTO(
         String name,
         String description,
         String category,
+        Long categoryId,
+        String categoryName,
         String unit,
         boolean expiryManaged,
         BigDecimal defaultPrice,
