@@ -98,4 +98,22 @@ public interface InventoryRepository extends JpaRepository<Inventory, Long> {
     @Query("SELECT i FROM Inventory i WHERE i.id = :id")
     Optional<Inventory> findByIdForUpdate(@Param("id") Long id);
 
+    /**
+     * Sums inventory quantity for a product across all locations.
+     *
+     * @param productId product id
+     * @return total quantity
+     */
+    @Query("SELECT COALESCE(SUM(COALESCE(i.quantity, 0)), 0) FROM Inventory i WHERE i.productId = :productId")
+    long sumQuantityByProductId(@Param("productId") Long productId);
+
+    /**
+     * Sums inventory quantity grouped by product for given locations.
+     *
+     * @param locationIds location ids
+     * @return list of [productId, totalQuantity] pairs
+     */
+    @Query("SELECT i.productId, COALESCE(SUM(COALESCE(i.quantity, 0)), 0) FROM Inventory i WHERE i.locationId IN :locationIds GROUP BY i.productId")
+    List<Object[]> sumQuantityByLocationIdsIn(@Param("locationIds") List<Long> locationIds);
+
 }
