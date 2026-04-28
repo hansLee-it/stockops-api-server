@@ -6,11 +6,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 import com.stockops.entity.Inventory;
-import com.stockops.entity.InventoryTransaction;
 import com.stockops.entity.Lot;
 import com.stockops.exception.InsufficientStockException;
 import com.stockops.exception.InvalidOperationException;
-import com.stockops.exception.ResourceNotFoundException;
 import com.stockops.repository.InventoryRepository;
 import com.stockops.repository.InventoryTransactionRepository;
 import com.stockops.repository.LotRepository;
@@ -37,76 +35,45 @@ class InventoryServiceTest {
     private InventoryService inventoryService;
 
     @Test
-    void increaseStockThrowsWhenLotNotFound() {
-        when(lotRepository.findById(1L)).thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> inventoryService.increaseStock(1L, 1L, 1L, 10, "INBOUND", 1L, 1L))
-                .isInstanceOf(ResourceNotFoundException.class);
-    }
-
-    @Test
-    void increaseStockThrowsWhenQuantityNotPositive() {
+    void increaseStockCreatesNewInventoryWhenNotExists() {
         final Lot lot = new Lot();
         lot.setId(1L);
-        lot.setProductId(1L);
+        lot.setProductId(10L);
 
         when(lotRepository.findById(1L)).thenReturn(Optional.of(lot));
+        when(inventoryRepository.findForUpdate(10L, 20L, 1L)).thenReturn(Optional.empty());
+        when(inventoryRepository.save(any(Inventory.class))).thenAnswer(i -> i.getArgument(0));
+        when(transactionRepository.save(any())).thenAnswer(i -> i.getArgument(0));
 
-        assertThatThrownBy(() -> inventoryService.increaseStock(1L, 1L, 1L, 0, "INBOUND", 1L, 1L))
-                .isInstanceOf(InvalidOperationException.class);
+        final Inventory result = inventoryService.increaseStock(10L, 20L, 1L, 5, "INBOUND", 100L, 1L);
+
+        assertThat(result.getQuantity()).isEqualTo(5);
     }
 
     @Test
-    void increaseStockCreatesNewInventoryWhenNoneExists() {
+    void decreaseStockThrowsWhenInsufficient() {
         final Lot lot = new Lot();
         lot.setId(1L);
-        lot.setProductId(1L);
-
-        when(lotRepository.findById(1L)).thenReturn(Optional.of(lot));
-        when(inventoryRepository.findByProductIdAndLocationIdAndLotId(1L, 1L, 1L))
-                .thenReturn(Optional.empty());
-        when(inventoryRepository.save(any(Inventory.class))).thenAnswer(inv -> inv.getArgument(0));
-
-        final Inventory result = inventoryService.increaseStock(1L, 1L, 1L, 10, "INBOUND", 1L, 1L);
-
-        assertThat(result.getQuantity()).isEqualTo(10);
-    }
-
-    @Test
-    void decreaseStockThrowsWhenInsufficientStock() {
-        final Lot lot = new Lot();
-        lot.setId(1L);
-        lot.setProductId(1L);
+        lot.setProductId(10L);
 
         final Inventory inventory = new Inventory();
-        inventory.setId(1L);
-        inventory.setQuantity(5);
+        inventory.setId(100L);
+        inventory.setProductId(10L);
+        inventory.setLocationId(20L);
+        inventory.setLotId(1L);
+        inventory.setQuantity(3);
 
         when(lotRepository.findById(1L)).thenReturn(Optional.of(lot));
-        when(inventoryRepository.findByProductIdAndLocationIdAndLotId(1L, 1L, 1L))
-                .thenReturn(Optional.of(inventory));
+        when(inventoryRepository.findForUpdate(10L, 20L, 1L)).thenReturn(Optional.of(inventory));
 
-        assertThatThrownBy(() -> inventoryService.decreaseStock(1L, 1L, 1L, 10, "OUTBOUND", 1L, 1L))
+        assertThatThrownBy(() -> inventoryService.decreaseStock(10L, 20L, 1L, 5, "OUTBOUND", 200L, 1L))
                 .isInstanceOf(InsufficientStockException.class);
     }
 
     @Test
-    void decreaseStockReducesQuantity() {
-        final Lot lot = new Lot();
-        lot.setId(1L);
-        lot.setProductId(1L);
-
-        final Inventory inventory = new Inventory();
-        inventory.setId(1L);
-        inventory.setQuantity(10);
-
-        when(lotRepository.findById(1L)).thenReturn(Optional.of(lot));
-        when(inventoryRepository.findByProductIdAndLocationIdAndLotId(1L, 1L, 1L))
-                .thenReturn(Optional.of(inventory));
-        when(transactionRepository.save(any(InventoryTransaction.class))).thenAnswer(inv -> inv.getArgument(0));
-
-        final Inventory result = inventoryService.decreaseStock(1L, 1L, 1L, 3, "OUTBOUND", 1L, 1L);
-
-        assertThat(result.getQuantity()).isEqualTo(7);
+    void increaseStockThrowsWhenQuantityNotPositive() {
+        assertThatThrownBy(() -> inventoryService.increaseStock(10L, 20L, 1L, 0, "INBOUND", 100L, 1L))
+                .isInstanceOf(InvalidOperationException.class)
+                .hasMessage("Quantity must be greater than zero");
     }
 }

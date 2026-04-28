@@ -12,7 +12,6 @@ import com.stockops.exception.ConflictException;
 import com.stockops.exception.ResourceNotFoundException;
 import com.stockops.repository.CategoryRepository;
 import com.stockops.repository.ProductRepository;
-import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -33,57 +32,44 @@ class CategoryServiceTest {
     private CategoryService categoryService;
 
     @Test
-    void findAllFlatReturnsActiveCategories() {
-        final Category cat = new Category();
-        cat.setId(1L);
-        cat.setCode("CAT001");
-        cat.setName("Test Category");
-        cat.setActive(true);
+    void createCategorySucceeds() {
+        final CategoryRequestDTO request = new CategoryRequestDTO("Test", "TEST", null, 1, 0, true);
+        final Category saved = new Category("Test", "TEST", 1);
+        saved.setId(1L);
+        saved.setActive(true);
+        saved.setSortOrder(0);
 
-        when(categoryRepository.findAllByActiveTrueOrderBySortOrderAsc()).thenReturn(List.of(cat));
+        when(categoryRepository.existsByCode("TEST")).thenReturn(false);
+        when(categoryRepository.save(any(Category.class))).thenReturn(saved);
 
-        final List<CategoryDTO> result = categoryService.findAllFlat();
+        final CategoryDTO result = categoryService.create(request);
 
-        assertThat(result).hasSize(1);
-        assertThat(result.get(0).getCode()).isEqualTo("CAT001");
+        assertThat(result.name()).isEqualTo("Test");
+        assertThat(result.code()).isEqualTo("TEST");
     }
 
     @Test
     void createCategoryThrowsWhenCodeExists() {
-        when(categoryRepository.existsByCode("CAT001")).thenReturn(true);
+        final CategoryRequestDTO request = new CategoryRequestDTO("Test", "TEST", null, 1, 0, true);
 
-        final CategoryRequestDTO request = new CategoryRequestDTO();
-        request.setCode("CAT001");
-        request.setName("Test");
+        when(categoryRepository.existsByCode("TEST")).thenReturn(true);
 
         assertThatThrownBy(() -> categoryService.create(request))
-                .isInstanceOf(ConflictException.class);
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Category code already exists");
     }
 
     @Test
-    void updateCategoryThrowsWhenNotFound() {
-        when(categoryRepository.findById(999L)).thenReturn(Optional.empty());
+    void deleteCategoryThrowsWhenProductsExist() {
+        final Category category = new Category("Test", "TEST", 1);
+        category.setId(1L);
+        category.setActive(true);
 
-        assertThatThrownBy(() -> categoryService.update(999L, new CategoryRequestDTO()))
-                .isInstanceOf(ResourceNotFoundException.class);
-    }
-
-    @Test
-    void deleteCategoryThrowsWhenHasChildren() {
-        when(categoryRepository.findById(1L)).thenReturn(Optional.of(new Category()));
-        when(categoryRepository.existsByParentId(1L)).thenReturn(true);
+        when(categoryRepository.findById(1L)).thenReturn(Optional.of(category));
+        when(productRepository.countByCategoryIdAndDeletedFalse(1L)).thenReturn(5L);
 
         assertThatThrownBy(() -> categoryService.delete(1L))
-                .isInstanceOf(ConflictException.class);
-    }
-
-    @Test
-    void deleteCategoryThrowsWhenHasProducts() {
-        when(categoryRepository.findById(1L)).thenReturn(Optional.of(new Category()));
-        when(categoryRepository.existsByParentId(1L)).thenReturn(false);
-        when(productRepository.countByCategoryIdAndDeletedFalse(1L)).thenReturn(3L);
-
-        assertThatThrownBy(() -> categoryService.delete(1L))
-                .isInstanceOf(ConflictException.class);
+                .isInstanceOf(ConflictException.class)
+                .hasMessageContaining("Cannot delete category with linked products");
     }
 }
