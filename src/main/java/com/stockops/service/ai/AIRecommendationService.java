@@ -1,5 +1,11 @@
 package com.stockops.service.ai;
 
+import com.stockops.ai.forecast.ForecastContext;
+import com.stockops.ai.forecast.ForecastContext.DemandDataPoint;
+import com.stockops.ai.forecast.ForecastContext.ForecastParameters;
+import com.stockops.ai.forecast.ForecastContext.LeadTimeInfo;
+import com.stockops.ai.forecast.ForecastModel;
+import com.stockops.ai.forecast.ForecastResult;
 import com.stockops.dto.AIRecommendationDTO;
 import com.stockops.entity.Product;
 import com.stockops.entity.PurchaseOrder;
@@ -15,10 +21,8 @@ import com.stockops.repository.ai.AIRecommendationRepository;
 import com.stockops.security.ScopeGuard;
 import com.stockops.service.PurchaseOrderService;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -29,10 +33,11 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -41,17 +46,17 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Builds and serves deterministic AI reorder recommendations from the analytics read model.
  * Forecasts remain fully explainable because every recommendation persists its snapshot inputs.
+ * <p>
+ * Forecast computation is delegated to a pluggable {@link ForecastModel} seam,
+ * defaulting to {@link com.stockops.ai.forecast.StatisticalForecastModel}.
  *
  * @author StockOps Team
  * @since 2.0
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class AIRecommendationService {
 
-    private static final BigDecimal TRAILING_AVERAGE_WEIGHT = new BigDecimal("0.70");
-    private static final BigDecimal WEEKDAY_LOOKBACK_WEIGHT = new BigDecimal("0.30");
     private static final int FORECAST_HORIZON_DAYS = 7;
 
     private final AIRecommendationProperties properties;
@@ -61,15 +66,69 @@ public class AIRecommendationService {
     private final AIRecommendationRepository recommendationRepository;
     private final PurchaseOrderService purchaseOrderService;
     private final ScopeGuard scopeGuard;
+    private final ForecastModel defaultForecastModel;
+    private final Map<String, ForecastModel> forecastModels;
+
+    public AIRecommendationService(
+            final AIRecommendationProperties properties,
+            final NamedParameterJdbcTemplate jdbcTemplate,
+            final ProductRepository productRepository,
+            final AIForecastSnapshotRepository forecastSnapshotRepository,
+            final AIRecommendationRepository recommendationRepository,
+            final PurchaseOrderService purchaseOrderService,
+            final ScopeGuard scopeGuard,
+            @Qualifier("statisticalForecastModel") final ForecastModel defaultForecastModel,
+            final Map<String, ForecastModel> forecastModels) {
+        this.properties = properties;
+        this.jdbcTemplate = jdbcTemplate;
+        this.productRepository = productRepository;
+        this.forecastSnapshotRepository = forecastSnapshotRepository;
+        this.recommendationRepository = recommendationRepository;
+        this.purchaseOrderService = purchaseOrderService;
+        this.scopeGuard = scopeGuard;
+        this.defaultForecastModel = defaultForecastModel;
+        this.forecastModels = forecastModels;
+    }
+
+    /**
+     * Resolves a ForecastModel by identifier, falling back to the default statistical model.
+     *
+     * @param modelId optional model identifier (e.g. "statistical", "external")
+     * @return the resolved ForecastModel implementation
+     */
+    public ForecastModel resolveForecastModel(final String modelId) {
+        if (modelId == null || modelId.isBlank()) {
+            return defaultForecastModel;
+        }
+        return forecastModels.values().stream()
+                .filter(model -> model.getModelId().equals(modelId))
+                .findFirst()
+                .orElse(defaultForecastModel);
+    }
 
     /**
      * Generates or refreshes AI recommendation snapshots for the supplied business date.
      * Previously approved recommendations are preserved so approval history remains stable.
+     * Evicts the recommendations cache so subsequent reads reflect fresh data.
      *
      * @param businessDate business date to generate
      */
     @Transactional
+    @CacheEvict(value = "ai::recommendations", allEntries = true)
     public void generateRecommendationsForBusinessDate(final LocalDate businessDate) {
+        generateRecommendationsForBusinessDate(businessDate, defaultForecastModel);
+    }
+
+    /**
+     * Generates or refreshes AI recommendation snapshots using the specified forecast model.
+     * Evicts the recommendations cache so subsequent reads reflect fresh data.
+     *
+     * @param businessDate business date to generate
+     * @param forecastModel the forecast model to use for computation
+     */
+    @Transactional
+    @CacheEvict(value = "ai::recommendations", allEntries = true)
+    public void generateRecommendationsForBusinessDate(final LocalDate businessDate, final ForecastModel forecastModel) {
         final Map<DimensionKey, ProductDimensionContext> contexts = loadDimensionContexts(businessDate);
         final Map<DimensionKey, AIForecastSnapshot> existingForecasts = indexForecasts(forecastSnapshotRepository.findByBusinessDate(businessDate));
         final Map<DimensionKey, AIRecommendation> existingRecommendations = indexRecommendations(
@@ -86,7 +145,8 @@ public class AIRecommendationService {
                 continue;
             }
 
-            final ForecastComputation computation = computeForecast(context, businessDate);
+            final ForecastContext forecastContext = buildForecastContext(context, businessDate);
+            final ForecastResult computation = forecastModel.computeForecast(forecastContext);
 
             final AIForecastSnapshot forecastSnapshot = upsertForecastSnapshot(
                     existingForecasts.get(key),
@@ -107,11 +167,13 @@ public class AIRecommendationService {
         }
 
         deleteStaleUnapprovedSnapshots(existingRecommendations, existingForecasts, processedKeys);
-        log.info("Generated {} AI recommendation snapshots for {}", processedKeys.size(), businessDate);
+        log.info("Generated {} AI recommendation snapshots for {} using model {}",
+                processedKeys.size(), businessDate, forecastModel.getModelId());
     }
 
     /**
      * Lists scoped recommendation snapshots for the requested filters.
+     * Cached for 5 minutes; evicted when recommendations are regenerated.
      *
      * @param businessDate optional business date, defaults to today in the business timezone
      * @param centerId optional center filter
@@ -119,6 +181,7 @@ public class AIRecommendationService {
      * @param productId optional product filter
      * @return filtered recommendation payloads
      */
+    @Cacheable(value = "ai::recommendations", key = "(#businessDate ?: T(java.time.LocalDate).now(T(java.time.ZoneId).of('Asia/Seoul'))) + '-' + (#centerId ?: 'all') + '-' + (#warehouseId ?: 'all') + '-' + (#productId ?: 'all')", sync = true)
     @Transactional(readOnly = true)
     public List<AIRecommendationDTO> listRecommendations(final LocalDate businessDate,
                                                          final Long centerId,
@@ -151,12 +214,14 @@ public class AIRecommendationService {
     /**
      * Approves one ready recommendation into a draft purchase order.
      * The method never submits or auto-accepts the draft downstream.
+     * Evicts the recommendations cache so the approved status is reflected immediately.
      *
      * @param recommendationId recommendation identifier
      * @param currentUser approving user
      * @return approved recommendation payload including the linked draft purchase order
      */
     @Transactional
+    @CacheEvict(value = "ai::recommendations", allEntries = true)
     public AIRecommendationDTO approveRecommendation(final Long recommendationId, final User currentUser) {
         final AIRecommendation recommendation = recommendationRepository.findById(recommendationId)
                 .orElseThrow(() -> new ResourceNotFoundException("AI recommendation not found: " + recommendationId));
@@ -186,6 +251,39 @@ public class AIRecommendationService {
 
         final AIRecommendation savedRecommendation = recommendationRepository.save(recommendation);
         return toDTO(savedRecommendation, loadProducts(Set.of(savedRecommendation.getProductId())));
+    }
+
+    private ForecastContext buildForecastContext(final ProductDimensionContext context, final LocalDate businessDate) {
+        final List<DemandDataPoint> demandDataPoints = context.demandRows().stream()
+                .map(row -> new DemandDataPoint(
+                        row.businessDate(),
+                        row.confirmedOutboundQuantity(),
+                        row.confirmedOutboundEventCount()))
+                .toList();
+
+        final LeadTimeInfo leadTimeInfo = new LeadTimeInfo(
+                context.leadTimeStats().totalLeadTimeHours(),
+                context.leadTimeStats().sampleCount(),
+                properties.getDefaultLeadTimeDays());
+
+        final ForecastParameters parameters = new ForecastParameters(
+                properties.getTrailingAverageDays(),
+                properties.getSameWeekdayLookbackWeeks(),
+                FORECAST_HORIZON_DAYS,
+                properties.getForecastHistoryDays(),
+                new BigDecimal("0.70"),
+                new BigDecimal("0.30"));
+
+        return new ForecastContext(
+                context.key().productId(),
+                context.key().centerId(),
+                context.key().warehouseId(),
+                businessDate,
+                context.currentStockQuantity(),
+                context.safetyStockQuantity(),
+                demandDataPoints,
+                leadTimeInfo,
+                parameters);
     }
 
     private Map<Long, Product> loadProducts(final Collection<Long> productIds) {
@@ -233,6 +331,7 @@ public class AIRecommendationService {
                 recommendation.getApprovedPurchaseOrder() == null ? null : recommendation.getApprovedPurchaseOrder().getPoNumber(),
                 recommendation.getApprovedAt(),
                 recommendation.getApprovedBy() == null ? null : recommendation.getApprovedBy().getId(),
+                forecastSnapshot.getModelVersion(),
                 recommendation.getCreatedAt(),
                 recommendation.getUpdatedAt());
     }
@@ -363,106 +462,10 @@ public class AIRecommendationService {
         return leadTimeByDimension;
     }
 
-    private ForecastComputation computeForecast(final ProductDimensionContext context, final LocalDate businessDate) {
-        final Map<LocalDate, DemandHistoryRow> demandByDate = new HashMap<>();
-        for (DemandHistoryRow demandRow : context.demandRows()) {
-            demandByDate.put(demandRow.businessDate(), demandRow);
-        }
-
-        final int trailingDays = properties.getTrailingAverageDays();
-        int trailingQuantityTotal = 0;
-        for (int dayOffset = trailingDays; dayOffset >= 1; dayOffset--) {
-            trailingQuantityTotal += quantityForDate(demandByDate, businessDate.minusDays(dayOffset));
-        }
-        final BigDecimal trailingAverage = BigDecimal.valueOf(trailingQuantityTotal)
-                .divide(BigDecimal.valueOf(trailingDays), 2, RoundingMode.HALF_UP);
-
-        int demandEventCount = context.demandRows().stream().mapToInt(DemandHistoryRow::confirmedOutboundEventCount).sum();
-        if (demandEventCount == 0) {
-            return ForecastComputation.insufficientHistory(
-                    trailingAverage,
-                    context.leadTimeStats().resolvedLeadTimeDays(properties.getDefaultLeadTimeDays()),
-                    properties.getForecastHistoryDays());
-        }
-
-        final List<BigDecimal> dailyForecasts = new ArrayList<>();
-        BigDecimal weekdayAverageAccumulator = BigDecimal.ZERO;
-        for (int forecastOffset = 0; forecastOffset < FORECAST_HORIZON_DAYS; forecastOffset++) {
-            final LocalDate targetDate = businessDate.plusDays(forecastOffset);
-            final BigDecimal weekdayAverage = sameWeekdayAverage(demandByDate, targetDate);
-            weekdayAverageAccumulator = weekdayAverageAccumulator.add(weekdayAverage);
-            final BigDecimal weightedDemand = trailingAverage.multiply(TRAILING_AVERAGE_WEIGHT)
-                    .add(weekdayAverage.multiply(WEEKDAY_LOOKBACK_WEIGHT))
-                    .setScale(2, RoundingMode.HALF_UP);
-            dailyForecasts.add(weightedDemand);
-        }
-
-        final BigDecimal sameWeekdayAverage = weekdayAverageAccumulator
-                .divide(BigDecimal.valueOf(FORECAST_HORIZON_DAYS), 2, RoundingMode.HALF_UP);
-        final BigDecimal weightedDailyDemand = dailyForecasts.stream()
-                .reduce(BigDecimal.ZERO, BigDecimal::add)
-                .divide(BigDecimal.valueOf(FORECAST_HORIZON_DAYS), 2, RoundingMode.HALF_UP);
-        final int sevenDayForecastQuantity = dailyForecasts.stream()
-                .map(value -> value.setScale(0, RoundingMode.HALF_UP).intValue())
-                .reduce(0, Integer::sum);
-        final int leadTimeDays = context.leadTimeStats().resolvedLeadTimeDays(properties.getDefaultLeadTimeDays());
-        final int leadTimeDemandQuantity = weightedDailyDemand
-                .multiply(BigDecimal.valueOf(leadTimeDays))
-                .setScale(0, RoundingMode.HALF_UP)
-                .intValue();
-        final int recommendedQuantity = Math.max(leadTimeDemandQuantity + context.safetyStockQuantity() - context.currentStockQuantity(), 0);
-        final AIRecommendationStatus status = recommendedQuantity > 0
-                ? AIRecommendationStatus.READY_FOR_APPROVAL
-                : AIRecommendationStatus.NO_ACTION;
-        final String explanationSummary = String.format(
-                "Forecast=%s/day (70%% trailing-7 avg %s + 30%% weekday avg %s); leadTimeDays=%d; currentStock=%d; safetyStock=%d; recommended=%d",
-                weightedDailyDemand,
-                trailingAverage,
-                sameWeekdayAverage,
-                leadTimeDays,
-                context.currentStockQuantity(),
-                context.safetyStockQuantity(),
-                recommendedQuantity);
-
-        return new ForecastComputation(
-                trailingAverage,
-                sameWeekdayAverage,
-                weightedDailyDemand,
-                sevenDayForecastQuantity,
-                leadTimeDays,
-                leadTimeDemandQuantity,
-                properties.getForecastHistoryDays(),
-                demandEventCount,
-                false,
-                recommendedQuantity,
-                status,
-                explanationSummary);
-    }
-
-    private BigDecimal sameWeekdayAverage(final Map<LocalDate, DemandHistoryRow> demandByDate, final LocalDate targetDate) {
-        BigDecimal total = BigDecimal.ZERO;
-        int sampleCount = 0;
-        for (int week = 1; week <= properties.getSameWeekdayLookbackWeeks(); week++) {
-            final LocalDate lookbackDate = targetDate.minusWeeks(week);
-            total = total.add(BigDecimal.valueOf(quantityForDate(demandByDate, lookbackDate)));
-            sampleCount++;
-        }
-        if (sampleCount == 0) {
-            return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
-        }
-        return total.divide(BigDecimal.valueOf(sampleCount), 2, RoundingMode.HALF_UP);
-    }
-
-    private int quantityForDate(final Map<LocalDate, DemandHistoryRow> demandByDate, final LocalDate businessDate) {
-        return Optional.ofNullable(demandByDate.get(businessDate))
-                .map(DemandHistoryRow::confirmedOutboundQuantity)
-                .orElse(0);
-    }
-
     private AIForecastSnapshot upsertForecastSnapshot(final AIForecastSnapshot existingSnapshot,
                                                      final DimensionKey key,
                                                      final LocalDate businessDate,
-                                                     final ForecastComputation computation) {
+                                                     final ForecastResult computation) {
         final AIForecastSnapshot snapshot = existingSnapshot == null ? new AIForecastSnapshot() : existingSnapshot;
         snapshot.setBusinessDate(businessDate);
         snapshot.setForecastStartDate(businessDate);
@@ -480,6 +483,7 @@ public class AIRecommendationService {
         snapshot.setDemandEventCount(computation.demandEventCount());
         snapshot.setInsufficientHistory(computation.insufficientHistory());
         snapshot.setExplanationSummary(computation.explanationSummary());
+        snapshot.setModelVersion(computation.modelVersion());
         return snapshot;
     }
 
@@ -487,7 +491,7 @@ public class AIRecommendationService {
                                                   final AIForecastSnapshot forecastSnapshot,
                                                   final DimensionKey key,
                                                   final ProductDimensionContext context,
-                                                  final ForecastComputation computation,
+                                                  final ForecastResult computation,
                                                   final LocalDate businessDate) {
         final AIRecommendation recommendation = existingRecommendation == null ? new AIRecommendation() : existingRecommendation;
         recommendation.setBusinessDate(businessDate);
@@ -596,41 +600,8 @@ public class AIRecommendationService {
                 return Math.max(defaultLeadTimeDays, 1);
             }
             final BigDecimal averageHours = BigDecimal.valueOf(totalLeadTimeHours)
-                    .divide(BigDecimal.valueOf(sampleCount), 2, RoundingMode.HALF_UP);
-            return Math.max(averageHours.divide(BigDecimal.valueOf(24), 0, RoundingMode.CEILING).intValue(), 1);
-        }
-    }
-
-    private record ForecastComputation(
-            BigDecimal trailingAverage,
-            BigDecimal sameWeekdayAverage,
-            BigDecimal weightedDailyDemand,
-            int sevenDayForecastQuantity,
-            int leadTimeDays,
-            int leadTimeDemandQuantity,
-            int historyDaysConsidered,
-            int demandEventCount,
-            boolean insufficientHistory,
-            int recommendedQuantity,
-            AIRecommendationStatus status,
-            String explanationSummary) {
-
-        private static ForecastComputation insufficientHistory(final BigDecimal trailingAverage,
-                                                               final int leadTimeDays,
-                                                               final int historyDaysConsidered) {
-            return new ForecastComputation(
-                    trailingAverage,
-                    BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP),
-                    BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP),
-                    0,
-                    leadTimeDays,
-                    0,
-                    historyDaysConsidered,
-                    0,
-                    true,
-                    0,
-                    AIRecommendationStatus.INSUFFICIENT_HISTORY,
-                    "No confirmed outbound history was available for deterministic forecasting.");
+                    .divide(BigDecimal.valueOf(sampleCount), 2, java.math.RoundingMode.HALF_UP);
+            return Math.max(averageHours.divide(BigDecimal.valueOf(24), 0, java.math.RoundingMode.CEILING).intValue(), 1);
         }
     }
 

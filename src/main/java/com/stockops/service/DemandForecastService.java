@@ -1,24 +1,38 @@
 package com.stockops.service;
 
+import com.stockops.ai.forecast.ForecastContext;
+import com.stockops.ai.forecast.ForecastContext.DemandDataPoint;
+import com.stockops.ai.forecast.ForecastContext.ForecastParameters;
+import com.stockops.ai.forecast.ForecastContext.LeadTimeInfo;
+import com.stockops.ai.forecast.ForecastModel;
+import com.stockops.ai.forecast.ForecastResult;
 import com.stockops.entity.DemandForecast;
 import com.stockops.entity.InventoryTransaction;
 import com.stockops.repository.DemandForecastRepository;
 import com.stockops.repository.InventoryTransactionRepository;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.*;
-import java.util.stream.Collectors;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.stereotype.Service;
 
 @Service
-@RequiredArgsConstructor
 public class DemandForecastService {
 
     private final DemandForecastRepository forecastRepository;
     private final InventoryTransactionRepository transactionRepository;
+    private final ForecastModel statisticalForecastModel;
+
+    public DemandForecastService(
+            final DemandForecastRepository forecastRepository,
+            final InventoryTransactionRepository transactionRepository,
+            @Qualifier("statisticalForecastModel") final ForecastModel statisticalForecastModel) {
+        this.forecastRepository = forecastRepository;
+        this.transactionRepository = transactionRepository;
+        this.statisticalForecastModel = statisticalForecastModel;
+    }
 
     public List<Map<String, Object>> generateForecast(Long productId, int daysAhead) {
         LocalDate today = LocalDate.now();
@@ -40,6 +54,24 @@ public class DemandForecastService {
             return Collections.emptyList();
         }
 
+        List<DemandDataPoint> demandDataPoints = dailyNet.entrySet().stream()
+                .map(entry -> new DemandDataPoint(entry.getKey(), entry.getValue().intValue(), 1))
+                .sorted(Comparator.comparing(DemandDataPoint::businessDate))
+                .toList();
+
+        ForecastParameters parameters = new ForecastParameters(
+                7, 4, daysAhead, 30,
+                new BigDecimal("0.70"), new BigDecimal("0.30"));
+
+        ForecastContext context = new ForecastContext(
+                productId, null, null, today,
+                0, 0,
+                demandDataPoints,
+                LeadTimeInfo.defaultFor(1),
+                parameters);
+
+        ForecastResult result = statisticalForecastModel.computeForecast(context);
+
         double avg = values.stream().mapToDouble(BigDecimal::doubleValue).average().orElse(0);
         double variance = values.stream().mapToDouble(v -> Math.pow(v.doubleValue() - avg, 2)).average().orElse(0);
         double stdDev = Math.sqrt(variance);
@@ -47,7 +79,7 @@ public class DemandForecastService {
         List<Map<String, Object>> forecasts = new ArrayList<>();
         for (int i = 1; i <= daysAhead; i++) {
             LocalDate date = today.plusDays(i);
-            double predicted = avg * (1 + 0.01 * i);
+            double predicted = result.weightedDailyDemand().doubleValue();
             double lower = predicted - 1.96 * stdDev;
             double upper = predicted + 1.96 * stdDev;
 
@@ -57,7 +89,7 @@ public class DemandForecastService {
             f.setPredictedQuantity(BigDecimal.valueOf(predicted).setScale(2, RoundingMode.HALF_UP));
             f.setConfidenceLower(BigDecimal.valueOf(Math.max(0, lower)).setScale(2, RoundingMode.HALF_UP));
             f.setConfidenceUpper(BigDecimal.valueOf(upper).setScale(2, RoundingMode.HALF_UP));
-            f.setModelVersion("moving-avg-v1");
+            f.setModelVersion(result.modelVersion());
 
             forecastRepository.save(f);
 

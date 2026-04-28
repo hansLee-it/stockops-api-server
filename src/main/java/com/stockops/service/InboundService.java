@@ -6,6 +6,7 @@ import com.stockops.dto.InboundDTO;
 import com.stockops.dto.InboundItemDTO;
 import com.stockops.entity.Inbound;
 import com.stockops.entity.InboundItem;
+import com.stockops.entity.Inventory;
 import com.stockops.entity.Location;
 import com.stockops.entity.Lot;
 import com.stockops.entity.LotStatus;
@@ -20,19 +21,23 @@ import com.stockops.repository.LotRepository;
 import com.stockops.repository.ProductRepository;
 import java.time.LocalDate;
 import java.util.List;
+import com.stockops.inventory.WebSocketStockPublisher;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Inbound registration business logic.
  * Creates draft inbound documents, adds draft items, and confirms stock receipts into lots and inventory.
+ * Confirmed stock changes are broadcast via {@link com.stockops.inventory.WebSocketStockPublisher}.
  *
  * @author StockOps Team
  * @since 1.0
  * @see InboundRepository
  * @see InboundItemRepository
  * @see InventoryService
+ * @see com.stockops.inventory.WebSocketStockPublisher
  */
 @Service
 @RequiredArgsConstructor
@@ -48,6 +53,7 @@ public class InboundService {
     private final LotRepository lotRepository;
     private final ProductRepository productRepository;
     private final LocationRepository locationRepository;
+    private final WebSocketStockPublisher webSocketStockPublisher;
 
     /**
      * Creates a draft inbound header.
@@ -105,6 +111,7 @@ public class InboundService {
     /**
      * Confirms a draft inbound and books stock into inventory.
      * Existing lots are reused by product and lot number; otherwise a new lot is created.
+     * Evicts all inventory and dashboard caches because stock levels have changed.
      *
      * @param inboundId inbound identifier
      * @param userId authenticated user identifier
@@ -113,6 +120,7 @@ public class InboundService {
      * @throws InvalidOperationException when the inbound cannot be confirmed
      */
     @Transactional
+    @CacheEvict(value = {"inventory", "dashboard::summary", "center::inventory"}, allEntries = true)
     public InboundDTO confirmInbound(final Long inboundId, final Long userId) {
         final Inbound inbound = findInboundById(inboundId);
         validateDraftStatus(inbound);
@@ -131,7 +139,7 @@ public class InboundService {
                     .map(existingLot -> updateExistingLot(existingLot, item))
                     .orElseGet(() -> createLot(item));
 
-            inventoryService.increaseStock(
+            final Inventory updated = inventoryService.increaseStock(
                     item.getProductId(),
                     item.getLocationId(),
                     lot.getId(),
@@ -139,6 +147,13 @@ public class InboundService {
                     REFERENCE_TYPE_INBOUND,
                     inboundId,
                     userId);
+
+            webSocketStockPublisher.publishStockChange(
+                    "INBOUND",
+                    item.getProductId(),
+                    item.getLocationId(),
+                    item.getQuantity(),
+                    updated.getQuantity());
 
             lot.setQuantity(nullSafeQuantity(lot.getQuantity()) + item.getQuantity());
             lotRepository.save(lot);

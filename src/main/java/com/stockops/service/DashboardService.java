@@ -15,6 +15,7 @@ import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -50,9 +51,11 @@ public class DashboardService {
 
     /**
      * Builds the dashboard summary.
+     * Cached for 60 seconds; evicted on any stock mutation.
      *
      * @return dashboard summary DTO
      */
+    @Cacheable(value = "dashboard::summary", sync = true)
     public DashboardSummaryDTO getSummary() {
         return new DashboardSummaryDTO(
                 calculateTotalProducts(),

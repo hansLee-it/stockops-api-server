@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.stockops.entity.SensorDevice;
 import com.stockops.entity.SensorReading;
+import com.stockops.environment.WebSocketEnvironmentPublisher;
 import com.stockops.repository.SensorDeviceRepository;
 import com.stockops.repository.SensorReadingRepository;
 import java.time.Instant;
@@ -32,6 +33,7 @@ public class TelemetryIngestionService {
     private final SensorDeviceRepository sensorDeviceRepository;
     private final SensorReadingRepository sensorReadingRepository;
     private final SensorLatestProjectionRepository sensorLatestProjectionRepository;
+    private final WebSocketEnvironmentPublisher webSocketEnvironmentPublisher;
     private final ObjectMapper objectMapper;
 
     /**
@@ -40,16 +42,19 @@ public class TelemetryIngestionService {
      * @param sensorDeviceRepository sensor device repository
      * @param sensorReadingRepository sensor reading repository
      * @param sensorLatestProjectionRepository latest projection repository
+     * @param webSocketEnvironmentPublisher WebSocket publisher
      * @param objectMapper jackson object mapper
      */
     public TelemetryIngestionService(
             final SensorDeviceRepository sensorDeviceRepository,
             final SensorReadingRepository sensorReadingRepository,
             final SensorLatestProjectionRepository sensorLatestProjectionRepository,
+            final WebSocketEnvironmentPublisher webSocketEnvironmentPublisher,
             final ObjectMapper objectMapper) {
         this.sensorDeviceRepository = sensorDeviceRepository;
         this.sensorReadingRepository = sensorReadingRepository;
         this.sensorLatestProjectionRepository = sensorLatestProjectionRepository;
+        this.webSocketEnvironmentPublisher = webSocketEnvironmentPublisher;
         this.objectMapper = objectMapper;
     }
 
@@ -90,6 +95,7 @@ public class TelemetryIngestionService {
         reading.setSequenceId(payload.sequenceId());
         reading.setRawPayload(serializePayload(payload));
         sensorReadingRepository.save(reading);
+        webSocketEnvironmentPublisher.publishSensorReading(reading, device);
 
         if (isSequenceStale(device.getId(), payload.sequenceId())) {
             LOGGER.debug(

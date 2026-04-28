@@ -10,6 +10,7 @@ import com.stockops.entity.StockAdjustment;
 import com.stockops.entity.User;
 import com.stockops.exception.InvalidOperationException;
 import com.stockops.exception.ResourceNotFoundException;
+import com.stockops.inventory.WebSocketStockPublisher;
 import com.stockops.repository.AuditLogRepository;
 import com.stockops.repository.InventoryRepository;
 import com.stockops.repository.InventoryTransactionRepository;
@@ -17,6 +18,7 @@ import com.stockops.repository.ReasonCodeRepository;
 import com.stockops.repository.StockAdjustmentRepository;
 import com.stockops.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -49,6 +51,7 @@ public class StockAdjustmentService {
     private final AuditLogRepository auditLogRepository;
     private final ReasonCodeRepository reasonCodeRepository;
     private final UserRepository userRepository;
+    private final WebSocketStockPublisher webSocketStockPublisher;
 
     /**
      * Creates a pending stock adjustment request.
@@ -91,6 +94,7 @@ public class StockAdjustmentService {
     /**
      * Approves or rejects a pending adjustment request.
      * When approved, the inventory balance and transaction history are updated atomically.
+     * Evicts all inventory and dashboard caches because stock levels have changed.
      *
      * @param adjustmentId adjustment identifier
      * @param approved approval decision
@@ -100,6 +104,7 @@ public class StockAdjustmentService {
      * @throws InvalidOperationException when the adjustment was already processed
      */
     @Transactional
+    @CacheEvict(value = {"inventory", "dashboard::summary", "center::inventory"}, allEntries = true)
     public StockAdjustmentDTO approveAdjustment(final Long adjustmentId, final boolean approved, final Long approverId) {
         final StockAdjustment adjustment = adjustmentRepository.findById(adjustmentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Adjustment not found"));
@@ -119,11 +124,19 @@ public class StockAdjustmentService {
 
             final int beforeQuantity = nullSafeQuantity(inventory.getQuantity());
             inventory.setQuantity(adjustment.getAfterQuantity());
-            inventoryRepository.save(inventory);
+            final Inventory savedInventory = inventoryRepository.save(inventory);
 
             recordTransaction(inventory, adjustmentId, beforeQuantity, adjustment.getAfterQuantity(), approverId);
             recordAuditLog(adjustmentId, "APPROVE", String.valueOf(beforeQuantity),
                     String.valueOf(adjustment.getAfterQuantity()), approverId);
+
+            webSocketStockPublisher.publishStockChange(
+                    "ADJUSTMENT",
+                    inventory.getProductId(),
+                    inventory.getLocationId(),
+                    Math.abs(adjustment.getAfterQuantity() - beforeQuantity),
+                    savedInventory.getQuantity());
+
             adjustment.setStatus(STATUS_APPROVED);
         } else {
             recordAuditLog(adjustmentId, "REJECT", STATUS_PENDING, STATUS_REJECTED, approverId);

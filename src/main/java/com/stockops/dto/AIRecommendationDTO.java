@@ -32,6 +32,7 @@ import java.time.LocalDate;
  * @param approvedPurchaseOrderNumber linked draft purchase-order number after approval
  * @param approvedAt recommendation approval timestamp
  * @param approvedByUserId approving user id
+ * @param modelVersion identifier of the forecast model that produced this recommendation
  * @param createdAt creation timestamp
  * @param updatedAt last update timestamp
  * @author StockOps Team
@@ -62,6 +63,7 @@ public record AIRecommendationDTO(
         String approvedPurchaseOrderNumber,
         Instant approvedAt,
         Long approvedByUserId,
+        String modelVersion,
         Instant createdAt,
         Instant updatedAt) {
 }

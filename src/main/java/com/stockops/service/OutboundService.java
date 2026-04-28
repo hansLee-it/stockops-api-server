@@ -16,6 +16,7 @@ import com.stockops.entity.Product;
 import com.stockops.entity.WarehouseStatus;
 import com.stockops.exception.ForbiddenException;
 import com.stockops.exception.InsufficientStockException;
+import com.stockops.inventory.WebSocketStockPublisher;
 import com.stockops.exception.InvalidOperationException;
 import com.stockops.exception.ResourceNotFoundException;
 import com.stockops.repository.InventoryRepository;
@@ -38,6 +39,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -69,6 +71,7 @@ public class OutboundService {
     private final LocationRepository locationRepository;
     private final ScopeGuard scopeGuard;
     private final CurrentUserProvider currentUserProvider;
+    private final WebSocketStockPublisher webSocketStockPublisher;
 
     /**
      * Returns a list of outbounds, optionally filtered by status.
@@ -145,6 +148,7 @@ public class OutboundService {
     /**
      * Confirms a draft outbound.
      * Requested quantities are allocated to lots in FEFO order and inventory is decreased in the same transaction.
+     * Evicts all inventory and dashboard caches because stock levels have changed.
      *
      * @param outboundId outbound id
      * @param userId operator user id
@@ -154,6 +158,7 @@ public class OutboundService {
      * @throws InsufficientStockException when requested stock cannot be fully allocated
      */
     @Transactional
+    @CacheEvict(value = {"inventory", "dashboard::summary", "center::inventory"}, allEntries = true)
     public OutboundDTO confirmOutbound(final Long outboundId, final Long userId) {
         final Outbound outbound = findAccessibleOutboundById(outboundId);
         validateDraft(outbound);
@@ -252,7 +257,7 @@ public class OutboundService {
                 }
 
                 final int deductedQuantity = Math.min(remainingQuantity, availableQuantity);
-                inventoryService.decreaseStock(
+                final Inventory updated = inventoryService.decreaseStock(
                         item.getProductId(),
                         inventory.getLocationId(),
                         lot.getId(),
@@ -260,6 +265,13 @@ public class OutboundService {
                         OUTBOUND_REFERENCE_TYPE,
                         outboundId,
                         userId);
+
+                webSocketStockPublisher.publishStockChange(
+                        "OUTBOUND",
+                        item.getProductId(),
+                        inventory.getLocationId(),
+                        deductedQuantity,
+                        updated.getQuantity());
 
                 allocations.add(new OutboundLotAllocation(lot.getId(), deductedQuantity));
                 remainingQuantity -= deductedQuantity;

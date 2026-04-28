@@ -84,4 +84,7 @@ public class AIForecastSnapshot extends BaseEntity {
 
     @Column(name = "explanation_summary", length = 500)
     private String explanationSummary;
+
+    @Column(name = "model_version", nullable = false, length = 50)
+    private String modelVersion = "statistical";
 }

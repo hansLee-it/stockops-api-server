@@ -2,13 +2,16 @@ package com.stockops.controller;
 
 import com.stockops.dto.AIRecommendationDTO;
 import com.stockops.entity.User;
+import com.stockops.entity.ai.AIRecommendationStatus;
 import com.stockops.service.UserService;
 import com.stockops.service.ai.AIRecommendationService;
+import java.math.BigDecimal;
 import java.security.Principal;
 import java.time.LocalDate;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -28,6 +31,15 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class AIRecommendationController {
 
+    private static final AIRecommendationDTO EXTERNAL_STUB = new AIRecommendationDTO(
+            null, null, null, null, null, null, null,
+            AIRecommendationStatus.INSUFFICIENT_HISTORY,
+            0, 0, 0, 0, 0, 0,
+            BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
+            0, true,
+            "External AI model not yet integrated; placeholder result.",
+            null, null, null, null, "external-stub", null, null);
+
     private final AIRecommendationService aiRecommendationService;
     private final UserService userService;
 
@@ -38,6 +50,7 @@ public class AIRecommendationController {
      * @param centerId optional center filter
      * @param warehouseId optional warehouse filter
      * @param productId optional product filter
+     * @param model optional forecast model selector (default: "statistical"; "external" returns stub)
      * @return scoped recommendation payloads
      */
     @GetMapping
@@ -46,8 +59,29 @@ public class AIRecommendationController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) final LocalDate businessDate,
             @RequestParam(required = false) final Long centerId,
             @RequestParam(required = false) final Long warehouseId,
-            @RequestParam(required = false) final Long productId) {
+            @RequestParam(required = false) final Long productId,
+            @RequestParam(required = false) final String model) {
+        if ("external".equals(model)) {
+            return List.of(EXTERNAL_STUB);
+        }
         return aiRecommendationService.listRecommendations(businessDate, centerId, warehouseId, productId);
+    }
+
+    /**
+     * Triggers on-demand recommendation generation for a business date using the specified model.
+     *
+     * @param businessDate business date to generate recommendations for
+     * @param model optional forecast model selector (default: "statistical")
+     * @return 200 OK when generation completes
+     */
+    @PostMapping("/generate")
+    @PreAuthorize("@permissionChecker.hasPermission('AI_RECOMMENDATION_APPROVE')")
+    public ResponseEntity<Void> generateRecommendations(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) final LocalDate businessDate,
+            @RequestParam(required = false) final String model) {
+        final var forecastModel = aiRecommendationService.resolveForecastModel(model);
+        aiRecommendationService.generateRecommendationsForBusinessDate(businessDate, forecastModel);
+        return ResponseEntity.ok().build();
     }
 
     /**
