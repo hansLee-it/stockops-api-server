@@ -91,6 +91,11 @@ stockops:
     read-timeout: 5s
     circuit-breaker-failure-threshold: 3
     circuit-breaker-cooldown: 30s
+  ai.gemini:
+    api-key: ${GEMINI_API_KEY:}
+    enabled: ${GEMINI_ENABLED:false}
+    model-name: gemini-pro
+    max-tokens: 1024
   ratelimit:
     enabled: true
 

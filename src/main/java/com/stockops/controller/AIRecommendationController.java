@@ -54,18 +54,21 @@ public class AIRecommendationController {
     }
 
     /**
-     * Triggers on-demand recommendation generation for a business date using the specified model.
+     * Triggers on-demand recommendation generation for a business date using the specified model or provider.
      *
      * @param businessDate business date to generate recommendations for
      * @param model optional forecast model selector (default: "statistical")
+     * @param provider optional external AI provider selector (e.g. "gemini"); takes precedence over {@code model}
      * @return 200 OK when generation completes
      */
     @PostMapping("/generate")
     @PreAuthorize("@permissionChecker.hasPermission('AI_RECOMMENDATION_APPROVE')")
     public ResponseEntity<Void> generateRecommendations(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) final LocalDate businessDate,
-            @RequestParam(required = false) final String model) {
-        final var forecastModel = aiRecommendationService.resolveForecastModel(model);
+            @RequestParam(required = false) final String model,
+            @RequestParam(required = false) final String provider) {
+        final String effectiveModel = provider != null && !provider.isBlank() ? provider : model;
+        final var forecastModel = aiRecommendationService.resolveForecastModel(effectiveModel);
         aiRecommendationService.generateRecommendationsForBusinessDate(businessDate, forecastModel);
         return ResponseEntity.ok().build();
     }
