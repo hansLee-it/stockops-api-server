@@ -2,10 +2,8 @@ package com.stockops.controller;
 
 import com.stockops.dto.AIRecommendationDTO;
 import com.stockops.entity.User;
-import com.stockops.entity.ai.AIRecommendationStatus;
 import com.stockops.service.UserService;
 import com.stockops.service.ai.AIRecommendationService;
-import java.math.BigDecimal;
 import java.security.Principal;
 import java.time.LocalDate;
 import java.util.List;
@@ -31,15 +29,6 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class AIRecommendationController {
 
-    private static final AIRecommendationDTO EXTERNAL_STUB = new AIRecommendationDTO(
-            null, null, null, null, null, null, null,
-            AIRecommendationStatus.INSUFFICIENT_HISTORY,
-            0, 0, 0, 0, 0, 0,
-            BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
-            0, true,
-            "External AI model not yet integrated; placeholder result.",
-            null, null, null, null, "external-stub", null, null);
-
     private final AIRecommendationService aiRecommendationService;
     private final UserService userService;
 
@@ -50,7 +39,7 @@ public class AIRecommendationController {
      * @param centerId optional center filter
      * @param warehouseId optional warehouse filter
      * @param productId optional product filter
-     * @param model optional forecast model selector (default: "statistical"; "external" returns stub)
+     * @param model optional forecast model selector (default: "statistical"; "prophet" delegates to Python AI service)
      * @return scoped recommendation payloads
      */
     @GetMapping
@@ -61,9 +50,6 @@ public class AIRecommendationController {
             @RequestParam(required = false) final Long warehouseId,
             @RequestParam(required = false) final Long productId,
             @RequestParam(required = false) final String model) {
-        if ("external".equals(model)) {
-            return List.of(EXTERNAL_STUB);
-        }
         return aiRecommendationService.listRecommendations(businessDate, centerId, warehouseId, productId);
     }
 

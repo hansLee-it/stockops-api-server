@@ -85,6 +85,12 @@ jwt:
 stockops:
   sensimul:
     base-url: ${STOCKOPS_SENSIMUL_BASE_URL:http://192.168.0.11:18080}
+  ai-service:
+    url: ${STOCKOPS_AI_SERVICE_URL:http://ai-service:8000}
+    connect-timeout: 5s
+    read-timeout: 5s
+    circuit-breaker-failure-threshold: 3
+    circuit-breaker-cooldown: 30s
   ratelimit:
     enabled: true
 
