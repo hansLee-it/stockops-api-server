@@ -1,5 +1,6 @@
 package com.stockops.service.analytics;
 
+import com.stockops.config.MetricsConfig;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -19,6 +20,7 @@ public class AnalyticsAggregationScheduler {
 
     private final AnalyticsAggregationProperties properties;
     private final AnalyticsAggregationService analyticsAggregationService;
+    private final MetricsConfig metricsConfig;
 
     /**
      * Refreshes the rolling analytics window used by BI and AI consumers.
@@ -30,7 +32,16 @@ public class AnalyticsAggregationScheduler {
             return;
         }
 
-        analyticsAggregationService.refreshIncrementalAggregates();
+        try {
+            analyticsAggregationService.refreshIncrementalAggregates();
+        } catch (final Exception e) {
+            log.error(
+                    "Analytics incremental refresh failed. Action required: inspect analytics tables "
+                            + "and scheduler logs. error={}",
+                    e.getMessage(),
+                    e);
+            metricsConfig.recordAnalyticsSchedulerFailure("incremental", e.getClass().getSimpleName());
+        }
     }
 
     /**
@@ -43,6 +54,15 @@ public class AnalyticsAggregationScheduler {
             return;
         }
 
-        analyticsAggregationService.backfillConfiguredHistory();
+        try {
+            analyticsAggregationService.backfillConfiguredHistory();
+        } catch (final Exception e) {
+            log.error(
+                    "Analytics backfill failed. Action required: inspect analytics tables and "
+                            + "scheduler logs. error={}",
+                    e.getMessage(),
+                    e);
+            metricsConfig.recordAnalyticsSchedulerFailure("backfill", e.getClass().getSimpleName());
+        }
     }
 }

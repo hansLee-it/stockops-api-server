@@ -21,10 +21,13 @@ public class MetricsConfig {
     private static final String METRIC_ESCALATION_ALERTS_SENT = "escalation.alerts.sent";
     private static final String METRIC_NOTIFICATIONS_SENT = "notifications.sent";
     private static final String METRIC_DASHBOARD_SUMMARY_DURATION = "dashboard.summary.duration";
+    private static final String METRIC_ANALYTICS_SCHEDULER_FAILURES = "analytics.scheduler.failures";
 
     private static final String TAG_TYPE = "type";
     private static final String TAG_LEVEL = "level";
     private static final String TAG_CHANNEL = "channel";
+    private static final String TAG_JOB_TYPE = "job_type";
+    private static final String TAG_REASON = "reason";
 
     private final MeterRegistry registry;
 
@@ -75,5 +78,21 @@ public class MetricsConfig {
      */
     public void recordDashboardDuration(final Timer.Sample sample) {
         sample.stop(registry.timer(METRIC_DASHBOARD_SUMMARY_DURATION));
+    }
+
+    /**
+     * Records an analytics scheduler failure counter increment.
+     *
+     * @param jobType the job type: incremental or backfill
+     * @param reason the exception class name or short reason tag
+     */
+    public void recordAnalyticsSchedulerFailure(final String jobType, final String reason) {
+        registry.counter(
+                        METRIC_ANALYTICS_SCHEDULER_FAILURES,
+                        TAG_JOB_TYPE,
+                        jobType,
+                        TAG_REASON,
+                        reason)
+                .increment();
     }
 }
