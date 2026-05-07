@@ -6,6 +6,7 @@ import java.sql.ResultSet;
 import javax.sql.DataSource;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.core.annotation.Order;
@@ -23,6 +24,7 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 @Order(1)
+@ConditionalOnProperty(prefix = "stockops.analytics", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class AnalyticsSchemaGuard implements ApplicationRunner {
 
     private static final String SCHEMA_ANALYTICS = "analytics";
