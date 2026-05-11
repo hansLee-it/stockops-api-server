@@ -11,3 +11,4 @@ application-pi.yml
 .classpath
 .project
 .factorypath
+target/
