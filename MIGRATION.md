@@ -18,8 +18,8 @@ on 2026-05-11 using `git filter-branch`.
 ### 1. Clone this repository
 
 ```bash
-git clone https://github.com/your-org/stockops-api.git
-cd stockops-api
+git clone https://github.com/your-org/stockops-api-server.git
+cd stockops-api-server
 ```
 
 ### 2. Configure environment
