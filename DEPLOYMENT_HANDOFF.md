@@ -7,11 +7,10 @@
 - 작업 디렉토리: `/Users/hans/Documents/gitlab_workspace/stockops-api-server`
 - 최신 커밋: `4415b1a Fix EB build and health deployment`
 - EB 리전: `ap-northeast-2` (서울)
-- 신규 EB 환경: `stockops-api-test-v3`
-- EB 환경 ID: `e-cqhpppzj69`
-- EB URL: `http://stockops-api-test-v3.eba-skccntma.ap-northeast-2.elasticbeanstalk.com`
-- 마지막으로 적용한 EB 설정 변경은 성공 완료됨.
-- API 최종 통신 테스트는 아직 재수행하지 않음. 다음 재개 시 `/actuator/health` 테스트부터 진행하면 됨.
+- EB 실행 환경은 비용 방지를 위해 모두 종료됨.
+- EB 애플리케이션 버전도 모두 삭제됨.
+- EB 태그가 붙은 EC2 인스턴스와 ALB/NLB는 남아 있지 않음.
+- API 최종 통신 테스트는 정리 요청으로 인해 재수행하지 않음.
 
 ## 커밋된 주요 수정
 
@@ -97,29 +96,51 @@ SPRING_MAIL_PORT=25
 
 ## 다음 재개 시 할 일
 
-1. EB 헬스 확인
+1. 필요하면 EB 환경 재생성
 
 ```bash
-eb health stockops-api-test-v3 --region ap-northeast-2
-eb status stockops-api-test-v3 --region ap-northeast-2
+eb create stockops-api-test-v4 \
+  --region ap-northeast-2 \
+  --envvars SPRING_PROFILES_ACTIVE=local,STOCKOPS_MQTT_INGESTION_ENABLED=false,STOCKOPS_ANALYTICS_ENABLED=false,STOCKOPS_AI_ENABLED=false
 ```
 
-2. API 통신 테스트
+2. 재생성 후 API 통신 테스트
 
 ```bash
 curl -i --max-time 20 \
-  http://stockops-api-test-v3.eba-skccntma.ap-northeast-2.elasticbeanstalk.com/actuator/health
+  http://<new-eb-cname>/actuator/health
 
 curl -i --max-time 20 \
-  http://stockops-api-test-v3.eba-skccntma.ap-northeast-2.elasticbeanstalk.com/v3/api-docs
+  http://<new-eb-cname>/v3/api-docs
 ```
 
 3. 여전히 502면 로그 확인
 
 ```bash
-eb logs stockops-api-test-v3 --region ap-northeast-2 > /private/tmp/stockops-eb-tail.log
+eb logs <new-environment-name> --region ap-northeast-2 > /private/tmp/stockops-eb-tail.log
 rg -n "APPLICATION FAILED|Exception|Caused by|ERROR|Started StockOps|Tomcat started|JavaMailSender|Flyway|Hikari" /private/tmp/stockops-eb-tail.log
 ```
+
+## 비용 정리 이력
+
+2026-05-12 18:40 KST 이후 아래 EB 환경을 종료했다.
+
+- `stockops-api-test`
+- `stockops-api-test-v2`
+- `stockops-api-test-v3`
+
+검증 결과:
+
+- `aws elasticbeanstalk describe-environments --no-include-deleted`: 활성 환경 없음
+- `aws elasticbeanstalk describe-application-versions`: 애플리케이션 버전 없음
+- `aws ec2 describe-instances` EB 태그 기준: 실행/중지/종료중 인스턴스 없음
+- `aws elbv2 describe-load-balancers`: ALB/NLB 없음
+- `aws logs describe-log-groups --log-group-name-prefix /aws/elasticbeanstalk`: EB CloudWatch 로그 그룹 없음
+
+남겨둔 것:
+
+- EB 애플리케이션 껍데기와 로컬 `.elasticbeanstalk` 설정
+- IAM 사용자/역할 등 기본 설정 요소
 
 ## 운영 배포 전 남은 결정
 
