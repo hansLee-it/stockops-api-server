@@ -8,9 +8,6 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
 
 /**
  * Inventory transfer entity.
@@ -21,11 +18,8 @@ import lombok.NoArgsConstructor;
  * @see InventoryTransferStatus
  * @see Inventory
  */
-@Data
 @Entity
 @Table(name = "inventory_transfers")
-@NoArgsConstructor
-@EqualsAndHashCode(callSuper = true)
 public class InventoryTransfer extends BaseEntity {
 
     @Id
@@ -59,4 +53,87 @@ public class InventoryTransfer extends BaseEntity {
 
     @Column(name = "notes")
     private String notes;
+
+    public InventoryTransfer() {
+    }
+
+    public Long getId() {
+        return this.id;
+    }
+
+    public void setId(final Long id) {
+        this.id = id;
+    }
+
+    public Long getProductId() {
+        return this.productId;
+    }
+
+    public void setProductId(final Long productId) {
+        this.productId = productId;
+    }
+
+    public Long getLotId() {
+        return this.lotId;
+    }
+
+    public void setLotId(final Long lotId) {
+        this.lotId = lotId;
+    }
+
+    public Long getFromLocationId() {
+        return this.fromLocationId;
+    }
+
+    public void setFromLocationId(final Long fromLocationId) {
+        this.fromLocationId = fromLocationId;
+    }
+
+    public Long getToLocationId() {
+        return this.toLocationId;
+    }
+
+    public void setToLocationId(final Long toLocationId) {
+        this.toLocationId = toLocationId;
+    }
+
+    public Integer getQuantity() {
+        return this.quantity;
+    }
+
+    public void setQuantity(final Integer quantity) {
+        this.quantity = quantity;
+    }
+
+    public InventoryTransferStatus getStatus() {
+        return this.status;
+    }
+
+    public void setStatus(final InventoryTransferStatus status) {
+        this.status = status;
+    }
+
+    public Long getRequestedBy() {
+        return this.requestedBy;
+    }
+
+    public void setRequestedBy(final Long requestedBy) {
+        this.requestedBy = requestedBy;
+    }
+
+    public Long getCompletedBy() {
+        return this.completedBy;
+    }
+
+    public void setCompletedBy(final Long completedBy) {
+        this.completedBy = completedBy;
+    }
+
+    public String getNotes() {
+        return this.notes;
+    }
+
+    public void setNotes(final String notes) {
+        this.notes = notes;
+    }
 }

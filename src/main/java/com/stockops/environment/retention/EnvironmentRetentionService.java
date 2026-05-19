@@ -4,7 +4,6 @@ import com.stockops.repository.EnvironmentAlertRepository;
 import com.stockops.repository.SensorReadingRepository;
 import java.time.Duration;
 import java.time.Instant;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,7 +17,6 @@ import org.springframework.transaction.annotation.Transactional;
  * @see EnvironmentAlertRepository
  */
 @Service
-@RequiredArgsConstructor
 public class EnvironmentRetentionService {
 
     private final SensorReadingRepository sensorReadingRepository;
@@ -70,5 +68,11 @@ public class EnvironmentRetentionService {
 
     private int purgeOldAlerts(final Instant cutoff) {
         return environmentAlertRepository.deleteByCreatedAtBefore(cutoff);
+    }
+
+    public EnvironmentRetentionService(final SensorReadingRepository sensorReadingRepository, final EnvironmentAlertRepository environmentAlertRepository, final RetentionProperties retentionProperties) {
+        this.sensorReadingRepository = sensorReadingRepository;
+        this.environmentAlertRepository = environmentAlertRepository;
+        this.retentionProperties = retentionProperties;
     }
 }

@@ -34,7 +34,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import lombok.RequiredArgsConstructor;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.CellType;
@@ -61,7 +60,6 @@ import org.springframework.web.multipart.MultipartFile;
  * @see PurchaseOrderService
  */
 @Service
-@RequiredArgsConstructor
 public class ExcelImportService {
 
     private static final int HEADER_ROW_INDEX = 0;
@@ -617,5 +615,20 @@ public class ExcelImportService {
             String supplierName,
             String supplierCode
     ) {
+    }
+
+    public ExcelImportService(final ProductService productService, final InboundService inboundService, final PurchaseOrderService purchaseOrderService, final ProductRepository productRepository, final LocationRepository locationRepository, final CenterRepository centerRepository, final WarehouseRepository warehouseRepository, final PurchaseOrderRepository purchaseOrderRepository, final PurchaseOrderItemRepository purchaseOrderItemRepository, final CurrentUserProvider currentUserProvider, final ScopeGuard scopeGuard, final Validator validator) {
+        this.productService = productService;
+        this.inboundService = inboundService;
+        this.purchaseOrderService = purchaseOrderService;
+        this.productRepository = productRepository;
+        this.locationRepository = locationRepository;
+        this.centerRepository = centerRepository;
+        this.warehouseRepository = warehouseRepository;
+        this.purchaseOrderRepository = purchaseOrderRepository;
+        this.purchaseOrderItemRepository = purchaseOrderItemRepository;
+        this.currentUserProvider = currentUserProvider;
+        this.scopeGuard = scopeGuard;
+        this.validator = validator;
     }
 }

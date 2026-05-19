@@ -7,11 +7,6 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
-import lombok.AccessLevel;
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
 import org.hibernate.annotations.SQLRestriction;
 
 /**
@@ -21,18 +16,13 @@ import org.hibernate.annotations.SQLRestriction;
  * @author StockOps Team
  * @since 1.0
  */
-@Getter
-@Setter
 @Entity
 @Table(name = "products")
-@NoArgsConstructor
-@EqualsAndHashCode(callSuper = true)
 @SQLRestriction("deleted = false")
 public class Product extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Setter(AccessLevel.NONE)
     private Long id;
 
     @Column(name = "barcode", nullable = false)
@@ -64,4 +54,91 @@ public class Product extends BaseEntity {
 
     @Column(name = "deleted", nullable = false)
     private boolean deleted;
+
+    public Product() {
+    }
+
+    public Long getId() {
+        return this.id;
+    }
+
+    public String getBarcode() {
+        return this.barcode;
+    }
+
+    public void setBarcode(final String barcode) {
+        this.barcode = barcode;
+    }
+
+    public String getName() {
+        return this.name;
+    }
+
+    public void setName(final String name) {
+        this.name = name;
+    }
+
+    public String getDescription() {
+        return this.description;
+    }
+
+    public void setDescription(final String description) {
+        this.description = description;
+    }
+
+    public String getCategory() {
+        return this.category;
+    }
+
+    public void setCategory(final String category) {
+        this.category = category;
+    }
+
+    public Long getCategoryId() {
+        return this.categoryId;
+    }
+
+    public void setCategoryId(final Long categoryId) {
+        this.categoryId = categoryId;
+    }
+
+    public String getUnit() {
+        return this.unit;
+    }
+
+    public void setUnit(final String unit) {
+        this.unit = unit;
+    }
+
+    public boolean isExpiryManaged() {
+        return this.expiryManaged;
+    }
+
+    public void setExpiryManaged(final boolean expiryManaged) {
+        this.expiryManaged = expiryManaged;
+    }
+
+    public BigDecimal getDefaultPrice() {
+        return this.defaultPrice;
+    }
+
+    public void setDefaultPrice(final BigDecimal defaultPrice) {
+        this.defaultPrice = defaultPrice;
+    }
+
+    public Integer getSafetyStockQuantity() {
+        return this.safetyStockQuantity;
+    }
+
+    public void setSafetyStockQuantity(final Integer safetyStockQuantity) {
+        this.safetyStockQuantity = safetyStockQuantity;
+    }
+
+    public boolean isDeleted() {
+        return this.deleted;
+    }
+
+    public void setDeleted(final boolean deleted) {
+        this.deleted = deleted;
+    }
 }

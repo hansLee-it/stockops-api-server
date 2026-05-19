@@ -18,9 +18,6 @@ import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import java.time.Instant;
 import java.time.LocalDate;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
 
 /**
  * Persisted AI reorder recommendation snapshot for a product and warehouse scope.
@@ -29,7 +26,6 @@ import lombok.NoArgsConstructor;
  * @author StockOps Team
  * @since 2.0
  */
-@Data
 @Entity
 @Table(
         schema = "analytics",
@@ -37,8 +33,6 @@ import lombok.NoArgsConstructor;
         uniqueConstraints = @UniqueConstraint(
                 name = "uk_ai_recommendation_scope_date",
                 columnNames = {"business_date", "product_id", "center_id", "warehouse_id"}))
-@NoArgsConstructor
-@EqualsAndHashCode(callSuper = true)
 public class AIRecommendation extends BaseEntity {
 
     @Id
@@ -87,4 +81,119 @@ public class AIRecommendation extends BaseEntity {
 
     @Column(name = "approved_at")
     private Instant approvedAt;
+
+    public AIRecommendation() {
+    }
+
+    public Long getId() {
+        return this.id;
+    }
+
+    public void setId(final Long id) {
+        this.id = id;
+    }
+
+    public LocalDate getBusinessDate() {
+        return this.businessDate;
+    }
+
+    public void setBusinessDate(final LocalDate businessDate) {
+        this.businessDate = businessDate;
+    }
+
+    public Long getProductId() {
+        return this.productId;
+    }
+
+    public void setProductId(final Long productId) {
+        this.productId = productId;
+    }
+
+    public Long getCenterId() {
+        return this.centerId;
+    }
+
+    public void setCenterId(final Long centerId) {
+        this.centerId = centerId;
+    }
+
+    public Long getWarehouseId() {
+        return this.warehouseId;
+    }
+
+    public void setWarehouseId(final Long warehouseId) {
+        this.warehouseId = warehouseId;
+    }
+
+    public AIForecastSnapshot getForecastSnapshot() {
+        return this.forecastSnapshot;
+    }
+
+    public void setForecastSnapshot(final AIForecastSnapshot forecastSnapshot) {
+        this.forecastSnapshot = forecastSnapshot;
+    }
+
+    public Integer getCurrentStockQuantity() {
+        return this.currentStockQuantity;
+    }
+
+    public void setCurrentStockQuantity(final Integer currentStockQuantity) {
+        this.currentStockQuantity = currentStockQuantity;
+    }
+
+    public Integer getSafetyStockQuantity() {
+        return this.safetyStockQuantity;
+    }
+
+    public void setSafetyStockQuantity(final Integer safetyStockQuantity) {
+        this.safetyStockQuantity = safetyStockQuantity;
+    }
+
+    public Integer getRecommendedQuantity() {
+        return this.recommendedQuantity;
+    }
+
+    public void setRecommendedQuantity(final Integer recommendedQuantity) {
+        this.recommendedQuantity = recommendedQuantity;
+    }
+
+    public AIRecommendationStatus getStatus() {
+        return this.status;
+    }
+
+    public void setStatus(final AIRecommendationStatus status) {
+        this.status = status;
+    }
+
+    public String getExplanationSummary() {
+        return this.explanationSummary;
+    }
+
+    public void setExplanationSummary(final String explanationSummary) {
+        this.explanationSummary = explanationSummary;
+    }
+
+    public PurchaseOrder getApprovedPurchaseOrder() {
+        return this.approvedPurchaseOrder;
+    }
+
+    public void setApprovedPurchaseOrder(final PurchaseOrder approvedPurchaseOrder) {
+        this.approvedPurchaseOrder = approvedPurchaseOrder;
+    }
+
+    public User getApprovedBy() {
+        return this.approvedBy;
+    }
+
+    public void setApprovedBy(final User approvedBy) {
+        this.approvedBy = approvedBy;
+    }
+
+    public Instant getApprovedAt() {
+        return this.approvedAt;
+    }
+
+    public void setApprovedAt(final Instant approvedAt) {
+        this.approvedAt = approvedAt;
+    }
 }

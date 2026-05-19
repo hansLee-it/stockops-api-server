@@ -3,7 +3,6 @@ package com.stockops.audit;
 import com.stockops.entity.AuditLog;
 import com.stockops.repository.AuditLogRepository;
 import com.stockops.security.CurrentUserProvider;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,7 +17,6 @@ import java.time.Instant;
  * @since 1.0
  */
 @Service
-@RequiredArgsConstructor
 public class MutationAuditPersistenceService {
 
     private final AuditLogRepository auditLogRepository;
@@ -92,5 +90,10 @@ public class MutationAuditPersistenceService {
             }
         }
         return null;
+    }
+
+    public MutationAuditPersistenceService(final AuditLogRepository auditLogRepository, final CurrentUserProvider currentUserProvider) {
+        this.auditLogRepository = auditLogRepository;
+        this.currentUserProvider = currentUserProvider;
     }
 }

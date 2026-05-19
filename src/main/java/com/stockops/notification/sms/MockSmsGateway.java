@@ -1,6 +1,7 @@
 package com.stockops.notification.sms;
 
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
@@ -11,7 +12,6 @@ import org.springframework.stereotype.Component;
  * @author StockOps Team
  * @since 1.0
  */
-@Slf4j
 @Component
 @ConditionalOnProperty(name = "sms.enabled", havingValue = "false", matchIfMissing = true)
 public class MockSmsGateway implements SmsGateway {
@@ -21,4 +21,6 @@ public class MockSmsGateway implements SmsGateway {
         log.info("[MOCK SMS] To: {}, Message: {}", phoneNumber, message);
         return SmsResult.ok("MOCK-" + System.currentTimeMillis());
     }
+
+    private static final Logger log = LoggerFactory.getLogger(MockSmsGateway.class);
 }

@@ -8,7 +8,6 @@ import com.stockops.dto.analytics.StockAgingReportResponse;
 import com.stockops.dto.analytics.StockoutRateReportResponse;
 import com.stockops.service.analytics.AnalyticsReportingService;
 import java.time.LocalDate;
-import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -26,7 +25,6 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/api/v1/analytics")
-@RequiredArgsConstructor
 public class AnalyticsController {
 
     private final AnalyticsReportingService analyticsReportingService;
@@ -125,4 +123,9 @@ public class AnalyticsController {
             @RequestParam(required = false) final Long warehouseId) {
         return ResponseEntity.ok(analyticsReportingService.getFillRateReport(new AnalyticsQueryFilter(from, to, centerId, warehouseId)));
     }
+
+    public AnalyticsController(final AnalyticsReportingService analyticsReportingService) {
+        this.analyticsReportingService = analyticsReportingService;
+    }
+
 }

@@ -1,7 +1,7 @@
 package com.stockops.environment.retention;
 
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -13,9 +13,7 @@ import org.springframework.stereotype.Component;
  * @since 1.0
  * @see EnvironmentRetentionService
  */
-@Slf4j
 @Component
-@RequiredArgsConstructor
 public class RetentionScheduler {
 
     private final EnvironmentRetentionService environmentRetentionService;
@@ -39,5 +37,12 @@ public class RetentionScheduler {
                 result.alertsDeleted(),
                 result.duration().toMillis(),
                 retentionProperties.getBatchSize());
+    }
+
+    private static final Logger log = LoggerFactory.getLogger(RetentionScheduler.class);
+
+    public RetentionScheduler(final EnvironmentRetentionService environmentRetentionService, final RetentionProperties retentionProperties) {
+        this.environmentRetentionService = environmentRetentionService;
+        this.retentionProperties = retentionProperties;
     }
 }

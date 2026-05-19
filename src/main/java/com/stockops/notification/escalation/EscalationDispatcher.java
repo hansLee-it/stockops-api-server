@@ -1,9 +1,9 @@
 package com.stockops.notification.escalation;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.stockops.notification.sms.SmsService;
 import java.util.List;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 /**
@@ -15,9 +15,7 @@ import org.springframework.stereotype.Service;
  * @see SmsService
  * @see EscalationScheduler
  */
-@Slf4j
 @Service
-@RequiredArgsConstructor
 public class EscalationDispatcher {
 
     private static final String CHANNEL_SMS = "SMS";
@@ -79,4 +77,11 @@ public class EscalationDispatcher {
         log.info("[SLACK PLACEHOLDER] Would send Slack notification for alert id={}, level={}, roles={}",
                 alert.getId(), rule.getLevel(), rule.getNotifyRoles());
     }
+
+    private static final Logger log = LoggerFactory.getLogger(EscalationDispatcher.class);
+
+    public EscalationDispatcher(final SmsService smsService) {
+        this.smsService = smsService;
+    }
+
 }

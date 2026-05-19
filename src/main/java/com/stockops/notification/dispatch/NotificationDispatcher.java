@@ -1,5 +1,7 @@
 package com.stockops.notification.dispatch;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.stockops.notification.config.NotificationChannelConfig;
 import com.stockops.notification.config.NotificationChannelConfig.ChannelEntry;
 import com.stockops.notification.config.NotificationChannelConfig.ChannelType;
@@ -14,8 +16,6 @@ import com.stockops.notification.webhook.WebhookPayload;
 import com.stockops.notification.webhook.WebhookService;
 import java.util.List;
 import java.util.Optional;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 /**
@@ -37,9 +37,7 @@ import org.springframework.stereotype.Service;
  * @see EmailService
  * @see WebhookService
  */
-@Slf4j
 @Service
-@RequiredArgsConstructor
 public class NotificationDispatcher {
 
     private final NotificationChannelConfigService channelConfigService;
@@ -212,5 +210,15 @@ public class NotificationDispatcher {
             case "WARNING" -> WebhookPayload.Severity.WARNING;
             default -> WebhookPayload.Severity.INFO;
         };
+    }
+
+    private static final Logger log = LoggerFactory.getLogger(NotificationDispatcher.class);
+
+    public NotificationDispatcher(final NotificationChannelConfigService channelConfigService, final SmsService smsService, final EmailService emailService, final WebhookService webhookService, final WebhookEndpointConfigRepository webhookEndpointConfigRepository) {
+        this.channelConfigService = channelConfigService;
+        this.smsService = smsService;
+        this.emailService = emailService;
+        this.webhookService = webhookService;
+        this.webhookEndpointConfigRepository = webhookEndpointConfigRepository;
     }
 }

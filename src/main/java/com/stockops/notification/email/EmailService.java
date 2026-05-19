@@ -1,11 +1,9 @@
 package com.stockops.notification.email;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.HashMap;
-import java.util.Map;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
@@ -22,14 +20,11 @@ import org.thymeleaf.context.Context;
  * @since 1.0
  */
 @Service
-@RequiredArgsConstructor
-@Slf4j
 public class EmailService {
 
     private final JavaMailSender mailSender;
     private final TemplateEngine templateEngine;
 
-    private static final String FROM_EMAIL = "${EMAIL_FROM:noreply@stockops.local}";
     private static final String DEFAULT_FROM = "StockOps <noreply@stockops.local>";
 
     /**
@@ -153,5 +148,12 @@ public class EmailService {
             log.error("Failed to send email to: {}", to, e);
             throw new RuntimeException("Email sending failed", e);
         }
+    }
+
+    private static final Logger log = LoggerFactory.getLogger(EmailService.class);
+
+    public EmailService(final JavaMailSender mailSender, final TemplateEngine templateEngine) {
+        this.mailSender = mailSender;
+        this.templateEngine = templateEngine;
     }
 }

@@ -1,9 +1,10 @@
 package com.stockops.ai.forecast;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.stockops.ai.provider.ExternalAiForecastRequest;
 import com.stockops.ai.provider.ExternalAiProvider;
 import com.stockops.ai.provider.ExternalAiProviderRegistry;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
@@ -21,7 +22,6 @@ import org.springframework.stereotype.Service;
  * @see GeminiAiProvider
  * @see StatisticalForecastModel
  */
-@Slf4j
 @Service("geminiForecastModel")
 public class GeminiForecastModel implements ForecastModel {
 
@@ -79,4 +79,6 @@ public class GeminiForecastModel implements ForecastModel {
                 "Gemini fallback: " + fallback.explanationSummary(),
                 MODEL_ID);
     }
+
+    private static final Logger log = LoggerFactory.getLogger(GeminiForecastModel.class);
 }

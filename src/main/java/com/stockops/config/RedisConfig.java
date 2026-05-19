@@ -3,6 +3,7 @@ package com.stockops.config;
 import java.time.Duration;
 
 import org.springframework.cache.CacheManager;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
@@ -25,6 +26,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
  * @since 1.0
  */
 @Configuration
+@ConditionalOnProperty(name = "stockops.redis.enabled", havingValue = "true", matchIfMissing = true)
 public class RedisConfig {
 
     /**
@@ -39,11 +41,7 @@ public class RedisConfig {
         RedisTemplate<String, Object> template = new RedisTemplate<>();
         template.setConnectionFactory(connectionFactory);
 
-        ObjectMapper objectMapper = new ObjectMapper();
-        objectMapper.registerModule(new JavaTimeModule());
-        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-
-        GenericJackson2JsonRedisSerializer jsonSerializer = new GenericJackson2JsonRedisSerializer(objectMapper);
+        GenericJackson2JsonRedisSerializer jsonSerializer = redisJsonSerializer();
         StringRedisSerializer stringSerializer = new StringRedisSerializer();
 
         template.setKeySerializer(stringSerializer);
@@ -70,11 +68,7 @@ public class RedisConfig {
      */
     @Bean
     public CacheManager cacheManager(RedisConnectionFactory connectionFactory) {
-        ObjectMapper objectMapper = new ObjectMapper();
-        objectMapper.registerModule(new JavaTimeModule());
-        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-
-        GenericJackson2JsonRedisSerializer jsonSerializer = new GenericJackson2JsonRedisSerializer(objectMapper);
+        GenericJackson2JsonRedisSerializer jsonSerializer = redisJsonSerializer();
 
         RedisCacheConfiguration defaultConfig = RedisCacheConfiguration.defaultCacheConfig()
                 .entryTtl(Duration.ofMinutes(30))
@@ -94,5 +88,15 @@ public class RedisConfig {
                 .withCacheConfiguration("center::inventory", centerConfig)
                 .withCacheConfiguration("ai::recommendations", aiConfig)
                 .build();
+    }
+
+    private GenericJackson2JsonRedisSerializer redisJsonSerializer() {
+        return new GenericJackson2JsonRedisSerializer()
+                .configure(this::configureRedisObjectMapper);
+    }
+
+    private void configureRedisObjectMapper(final ObjectMapper objectMapper) {
+        objectMapper.registerModule(new JavaTimeModule());
+        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
     }
 }

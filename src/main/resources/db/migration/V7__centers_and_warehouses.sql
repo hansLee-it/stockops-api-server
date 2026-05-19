@@ -138,7 +138,8 @@ CREATE TABLE purchase_order_shipment_items (
     shipment_id BIGINT NOT NULL REFERENCES purchase_order_shipments(id) ON DELETE CASCADE,
     purchase_order_item_id BIGINT NOT NULL REFERENCES purchase_order_items(id),
     shipped_quantity INTEGER NOT NULL CHECK (shipped_quantity > 0),
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 
 COMMENT ON TABLE purchase_order_shipment_items IS '발송 품목 상세';

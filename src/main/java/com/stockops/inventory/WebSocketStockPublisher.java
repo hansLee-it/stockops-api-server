@@ -3,7 +3,6 @@ package com.stockops.inventory;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
-import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
@@ -34,7 +33,6 @@ import org.springframework.stereotype.Service;
  * @see com.stockops.config.WebSocketConfig
  */
 @Service
-@RequiredArgsConstructor
 public class WebSocketStockPublisher {
 
     private static final String TOPIC_STOCK = "/topic/stock";
@@ -67,4 +65,9 @@ public class WebSocketStockPublisher {
 
         simpMessagingTemplate.convertAndSend(TOPIC_STOCK, payload);
     }
+
+    public WebSocketStockPublisher(final SimpMessagingTemplate simpMessagingTemplate) {
+        this.simpMessagingTemplate = simpMessagingTemplate;
+    }
+
 }

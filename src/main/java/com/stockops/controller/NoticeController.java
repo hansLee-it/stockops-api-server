@@ -3,7 +3,6 @@ package com.stockops.controller;
 import com.stockops.entity.Notice;
 import com.stockops.entity.NoticeType;
 import com.stockops.service.NoticeService;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -12,7 +11,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/notices")
-@RequiredArgsConstructor
 public class NoticeController {
 
     private final NoticeService noticeService;
@@ -58,4 +56,9 @@ public class NoticeController {
         noticeService.deleteNotice(id);
         return ResponseEntity.noContent().build();
     }
+
+    public NoticeController(final NoticeService noticeService) {
+        this.noticeService = noticeService;
+    }
+
 }

@@ -9,9 +9,6 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.Instant;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
 
 /**
  * Append-only environment alert entity.
@@ -20,11 +17,8 @@ import lombok.NoArgsConstructor;
  * @author StockOps Team
  * @since 1.0
  */
-@Data
 @Entity
 @Table(name = "environment_alerts")
-@NoArgsConstructor
-@EqualsAndHashCode(callSuper = true)
 public class EnvironmentAlert extends BaseEntity {
 
     @Id
@@ -52,4 +46,71 @@ public class EnvironmentAlert extends BaseEntity {
 
     @Column(name = "acknowledged_by")
     private String acknowledgedBy;
+
+    public EnvironmentAlert() {
+    }
+
+    public Long getId() {
+        return this.id;
+    }
+
+    public void setId(final Long id) {
+        this.id = id;
+    }
+
+    public Long getSensorDeviceId() {
+        return this.sensorDeviceId;
+    }
+
+    public void setSensorDeviceId(final Long sensorDeviceId) {
+        this.sensorDeviceId = sensorDeviceId;
+    }
+
+    public String getAlertType() {
+        return this.alertType;
+    }
+
+    public void setAlertType(final String alertType) {
+        this.alertType = alertType;
+    }
+
+    public AlertSeverity getSeverity() {
+        return this.severity;
+    }
+
+    public void setSeverity(final AlertSeverity severity) {
+        this.severity = severity;
+    }
+
+    public String getMessage() {
+        return this.message;
+    }
+
+    public void setMessage(final String message) {
+        this.message = message;
+    }
+
+    public boolean isAcknowledged() {
+        return this.acknowledged;
+    }
+
+    public void setAcknowledged(final boolean acknowledged) {
+        this.acknowledged = acknowledged;
+    }
+
+    public Instant getAcknowledgedAt() {
+        return this.acknowledgedAt;
+    }
+
+    public void setAcknowledgedAt(final Instant acknowledgedAt) {
+        this.acknowledgedAt = acknowledgedAt;
+    }
+
+    public String getAcknowledgedBy() {
+        return this.acknowledgedBy;
+    }
+
+    public void setAcknowledgedBy(final String acknowledgedBy) {
+        this.acknowledgedBy = acknowledgedBy;
+    }
 }

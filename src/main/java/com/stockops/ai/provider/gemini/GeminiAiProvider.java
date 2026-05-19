@@ -1,12 +1,13 @@
 package com.stockops.ai.provider.gemini;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.stockops.ai.forecast.ForecastResult;
 import com.stockops.ai.provider.ExternalAiProvider;
 import com.stockops.ai.provider.ExternalAiForecastRequest;
 import com.stockops.entity.ai.AIRecommendationStatus;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 /**
@@ -28,7 +29,6 @@ import org.springframework.stereotype.Component;
  * @see ExternalAiProvider
  * @see GeminiAiProperties
  */
-@Slf4j
 @Component
 public class GeminiAiProvider implements ExternalAiProvider {
 
@@ -102,4 +102,6 @@ public class GeminiAiProvider implements ExternalAiProvider {
                 "Gemini external AI provider not yet integrated; placeholder result.",
                 "gemini-stub");
     }
+
+    private static final Logger log = LoggerFactory.getLogger(GeminiAiProvider.class);
 }

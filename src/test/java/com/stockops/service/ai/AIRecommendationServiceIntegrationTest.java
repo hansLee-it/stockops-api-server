@@ -23,6 +23,7 @@ import com.stockops.repository.LocationRepository;
 import com.stockops.repository.LotRepository;
 import com.stockops.repository.ProductRepository;
 import com.stockops.repository.PurchaseOrderRepository;
+import com.stockops.repository.RoleRepository;
 import com.stockops.repository.UserRepository;
 import com.stockops.repository.WarehouseRepository;
 import com.stockops.repository.ai.AIForecastSnapshotRepository;
@@ -30,11 +31,20 @@ import com.stockops.repository.ai.AIRecommendationRepository;
 import com.stockops.service.InventoryService;
 import com.stockops.service.OutboundService;
 import com.stockops.service.analytics.AnalyticsAggregationService;
+import com.stockops.security.ScopeAccessProfile;
+import com.stockops.security.ScopeAssignment;
+import com.stockops.security.ScopedUserDetails;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
+import java.util.Set;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -87,6 +97,37 @@ class AIRecommendationServiceIntegrationTest {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private RoleRepository roleRepository;
+
+    private Long currentUserId;
+
+    @BeforeEach
+    void setUpAuthenticatedUser() {
+        final User admin = userRepository.findByEmail("admin@stockops.com")
+                .orElseGet(() -> {
+                    User user = new User();
+                    user.setEmail("admin@stockops.com");
+                    user.setPassword("{noop}password");
+                    user.setName("Admin User");
+                    user.setRole(roleRepository.findByName("ADMIN").orElseThrow());
+                    return userRepository.save(user);
+                });
+        currentUserId = admin.getId();
+        final ScopeAccessProfile scope = new ScopeAccessProfile(
+                true, List.of(ScopeAssignment.global()), Set.of(), Set.of());
+        final ScopedUserDetails userDetails = new ScopedUserDetails(
+                currentUserId,
+                admin.getEmail(),
+                "password",
+                true,
+                List.of(new SimpleGrantedAuthority("INVENTORY_READ")),
+                scope);
+        SecurityContextHolder.getContext()
+                .setAuthentication(new UsernamePasswordAuthenticationToken(
+                        userDetails, null, userDetails.getAuthorities()));
+    }
 
     /**
      * Verifies that the recommendation batch persists one deterministic ready-for-approval snapshot per scope.
@@ -245,9 +286,10 @@ class AIRecommendationServiceIntegrationTest {
     }
 
     private void createConfirmedOutbound(final Long productId, final LocalDate outboundDate, final int quantity) {
-        final OutboundDTO outbound = outboundService.createOutbound(new CreateOutboundRequest(outboundDate, "AI Demand Customer"), null);
+        final OutboundDTO outbound = outboundService.createOutbound(
+                new CreateOutboundRequest(outboundDate, "AI Demand Customer"), currentUserId);
         outboundService.addItem(outbound.id(), new AddOutboundItemRequest(productId, quantity));
-        outboundService.confirmOutbound(outbound.id(), null);
+        outboundService.confirmOutbound(outbound.id(), currentUserId);
     }
 
     private void refreshAnalyticsForRecommendationDate() {

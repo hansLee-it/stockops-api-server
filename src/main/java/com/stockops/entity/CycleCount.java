@@ -12,8 +12,6 @@ import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import java.time.LocalDate;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 
 /**
  * Cycle count header entity.
@@ -23,10 +21,8 @@ import lombok.NoArgsConstructor;
  * @since 1.0
  * @see CycleCountItem
  */
-@Data
 @Entity
 @Table(name = "cycle_counts")
-@NoArgsConstructor
 @EntityListeners(com.stockops.audit.MutationAuditEntityListener.class)
 public class CycleCount {
 
@@ -65,5 +61,72 @@ public class CycleCount {
         if (status == null) {
             status = CycleCountStatus.PENDING;
         }
+    }
+
+    public CycleCount() {
+    }
+
+    public Long getId() {
+        return this.id;
+    }
+
+    public void setId(final Long id) {
+        this.id = id;
+    }
+
+    public LocalDate getCountDate() {
+        return this.countDate;
+    }
+
+    public void setCountDate(final LocalDate countDate) {
+        this.countDate = countDate;
+    }
+
+    public CycleCountStatus getStatus() {
+        return this.status;
+    }
+
+    public void setStatus(final CycleCountStatus status) {
+        this.status = status;
+    }
+
+    public Long getLocationId() {
+        return this.locationId;
+    }
+
+    public void setLocationId(final Long locationId) {
+        this.locationId = locationId;
+    }
+
+    public Long getCreatedBy() {
+        return this.createdBy;
+    }
+
+    public void setCreatedBy(final Long createdBy) {
+        this.createdBy = createdBy;
+    }
+
+    public Long getCompletedBy() {
+        return this.completedBy;
+    }
+
+    public void setCompletedBy(final Long completedBy) {
+        this.completedBy = completedBy;
+    }
+
+    public Instant getCreatedAt() {
+        return this.createdAt;
+    }
+
+    public void setCreatedAt(final Instant createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public Instant getCompletedAt() {
+        return this.completedAt;
+    }
+
+    public void setCompletedAt(final Instant completedAt) {
+        this.completedAt = completedAt;
     }
 }

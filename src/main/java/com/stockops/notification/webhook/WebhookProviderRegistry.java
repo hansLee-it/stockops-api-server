@@ -1,6 +1,7 @@
 package com.stockops.notification.webhook;
 
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
@@ -18,7 +19,6 @@ import java.util.Optional;
  * @author StockOps Team
  * @since 1.0
  */
-@Slf4j
 @Component
 public class WebhookProviderRegistry {
 
@@ -61,4 +61,6 @@ public class WebhookProviderRegistry {
     public java.util.Set<String> getRegisteredTypes() {
         return providers.keySet();
     }
+
+    private static final Logger log = LoggerFactory.getLogger(WebhookProviderRegistry.class);
 }

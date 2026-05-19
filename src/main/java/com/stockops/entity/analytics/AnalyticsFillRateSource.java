@@ -9,9 +9,6 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import java.time.LocalDate;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
 
 /**
  * Daily fill-rate source row for purchase-order reporting.
@@ -20,7 +17,6 @@ import lombok.NoArgsConstructor;
  * @author StockOps Team
  * @since 2.0
  */
-@Data
 @Entity
 @Table(
         schema = "analytics",
@@ -28,8 +24,6 @@ import lombok.NoArgsConstructor;
         uniqueConstraints = @UniqueConstraint(
                 name = "uk_analytics_daily_fill_rate",
                 columnNames = {"business_date", "product_id", "center_id", "warehouse_id"}))
-@NoArgsConstructor
-@EqualsAndHashCode(callSuper = true)
 public class AnalyticsFillRateSource extends BaseEntity {
 
     @Id
@@ -62,4 +56,87 @@ public class AnalyticsFillRateSource extends BaseEntity {
 
     @Column(name = "shipped_quantity", nullable = false)
     private Integer shippedQuantity;
+
+    public AnalyticsFillRateSource() {
+    }
+
+    public Long getId() {
+        return this.id;
+    }
+
+    public void setId(final Long id) {
+        this.id = id;
+    }
+
+    public LocalDate getBusinessDate() {
+        return this.businessDate;
+    }
+
+    public void setBusinessDate(final LocalDate businessDate) {
+        this.businessDate = businessDate;
+    }
+
+    public Long getProductId() {
+        return this.productId;
+    }
+
+    public void setProductId(final Long productId) {
+        this.productId = productId;
+    }
+
+    public Long getCenterId() {
+        return this.centerId;
+    }
+
+    public void setCenterId(final Long centerId) {
+        this.centerId = centerId;
+    }
+
+    public Long getWarehouseId() {
+        return this.warehouseId;
+    }
+
+    public void setWarehouseId(final Long warehouseId) {
+        this.warehouseId = warehouseId;
+    }
+
+    public Integer getPurchaseOrderCount() {
+        return this.purchaseOrderCount;
+    }
+
+    public void setPurchaseOrderCount(final Integer purchaseOrderCount) {
+        this.purchaseOrderCount = purchaseOrderCount;
+    }
+
+    public Integer getRequestedQuantity() {
+        return this.requestedQuantity;
+    }
+
+    public void setRequestedQuantity(final Integer requestedQuantity) {
+        this.requestedQuantity = requestedQuantity;
+    }
+
+    public Integer getAcceptedQuantity() {
+        return this.acceptedQuantity;
+    }
+
+    public void setAcceptedQuantity(final Integer acceptedQuantity) {
+        this.acceptedQuantity = acceptedQuantity;
+    }
+
+    public Integer getCancelledQuantity() {
+        return this.cancelledQuantity;
+    }
+
+    public void setCancelledQuantity(final Integer cancelledQuantity) {
+        this.cancelledQuantity = cancelledQuantity;
+    }
+
+    public Integer getShippedQuantity() {
+        return this.shippedQuantity;
+    }
+
+    public void setShippedQuantity(final Integer shippedQuantity) {
+        this.shippedQuantity = shippedQuantity;
+    }
 }

@@ -11,9 +11,6 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -26,13 +23,10 @@ import java.util.List;
  * @author StockOps Team
  * @since 2.0
  */
-@Data
 @Entity
 @Table(name = "escalation_rules", uniqueConstraints = @UniqueConstraint(
         name = "uk_escalation_rules_policy_level",
         columnNames = {"policy_id", "level"}))
-@NoArgsConstructor
-@EqualsAndHashCode(callSuper = true, exclude = "policy")
 public class EscalationRule extends BaseEntity {
 
     @Id
@@ -56,4 +50,55 @@ public class EscalationRule extends BaseEntity {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "channels", nullable = false, columnDefinition = "jsonb DEFAULT '[\"EMAIL\"]'")
     private List<String> channels = List.of();
+
+    public EscalationRule() {
+    }
+
+    public Long getId() {
+        return this.id;
+    }
+
+    public void setId(final Long id) {
+        this.id = id;
+    }
+
+    public EscalationPolicy getPolicy() {
+        return this.policy;
+    }
+
+    public void setPolicy(final EscalationPolicy policy) {
+        this.policy = policy;
+    }
+
+    public Integer getLevel() {
+        return this.level;
+    }
+
+    public void setLevel(final Integer level) {
+        this.level = level;
+    }
+
+    public Integer getDelayMinutes() {
+        return this.delayMinutes;
+    }
+
+    public void setDelayMinutes(final Integer delayMinutes) {
+        this.delayMinutes = delayMinutes;
+    }
+
+    public List<String> getNotifyRoles() {
+        return this.notifyRoles;
+    }
+
+    public void setNotifyRoles(final List<String> notifyRoles) {
+        this.notifyRoles = notifyRoles;
+    }
+
+    public List<String> getChannels() {
+        return this.channels;
+    }
+
+    public void setChannels(final List<String> channels) {
+        this.channels = channels;
+    }
 }

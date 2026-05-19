@@ -1,5 +1,7 @@
 package com.stockops.notification.config;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.stockops.exception.ResourceNotFoundException;
 import com.stockops.notification.webhook.WebhookEndpointConfig;
 import com.stockops.notification.webhook.WebhookEndpointConfigRepository;
@@ -7,8 +9,6 @@ import com.stockops.notification.webhook.WebhookPayload;
 import com.stockops.notification.webhook.WebhookService;
 import java.util.List;
 import java.util.Optional;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,9 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
  * @since 2.0
  * @see NotificationChannelConfig
  */
-@Slf4j
 @Service
-@RequiredArgsConstructor
 @Transactional
 public class NotificationChannelConfigService {
 
@@ -192,5 +190,13 @@ public class NotificationChannelConfigService {
             log.error("Webhook test failed for configId={}: {}", configId, e.getMessage(), e);
             return new WebhookTestResult(false, "Webhook test failed: " + e.getMessage(), providerType);
         }
+    }
+
+    private static final Logger log = LoggerFactory.getLogger(NotificationChannelConfigService.class);
+
+    public NotificationChannelConfigService(final NotificationChannelConfigRepository configRepository, final WebhookEndpointConfigRepository webhookEndpointConfigRepository, final WebhookService webhookService) {
+        this.configRepository = configRepository;
+        this.webhookEndpointConfigRepository = webhookEndpointConfigRepository;
+        this.webhookService = webhookService;
     }
 }

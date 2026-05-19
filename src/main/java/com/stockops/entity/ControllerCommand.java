@@ -8,9 +8,6 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
 
 /**
  * Append-only controller command history entity.
@@ -19,11 +16,8 @@ import lombok.NoArgsConstructor;
  * @author StockOps Team
  * @since 1.0
  */
-@Data
 @Entity
 @Table(name = "controller_commands")
-@NoArgsConstructor
-@EqualsAndHashCode(callSuper = true)
 public class ControllerCommand extends BaseEntity {
 
     @Id
@@ -48,4 +42,63 @@ public class ControllerCommand extends BaseEntity {
 
     @Column(name = "sensimul_response_code", length = 100)
     private String sensimulResponseCode;
+
+    public ControllerCommand() {
+    }
+
+    public Long getId() {
+        return this.id;
+    }
+
+    public void setId(final Long id) {
+        this.id = id;
+    }
+
+    public Long getControllerId() {
+        return this.controllerId;
+    }
+
+    public void setControllerId(final Long controllerId) {
+        this.controllerId = controllerId;
+    }
+
+    public String getRequestedStatus() {
+        return this.requestedStatus;
+    }
+
+    public void setRequestedStatus(final String requestedStatus) {
+        this.requestedStatus = requestedStatus;
+    }
+
+    public Integer getRequestedOutputLevel() {
+        return this.requestedOutputLevel;
+    }
+
+    public void setRequestedOutputLevel(final Integer requestedOutputLevel) {
+        this.requestedOutputLevel = requestedOutputLevel;
+    }
+
+    public ControllerCommandResultStatus getResultStatus() {
+        return this.resultStatus;
+    }
+
+    public void setResultStatus(final ControllerCommandResultStatus resultStatus) {
+        this.resultStatus = resultStatus;
+    }
+
+    public String getResultMessage() {
+        return this.resultMessage;
+    }
+
+    public void setResultMessage(final String resultMessage) {
+        this.resultMessage = resultMessage;
+    }
+
+    public String getSensimulResponseCode() {
+        return this.sensimulResponseCode;
+    }
+
+    public void setSensimulResponseCode(final String sensimulResponseCode) {
+        this.sensimulResponseCode = sensimulResponseCode;
+    }
 }

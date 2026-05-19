@@ -1,8 +1,6 @@
 package com.stockops.auth;
 
 import com.stockops.dto.ScopeMetadataDTO;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
 
 import java.util.List;
 
@@ -12,8 +10,6 @@ import java.util.List;
  * @author StockOps Team
  * @since 1.0
  */
-@Getter
-@AllArgsConstructor
 public class LoginResponse {
 
     private final String accessToken;
@@ -39,5 +35,28 @@ public class LoginResponse {
             List<String> permissions,
             ScopeMetadataDTO scopeMetadata
     ) {
+    }
+
+    public LoginResponse(final String accessToken, final String tokenType, final Long expiresIn, final AuthenticatedUser user) {
+        this.accessToken = accessToken;
+        this.tokenType = tokenType;
+        this.expiresIn = expiresIn;
+        this.user = user;
+    }
+
+    public String getAccessToken() {
+        return this.accessToken;
+    }
+
+    public String getTokenType() {
+        return this.tokenType;
+    }
+
+    public Long getExpiresIn() {
+        return this.expiresIn;
+    }
+
+    public AuthenticatedUser getUser() {
+        return this.user;
     }
 }

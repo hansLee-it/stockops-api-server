@@ -9,9 +9,6 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
 
 /**
  * Inventory balance entity.
@@ -19,15 +16,12 @@ import lombok.NoArgsConstructor;
  * @author StockOps Team
  * @since 1.0
  */
-@Data
 @Entity
 @Table(
         name = "inventory",
         uniqueConstraints = @UniqueConstraint(
                 name = "uk_inventory_product_location_lot",
                 columnNames = {"product_id", "location_id", "lot_id"}))
-@NoArgsConstructor
-@EqualsAndHashCode(callSuper = true)
 public class Inventory extends BaseEntity {
 
     @Id
@@ -52,4 +46,63 @@ public class Inventory extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     private InventoryStatus status = InventoryStatus.ACTIVE;
+
+    public Inventory() {
+    }
+
+    public Long getId() {
+        return this.id;
+    }
+
+    public void setId(final Long id) {
+        this.id = id;
+    }
+
+    public Long getProductId() {
+        return this.productId;
+    }
+
+    public void setProductId(final Long productId) {
+        this.productId = productId;
+    }
+
+    public Long getLocationId() {
+        return this.locationId;
+    }
+
+    public void setLocationId(final Long locationId) {
+        this.locationId = locationId;
+    }
+
+    public Long getLotId() {
+        return this.lotId;
+    }
+
+    public void setLotId(final Long lotId) {
+        this.lotId = lotId;
+    }
+
+    public Integer getQuantity() {
+        return this.quantity;
+    }
+
+    public void setQuantity(final Integer quantity) {
+        this.quantity = quantity;
+    }
+
+    public Integer getReservedQuantity() {
+        return this.reservedQuantity;
+    }
+
+    public void setReservedQuantity(final Integer reservedQuantity) {
+        this.reservedQuantity = reservedQuantity;
+    }
+
+    public InventoryStatus getStatus() {
+        return this.status;
+    }
+
+    public void setStatus(final InventoryStatus status) {
+        this.status = status;
+    }
 }

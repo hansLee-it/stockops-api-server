@@ -6,7 +6,6 @@ import com.stockops.dto.analytics.AnalyticsQueryFilter;
 import com.stockops.service.PdfReportService;
 import com.stockops.service.AnalyticsExcelExportService;
 import java.time.LocalDate;
-import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
@@ -27,7 +26,6 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/api/v1/reports")
-@RequiredArgsConstructor
 public class ReportController {
 
     private static final String XLSX_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
@@ -330,5 +328,10 @@ public class ReportController {
         headers.setContentDisposition(ContentDisposition.attachment().filename(fileName).build());
         headers.setContentLength(workbook.length);
         return ResponseEntity.ok().headers(headers).body(workbook);
+    }
+
+    public ReportController(final PdfReportService pdfReportService, final AnalyticsExcelExportService analyticsExcelExportService) {
+        this.pdfReportService = pdfReportService;
+        this.analyticsExcelExportService = analyticsExcelExportService;
     }
 }

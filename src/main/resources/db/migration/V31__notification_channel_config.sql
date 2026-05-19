@@ -29,4 +29,4 @@ CREATE INDEX IF NOT EXISTS idx_channel_config_center_id
 CREATE INDEX IF NOT EXISTS idx_channel_config_warehouse_id
     ON notification_channel_configs (warehouse_id);
 CREATE INDEX IF NOT EXISTS idx_channel_config_active
-    ON notification_channel_configs (active) WHERE active = TRUE;
+    ON notification_channel_configs (active);

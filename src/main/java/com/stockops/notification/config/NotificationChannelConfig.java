@@ -11,9 +11,6 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import java.util.List;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -29,13 +26,10 @@ import org.hibernate.type.SqlTypes;
  * @since 2.0
  * @see NotificationChannelConfigService
  */
-@Data
 @Entity
 @Table(name = "notification_channel_configs", uniqueConstraints = @UniqueConstraint(
         name = "uk_channel_config_scope",
         columnNames = {"center_id", "warehouse_id", "alert_type"}))
-@NoArgsConstructor
-@EqualsAndHashCode(callSuper = true)
 public class NotificationChannelConfig extends BaseEntity {
 
     @Id
@@ -75,8 +69,6 @@ public class NotificationChannelConfig extends BaseEntity {
      * @author StockOps Team
      * @since 2.0
      */
-    @Data
-    @NoArgsConstructor
     public static class ChannelEntry {
         /** Channel type: SMS, EMAIL, or WEBHOOK. */
         @Enumerated(EnumType.STRING)
@@ -93,7 +85,31 @@ public class NotificationChannelConfig extends BaseEntity {
             this.enabled = enabled;
             this.webhookProvider = webhookProvider;
         }
-    }
+    
+        public ChannelType getType() {
+            return this.type;
+        }
+
+        public void setType(final ChannelType type) {
+            this.type = type;
+        }
+
+        public boolean isEnabled() {
+            return this.enabled;
+        }
+
+        public void setEnabled(final boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        public String getWebhookProvider() {
+            return this.webhookProvider;
+        }
+
+        public void setWebhookProvider(final String webhookProvider) {
+            this.webhookProvider = webhookProvider;
+        }
+}
 
     /**
      * Supported notification channel types.
@@ -102,5 +118,56 @@ public class NotificationChannelConfig extends BaseEntity {
         SMS,
         EMAIL,
         WEBHOOK
+    }
+
+    public NotificationChannelConfig() {
+    }
+
+    public Long getId() {
+        return this.id;
+    }
+
+    public void setId(final Long id) {
+        this.id = id;
+    }
+
+    public Long getCenterId() {
+        return this.centerId;
+    }
+
+    public void setCenterId(final Long centerId) {
+        this.centerId = centerId;
+    }
+
+    public Long getWarehouseId() {
+        return this.warehouseId;
+    }
+
+    public void setWarehouseId(final Long warehouseId) {
+        this.warehouseId = warehouseId;
+    }
+
+    public String getAlertType() {
+        return this.alertType;
+    }
+
+    public void setAlertType(final String alertType) {
+        this.alertType = alertType;
+    }
+
+    public List<ChannelEntry> getChannels() {
+        return this.channels;
+    }
+
+    public void setChannels(final List<ChannelEntry> channels) {
+        this.channels = channels;
+    }
+
+    public boolean isActive() {
+        return this.active;
+    }
+
+    public void setActive(final boolean active) {
+        this.active = active;
     }
 }

@@ -1,5 +1,7 @@
 package com.stockops.service.ai;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.stockops.ai.forecast.ForecastContext;
 import com.stockops.ai.forecast.ForecastContext.DemandDataPoint;
 import com.stockops.ai.forecast.ForecastContext.ForecastParameters;
@@ -34,7 +36,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -53,7 +54,6 @@ import org.springframework.transaction.annotation.Transactional;
  * @author StockOps Team
  * @since 2.0
  */
-@Slf4j
 @Service
 public class AIRecommendationService {
 
@@ -181,7 +181,7 @@ public class AIRecommendationService {
      * @param productId optional product filter
      * @return filtered recommendation payloads
      */
-    @Cacheable(value = "ai::recommendations", key = "(#businessDate ?: T(java.time.LocalDate).now(T(java.time.ZoneId).of('Asia/Seoul'))) + '-' + (#centerId ?: 'all') + '-' + (#warehouseId ?: 'all') + '-' + (#productId ?: 'all')", sync = true)
+    @Cacheable(value = "ai::recommendations", key = "(#businessDate ?: T(java.time.LocalDate).now(T(java.time.ZoneId).of('Asia/Seoul'))) + '-' + (#centerId ?: 'all') + '-' + (#warehouseId ?: 'all') + '-' + (#productId ?: 'all')")
     @Transactional(readOnly = true)
     public List<AIRecommendationDTO> listRecommendations(final LocalDate businessDate,
                                                          final Long centerId,
@@ -620,4 +620,6 @@ public class AIRecommendationService {
             return warehouseId.compareTo(other.warehouseId);
         }
     }
+
+    private static final Logger log = LoggerFactory.getLogger(AIRecommendationService.class);
 }

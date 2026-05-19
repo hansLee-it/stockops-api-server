@@ -1,7 +1,6 @@
 package com.stockops.notification.config;
 
 import java.util.List;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -22,7 +21,6 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/api/v1/notification-channel-configs")
-@RequiredArgsConstructor
 public class NotificationChannelConfigController {
 
     private final NotificationChannelConfigService configService;
@@ -105,4 +103,9 @@ public class NotificationChannelConfigController {
                 config.getCreatedAt(),
                 config.getUpdatedAt());
     }
+
+    public NotificationChannelConfigController(final NotificationChannelConfigService configService) {
+        this.configService = configService;
+    }
+
 }

@@ -10,9 +10,6 @@ import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import java.time.LocalDate;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 /**
  * Expiry alert snapshot for a lot that is approaching its expiration date.
@@ -21,11 +18,8 @@ import lombok.Setter;
  * @author StockOps Team
  * @since 1.0
  */
-@Getter
-@Setter
 @Entity
 @Table(name = "expiry_alerts")
-@NoArgsConstructor
 @EntityListeners(com.stockops.audit.MutationAuditEntityListener.class)
 public class ExpiryAlert {
 
@@ -63,5 +57,80 @@ public class ExpiryAlert {
     @PrePersist
     protected void onCreate() {
         this.createdAt = Instant.now();
+    }
+
+    public ExpiryAlert() {
+    }
+
+    public Long getId() {
+        return this.id;
+    }
+
+    public void setId(final Long id) {
+        this.id = id;
+    }
+
+    public Long getLotId() {
+        return this.lotId;
+    }
+
+    public void setLotId(final Long lotId) {
+        this.lotId = lotId;
+    }
+
+    public Long getProductId() {
+        return this.productId;
+    }
+
+    public void setProductId(final Long productId) {
+        this.productId = productId;
+    }
+
+    public Integer getDaysUntilExpiry() {
+        return this.daysUntilExpiry;
+    }
+
+    public void setDaysUntilExpiry(final Integer daysUntilExpiry) {
+        this.daysUntilExpiry = daysUntilExpiry;
+    }
+
+    public String getAlertLevel() {
+        return this.alertLevel;
+    }
+
+    public void setAlertLevel(final String alertLevel) {
+        this.alertLevel = alertLevel;
+    }
+
+    public LocalDate getExpiryDate() {
+        return this.expiryDate;
+    }
+
+    public void setExpiryDate(final LocalDate expiryDate) {
+        this.expiryDate = expiryDate;
+    }
+
+    public Integer getQuantity() {
+        return this.quantity;
+    }
+
+    public void setQuantity(final Integer quantity) {
+        this.quantity = quantity;
+    }
+
+    public boolean isAcknowledged() {
+        return this.acknowledged;
+    }
+
+    public void setAcknowledged(final boolean acknowledged) {
+        this.acknowledged = acknowledged;
+    }
+
+    public Instant getCreatedAt() {
+        return this.createdAt;
+    }
+
+    public void setCreatedAt(final Instant createdAt) {
+        this.createdAt = createdAt;
     }
 }

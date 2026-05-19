@@ -6,9 +6,6 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 
@@ -18,11 +15,8 @@ import java.time.LocalDate;
  * @author StockOps Team
  * @since 1.0
  */
-@Data
 @Entity
 @Table(name = "outbounds")
-@NoArgsConstructor
-@EqualsAndHashCode(callSuper = true)
 public class Outbound extends BaseEntity {
 
     @Id
@@ -43,4 +37,55 @@ public class Outbound extends BaseEntity {
 
     @Column(name = "created_by")
     private Long createdBy;
+
+    public Outbound() {
+    }
+
+    public Long getId() {
+        return this.id;
+    }
+
+    public void setId(final Long id) {
+        this.id = id;
+    }
+
+    public LocalDate getOutboundDate() {
+        return this.outboundDate;
+    }
+
+    public void setOutboundDate(final LocalDate outboundDate) {
+        this.outboundDate = outboundDate;
+    }
+
+    public String getCustomer() {
+        return this.customer;
+    }
+
+    public void setCustomer(final String customer) {
+        this.customer = customer;
+    }
+
+    public String getStatus() {
+        return this.status;
+    }
+
+    public void setStatus(final String status) {
+        this.status = status;
+    }
+
+    public Integer getTotalQuantity() {
+        return this.totalQuantity;
+    }
+
+    public void setTotalQuantity(final Integer totalQuantity) {
+        this.totalQuantity = totalQuantity;
+    }
+
+    public Long getCreatedBy() {
+        return this.createdBy;
+    }
+
+    public void setCreatedBy(final Long createdBy) {
+        this.createdBy = createdBy;
+    }
 }

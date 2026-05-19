@@ -3,7 +3,6 @@ package com.stockops.controller;
 import com.stockops.dto.ExcelEntityType;
 import com.stockops.dto.ExcelImportResult;
 import com.stockops.service.ExcelImportService;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -26,7 +25,6 @@ import org.springframework.web.multipart.MultipartFile;
  */
 @RestController
 @RequestMapping("/api/v1/excel")
-@RequiredArgsConstructor
 public class ExcelController {
 
     private static final String XLSX_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
@@ -67,4 +65,9 @@ public class ExcelController {
         final ExcelEntityType entityType = ExcelEntityType.fromPathValue(entityTypePath);
         return ResponseEntity.ok(excelImportService.importWorkbook(entityType, file));
     }
+
+    public ExcelController(final ExcelImportService excelImportService) {
+        this.excelImportService = excelImportService;
+    }
+
 }

@@ -39,7 +39,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
-import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -55,7 +54,6 @@ import org.springframework.transaction.annotation.Transactional;
  * @see InventoryService
  */
 @Service
-@RequiredArgsConstructor
 public class OutboundService {
 
     private static final String STATUS_DRAFT = "DRAFT";
@@ -442,5 +440,20 @@ public class OutboundService {
 
     private int nullSafeQuantity(final Integer quantity) {
         return quantity == null ? 0 : quantity;
+    }
+
+    public OutboundService(final OutboundRepository outboundRepository, final OutboundItemRepository outboundItemRepository, final InventoryService inventoryService, final InventoryRepository inventoryRepository, final InventoryTransactionRepository inventoryTransactionRepository, final LotRepository lotRepository, final ProductRepository productRepository, final LocationRepository locationRepository, final ScopeGuard scopeGuard, final CurrentUserProvider currentUserProvider, final WebSocketStockPublisher webSocketStockPublisher, final MetricsConfig metricsConfig) {
+        this.outboundRepository = outboundRepository;
+        this.outboundItemRepository = outboundItemRepository;
+        this.inventoryService = inventoryService;
+        this.inventoryRepository = inventoryRepository;
+        this.inventoryTransactionRepository = inventoryTransactionRepository;
+        this.lotRepository = lotRepository;
+        this.productRepository = productRepository;
+        this.locationRepository = locationRepository;
+        this.scopeGuard = scopeGuard;
+        this.currentUserProvider = currentUserProvider;
+        this.webSocketStockPublisher = webSocketStockPublisher;
+        this.metricsConfig = metricsConfig;
     }
 }

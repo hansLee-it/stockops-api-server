@@ -1,9 +1,7 @@
 package com.stockops.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 
@@ -14,11 +12,8 @@ import java.math.BigDecimal;
  * @author StockOps Team
  * @since 2.0
  */
-@Data
 @Entity
 @Table(name = "purchase_order_items")
-@NoArgsConstructor
-@EqualsAndHashCode(callSuper = true)
 public class PurchaseOrderItem extends BaseEntity {
 
     @Id
@@ -27,6 +22,7 @@ public class PurchaseOrderItem extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "purchase_order_id", nullable = false)
+    @JsonIgnore
     private PurchaseOrder purchaseOrder;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -50,4 +46,79 @@ public class PurchaseOrderItem extends BaseEntity {
 
     @Column(name = "note")
     private String note;
+
+    public PurchaseOrderItem() {
+    }
+
+    public Long getId() {
+        return this.id;
+    }
+
+    public void setId(final Long id) {
+        this.id = id;
+    }
+
+    public PurchaseOrder getPurchaseOrder() {
+        return this.purchaseOrder;
+    }
+
+    public void setPurchaseOrder(final PurchaseOrder purchaseOrder) {
+        this.purchaseOrder = purchaseOrder;
+    }
+
+    public Product getProduct() {
+        return this.product;
+    }
+
+    public void setProduct(final Product product) {
+        this.product = product;
+    }
+
+    public Integer getRequestedQuantity() {
+        return this.requestedQuantity;
+    }
+
+    public void setRequestedQuantity(final Integer requestedQuantity) {
+        this.requestedQuantity = requestedQuantity;
+    }
+
+    public Integer getAcceptedQuantity() {
+        return this.acceptedQuantity;
+    }
+
+    public void setAcceptedQuantity(final Integer acceptedQuantity) {
+        this.acceptedQuantity = acceptedQuantity;
+    }
+
+    public Integer getCancelledQuantity() {
+        return this.cancelledQuantity;
+    }
+
+    public void setCancelledQuantity(final Integer cancelledQuantity) {
+        this.cancelledQuantity = cancelledQuantity;
+    }
+
+    public BigDecimal getUnitPrice() {
+        return this.unitPrice;
+    }
+
+    public void setUnitPrice(final BigDecimal unitPrice) {
+        this.unitPrice = unitPrice;
+    }
+
+    public BigDecimal getTotalPrice() {
+        return this.totalPrice;
+    }
+
+    public void setTotalPrice(final BigDecimal totalPrice) {
+        this.totalPrice = totalPrice;
+    }
+
+    public String getNote() {
+        return this.note;
+    }
+
+    public void setNote(final String note) {
+        this.note = note;
+    }
 }

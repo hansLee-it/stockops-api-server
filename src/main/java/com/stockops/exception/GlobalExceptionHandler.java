@@ -83,6 +83,11 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(new ErrorResponse(400, "Validation failed"));
     }
 
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ErrorResponse> handleIllegalArgument(final IllegalArgumentException ex) {
+        return ResponseEntity.badRequest().body(new ErrorResponse(400, ex.getMessage()));
+    }
+
     /**
      * Handles downstream Sensimul integration failures.
      *

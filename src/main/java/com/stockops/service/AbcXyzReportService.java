@@ -27,7 +27,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -52,7 +51,6 @@ import org.springframework.transaction.annotation.Transactional;
  * @since 2.0
  */
 @Service
-@RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class AbcXyzReportService {
 
@@ -302,5 +300,14 @@ public class AbcXyzReportService {
     }
 
     private record ProductUsage(Long productId, int totalQuantity, BigDecimal usageValue) {
+    }
+
+    public AbcXyzReportService(final InventoryTransactionRepository transactionRepository, final ProductRepository productRepository, final CenterRepository centerRepository, final WarehouseRepository warehouseRepository, final LocationRepository locationRepository, final ScopeGuard scopeGuard) {
+        this.transactionRepository = transactionRepository;
+        this.productRepository = productRepository;
+        this.centerRepository = centerRepository;
+        this.warehouseRepository = warehouseRepository;
+        this.locationRepository = locationRepository;
+        this.scopeGuard = scopeGuard;
     }
 }

@@ -23,7 +23,6 @@ import java.time.LocalDate;
 import java.util.List;
 import com.stockops.config.MetricsConfig;
 import com.stockops.inventory.WebSocketStockPublisher;
-import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,7 +40,6 @@ import org.springframework.transaction.annotation.Transactional;
  * @see com.stockops.inventory.WebSocketStockPublisher
  */
 @Service
-@RequiredArgsConstructor
 public class InboundService {
 
     private static final String STATUS_DRAFT = "DRAFT";
@@ -306,5 +304,16 @@ public class InboundService {
 
     private int nullSafeQuantity(final Integer quantity) {
         return quantity == null ? 0 : quantity;
+    }
+
+    public InboundService(final InboundRepository inboundRepository, final InboundItemRepository inboundItemRepository, final InventoryService inventoryService, final LotRepository lotRepository, final ProductRepository productRepository, final LocationRepository locationRepository, final WebSocketStockPublisher webSocketStockPublisher, final MetricsConfig metricsConfig) {
+        this.inboundRepository = inboundRepository;
+        this.inboundItemRepository = inboundItemRepository;
+        this.inventoryService = inventoryService;
+        this.lotRepository = lotRepository;
+        this.productRepository = productRepository;
+        this.locationRepository = locationRepository;
+        this.webSocketStockPublisher = webSocketStockPublisher;
+        this.metricsConfig = metricsConfig;
     }
 }

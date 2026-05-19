@@ -6,9 +6,6 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 
@@ -18,11 +15,8 @@ import java.time.LocalDate;
  * @author StockOps Team
  * @since 1.0
  */
-@Data
 @Entity
 @Table(name = "inbounds")
-@NoArgsConstructor
-@EqualsAndHashCode(callSuper = true)
 public class Inbound extends BaseEntity {
 
     @Id
@@ -43,4 +37,55 @@ public class Inbound extends BaseEntity {
 
     @Column(name = "created_by")
     private Long createdBy;
+
+    public Inbound() {
+    }
+
+    public Long getId() {
+        return this.id;
+    }
+
+    public void setId(final Long id) {
+        this.id = id;
+    }
+
+    public LocalDate getInboundDate() {
+        return this.inboundDate;
+    }
+
+    public void setInboundDate(final LocalDate inboundDate) {
+        this.inboundDate = inboundDate;
+    }
+
+    public String getSupplier() {
+        return this.supplier;
+    }
+
+    public void setSupplier(final String supplier) {
+        this.supplier = supplier;
+    }
+
+    public String getStatus() {
+        return this.status;
+    }
+
+    public void setStatus(final String status) {
+        this.status = status;
+    }
+
+    public Integer getTotalQuantity() {
+        return this.totalQuantity;
+    }
+
+    public void setTotalQuantity(final Integer totalQuantity) {
+        this.totalQuantity = totalQuantity;
+    }
+
+    public Long getCreatedBy() {
+        return this.createdBy;
+    }
+
+    public void setCreatedBy(final Long createdBy) {
+        this.createdBy = createdBy;
+    }
 }

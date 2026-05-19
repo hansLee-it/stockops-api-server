@@ -16,4 +16,4 @@ CREATE TABLE webhook_endpoint_config (
 CREATE INDEX idx_webhook_config_center ON webhook_endpoint_config (center_id);
 CREATE INDEX idx_webhook_config_warehouse ON webhook_endpoint_config (warehouse_id);
 CREATE INDEX idx_webhook_config_provider ON webhook_endpoint_config (provider_type);
-CREATE INDEX idx_webhook_config_enabled ON webhook_endpoint_config (enabled) WHERE enabled = TRUE;
+CREATE INDEX idx_webhook_config_enabled ON webhook_endpoint_config (enabled);

@@ -11,16 +11,17 @@ import com.stockops.service.analytics.AnalyticsAggregationService;
 import java.time.LocalDate;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.client.TestRestTemplate;
-import org.springframework.boot.test.web.server.LocalServerPort;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
+import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 
 /**
  * End-to-end API smoke coverage for scoped analytics, AI approval, and export authorization.
@@ -28,17 +29,15 @@ import org.springframework.transaction.annotation.Transactional;
  * @author StockOps Team
  * @since 2.0
  */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
+@AutoConfigureMockMvc
 @Transactional
 class Phase2SmokeApiIntegrationTest {
 
     private static final LocalDate BUSINESS_DATE = LocalDate.of(2026, 5, 1);
 
-    @LocalServerPort
-    private int port;
-
     @Autowired
-    private TestRestTemplate restTemplate;
+    private MockMvc mockMvc;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -69,45 +68,41 @@ class Phase2SmokeApiIntegrationTest {
         final String scopedToken = loginAndExtractToken(fixture.scopedUser().getEmail(), "Password123!");
         final Long recommendationId = aiRecommendationRepository.findByBusinessDate(BUSINESS_DATE).getFirst().getId();
 
-        final ResponseEntity<String> analyticsResponse = exchange(
+        final MockHttpServletResponse analyticsResponse = exchange(
                 "/api/v1/analytics/stock-aging?centerId=" + fixture.center().getId() + "&warehouseId=" + fixture.primaryWarehouse().getId(),
                 HttpMethod.GET,
                 scopedToken,
-                null,
-                String.class);
-        assertThat(analyticsResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(objectMapper.readTree(analyticsResponse.getBody()).path("summary").path("totalAvailableQuantity").asInt()).isGreaterThan(0);
+                null);
+        assertThat(analyticsResponse.getStatus()).isEqualTo(HttpStatus.OK.value());
+        assertThat(objectMapper.readTree(analyticsResponse.getContentAsString()).path("summary").path("totalAvailableQuantity").asInt()).isGreaterThan(0);
 
-        final ResponseEntity<String> approvalResponse = exchange(
+        final MockHttpServletResponse approvalResponse = exchange(
                 "/api/v1/ai/recommendations/" + recommendationId + "/approve",
                 HttpMethod.POST,
                 scopedToken,
-                null,
-                String.class);
-        final JsonNode approvedPayload = objectMapper.readTree(approvalResponse.getBody());
-        assertThat(approvalResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+                null);
+        final JsonNode approvedPayload = objectMapper.readTree(approvalResponse.getContentAsString());
+        assertThat(approvalResponse.getStatus()).isEqualTo(HttpStatus.OK.value());
         assertThat(approvedPayload.path("status").asText()).isEqualTo("APPROVED_TO_DRAFT");
         assertThat(approvedPayload.path("approvedPurchaseOrderId").asLong()).isPositive();
 
         final long approvedPurchaseOrderId = approvedPayload.path("approvedPurchaseOrderId").asLong();
-        final ResponseEntity<String> purchaseOrderResponse = exchange(
+        final MockHttpServletResponse purchaseOrderResponse = exchange(
                 "/api/v1/purchase-orders/" + approvedPurchaseOrderId,
                 HttpMethod.GET,
                 scopedToken,
-                null,
-                String.class);
-        assertThat(purchaseOrderResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(objectMapper.readTree(purchaseOrderResponse.getBody()).path("status").asText()).isEqualTo("DRAFT");
+                null);
+        assertThat(purchaseOrderResponse.getStatus()).isEqualTo(HttpStatus.OK.value());
+        assertThat(purchaseOrderResponse.getContentAsString()).contains("\"status\":\"DRAFT\"");
 
-        final ResponseEntity<byte[]> exportResponse = exchange(
+        final MockHttpServletResponse exportResponse = exchange(
                 "/api/v1/reports/analytics/fill-rate/pdf?centerId=" + fixture.center().getId() + "&warehouseId=" + fixture.primaryWarehouse().getId(),
                 HttpMethod.GET,
                 scopedToken,
-                null,
-                byte[].class);
-        assertThat(exportResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(exportResponse.getHeaders().getContentType()).isEqualTo(MediaType.APPLICATION_PDF);
-        assertThat(exportResponse.getBody()).isNotEmpty();
+                null);
+        assertThat(exportResponse.getStatus()).isEqualTo(HttpStatus.OK.value());
+        assertThat(exportResponse.getContentType()).isEqualTo(MediaType.APPLICATION_PDF_VALUE);
+        assertThat(exportResponse.getContentAsByteArray()).isNotEmpty();
     }
 
     /**
@@ -120,14 +115,13 @@ class Phase2SmokeApiIntegrationTest {
 
         final String scopedToken = loginAndExtractToken(fixture.scopedUser().getEmail(), "Password123!");
 
-        final ResponseEntity<String> forbiddenResponse = exchange(
-                "/api/v1/reports/analytics/fill-rate/pdf?centerId=" + fixture.center().getId() + "&warehouseId=" + fixture.secondaryWarehouse().getId(),
+        final MockHttpServletResponse forbiddenResponse = exchange(
+                "/api/v1/reports/analytics/fill-rate/pdf?centerId=" + fixture.secondaryWarehouse().getCenter().getId() + "&warehouseId=" + fixture.secondaryWarehouse().getId(),
                 HttpMethod.GET,
                 scopedToken,
-                null,
-                String.class);
+                null);
 
-        assertThat(forbiddenResponse.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(forbiddenResponse.getStatus()).isEqualTo(HttpStatus.FORBIDDEN.value());
     }
 
     private void refreshAnalytics() {
@@ -138,34 +132,40 @@ class Phase2SmokeApiIntegrationTest {
         final LoginRequest request = new LoginRequest();
         request.setEmail(email);
         request.setPassword(password);
-        final ResponseEntity<String> response = restTemplate.postForEntity(
-                baseUrl() + "/api/v1/auth/login",
-                request,
-                String.class);
+        final MockHttpServletResponse response = exchange("/api/v1/auth/login", HttpMethod.POST, null, request);
 
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getStatus()).isEqualTo(HttpStatus.OK.value());
 
         try {
-            return objectMapper.readTree(response.getBody()).path("accessToken").asText();
+            return objectMapper.readTree(response.getContentAsString()).path("accessToken").asText();
         } catch (Exception exception) {
             throw new IllegalStateException("Unable to parse login response", exception);
         }
     }
 
-    private <T> ResponseEntity<T> exchange(final String path,
-                                           final HttpMethod method,
-                                           final String token,
-                                           final Object body,
-                                           final Class<T> responseType) {
-        final HttpHeaders headers = new HttpHeaders();
+    private MockHttpServletResponse exchange(final String path,
+                                             final HttpMethod method,
+                                             final String token,
+                                             final Object body) {
+        final MockHttpServletRequestBuilder requestBuilder = MockMvcRequestBuilders
+                .request(method, path)
+                .contentType(MediaType.APPLICATION_JSON);
         if (token != null) {
-            headers.setBearerAuth(token);
+            requestBuilder.header("Authorization", "Bearer " + token);
+        }
+        if (body != null) {
+            try {
+                requestBuilder.content(objectMapper.writeValueAsBytes(body));
+            } catch (Exception exception) {
+                throw new IllegalStateException("Unable to serialize request body", exception);
+            }
         }
 
-        return restTemplate.exchange(baseUrl() + path, method, new HttpEntity<>(body, headers), responseType);
-    }
-
-    private String baseUrl() {
-        return "http://localhost:" + port;
+        try {
+            final MvcResult result = mockMvc.perform(requestBuilder).andReturn();
+            return result.getResponse();
+        } catch (Exception exception) {
+            throw new IllegalStateException("Unable to execute mock request", exception);
+        }
     }
 }

@@ -10,9 +10,6 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
 
 import java.time.Instant;
 
@@ -23,15 +20,12 @@ import java.time.Instant;
  * @author StockOps Team
  * @since 1.0
  */
-@Data
 @Entity
 @Table(
         name = "sms_send_history",
         uniqueConstraints = @UniqueConstraint(
                 name = "uk_sms_history_message_id",
                 columnNames = {"message_id"}))
-@NoArgsConstructor
-@EqualsAndHashCode(callSuper = true)
 public class SmsSendHistory extends BaseEntity {
 
     @Id
@@ -97,5 +91,72 @@ public class SmsSendHistory extends BaseEntity {
          * Accepted but delivery not yet confirmed (future-use for delivery receipts).
          */
         PENDING
+    }
+
+    public SmsSendHistory() {
+    }
+
+    public Long getId() {
+        return this.id;
+    }
+
+    public void setId(final Long id) {
+        this.id = id;
+    }
+
+    public String getMessageId() {
+        return this.messageId;
+    }
+
+    public void setMessageId(final String messageId) {
+        this.messageId = messageId;
+    }
+
+    public String getPhoneNumber() {
+        return this.phoneNumber;
+    }
+
+    public void setPhoneNumber(final String phoneNumber) {
+        this.phoneNumber = phoneNumber;
+    }
+
+    public String getMessage() {
+        return this.message;
+    }
+
+    public void setMessage(final String message) {
+        this.message = message;
+    }
+
+    public SmsSendStatus getStatus() {
+        return this.status;
+    }
+
+    public void setStatus(final SmsSendStatus status) {
+        this.status = status;
+    }
+
+    public String getErrorMessage() {
+        return this.errorMessage;
+    }
+
+    public void setErrorMessage(final String errorMessage) {
+        this.errorMessage = errorMessage;
+    }
+
+    public int getAttemptCount() {
+        return this.attemptCount;
+    }
+
+    public void setAttemptCount(final int attemptCount) {
+        this.attemptCount = attemptCount;
+    }
+
+    public Instant getSentAt() {
+        return this.sentAt;
+    }
+
+    public void setSentAt(final Instant sentAt) {
+        this.sentAt = sentAt;
     }
 }

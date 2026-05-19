@@ -2,7 +2,6 @@ package com.stockops.controller;
 
 import com.stockops.dto.AuditLogDTO;
 import com.stockops.service.AuditLogService;
-import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -24,7 +23,6 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/api/v1/audit-logs")
-@RequiredArgsConstructor
 public class AuditLogController {
 
     private final AuditLogService auditLogService;
@@ -61,4 +59,9 @@ public class AuditLogController {
     public ResponseEntity<List<AuditLogDTO>> getRecentAuditLogs() {
         return ResponseEntity.ok(auditLogService.getRecentAuditLogs(50));
     }
+
+    public AuditLogController(final AuditLogService auditLogService) {
+        this.auditLogService = auditLogService;
+    }
+
 }

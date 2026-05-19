@@ -3,7 +3,6 @@ package com.stockops.security;
 import com.stockops.entity.User;
 import com.stockops.exception.InvalidOperationException;
 import com.stockops.repository.UserRepository;
-import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
@@ -15,7 +14,6 @@ import org.springframework.stereotype.Component;
  * @since 1.0
  */
 @Component
-@RequiredArgsConstructor
 public class CurrentUserProvider {
 
     private final UserRepository userRepository;
@@ -56,4 +54,9 @@ public class CurrentUserProvider {
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new InvalidOperationException("Authenticated user not found"));
     }
+
+    public CurrentUserProvider(final UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
+
 }

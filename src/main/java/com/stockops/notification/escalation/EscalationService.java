@@ -4,7 +4,6 @@ import com.stockops.exception.ResourceNotFoundException;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,7 +15,6 @@ import org.springframework.transaction.annotation.Transactional;
  * @since 2.0
  */
 @Service
-@RequiredArgsConstructor
 @Transactional
 public class EscalationService {
 
@@ -144,4 +142,9 @@ public class EscalationService {
         policy.setActive(false);
         policyRepository.save(policy);
     }
+
+    public EscalationService(final EscalationPolicyRepository policyRepository) {
+        this.policyRepository = policyRepository;
+    }
+
 }

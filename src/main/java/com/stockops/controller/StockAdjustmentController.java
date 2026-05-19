@@ -7,7 +7,6 @@ import com.stockops.exception.InvalidOperationException;
 import com.stockops.repository.UserRepository;
 import com.stockops.service.StockAdjustmentService;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -31,7 +30,6 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/api/v1/inventory/adjustments")
-@RequiredArgsConstructor
 public class StockAdjustmentController {
 
     private final StockAdjustmentService adjustmentService;
@@ -117,5 +115,10 @@ public class StockAdjustmentController {
         return userRepository.findByEmail(principal.getName())
                 .map(user -> user.getId())
                 .orElseThrow(() -> new InvalidOperationException("Authenticated user not found"));
+    }
+
+    public StockAdjustmentController(final StockAdjustmentService adjustmentService, final UserRepository userRepository) {
+        this.adjustmentService = adjustmentService;
+        this.userRepository = userRepository;
     }
 }

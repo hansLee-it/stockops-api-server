@@ -19,6 +19,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.security.authentication.TestingAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,7 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
  * @since 2.0
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
-@AutoConfigureMockMvc
+@AutoConfigureMockMvc(addFilters = false)
 @Transactional
 class InventoryTurnoverControllerTest {
 
@@ -44,8 +46,10 @@ class InventoryTurnoverControllerTest {
     private PermissionChecker permissionChecker;
 
     private void stubPermissions() {
+        SecurityContextHolder.getContext()
+                .setAuthentication(new TestingAuthenticationToken("test-user", "n/a", "ROLE_ADMIN"));
         when(permissionChecker.hasPermission(anyString())).thenReturn(true);
-        when(permissionChecker.hasAnyPermission(any())).thenReturn(true);
+        when(permissionChecker.hasAnyPermission(any(String[].class))).thenReturn(true);
         when(permissionChecker.hasCenterScope(anyLong())).thenReturn(true);
         when(permissionChecker.hasWarehouseScope(anyLong())).thenReturn(true);
         when(permissionChecker.hasPermissionForCenter(anyString(), anyLong())).thenReturn(true);

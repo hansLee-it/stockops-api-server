@@ -13,8 +13,6 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 
 import java.time.Instant;
 import java.util.LinkedHashSet;
@@ -26,10 +24,8 @@ import java.util.Set;
  * @author StockOps Team
  * @since 1.0
  */
-@Data
 @Entity
 @Table(name = "roles")
-@NoArgsConstructor
 @EntityListeners(com.stockops.audit.MutationAuditEntityListener.class)
 public class Role {
 
@@ -56,5 +52,48 @@ public class Role {
     @PrePersist
     protected void onCreate() {
         this.createdAt = Instant.now();
+    }
+
+    public Role() {
+    }
+
+    public Long getId() {
+        return this.id;
+    }
+
+    public void setId(final Long id) {
+        this.id = id;
+    }
+
+    public String getName() {
+        return this.name;
+    }
+
+    public void setName(final String name) {
+        this.name = name;
+    }
+
+    public String getDescription() {
+        return this.description;
+    }
+
+    public void setDescription(final String description) {
+        this.description = description;
+    }
+
+    public Instant getCreatedAt() {
+        return this.createdAt;
+    }
+
+    public void setCreatedAt(final Instant createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public Set<ScopeAssignment> getScopeAssignments() {
+        return this.scopeAssignments;
+    }
+
+    public void setScopeAssignments(final Set<ScopeAssignment> scopeAssignments) {
+        this.scopeAssignments = scopeAssignments;
     }
 }

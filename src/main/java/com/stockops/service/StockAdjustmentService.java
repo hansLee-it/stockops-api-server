@@ -18,7 +18,6 @@ import com.stockops.repository.InventoryTransactionRepository;
 import com.stockops.repository.ReasonCodeRepository;
 import com.stockops.repository.StockAdjustmentRepository;
 import com.stockops.repository.UserRepository;
-import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,7 +36,6 @@ import java.util.List;
  * @see AuditLogRepository
  */
 @Service
-@RequiredArgsConstructor
 public class StockAdjustmentService {
 
     private static final String STATUS_PENDING = "PENDING";
@@ -269,5 +267,16 @@ public class StockAdjustmentService {
 
     private int nullSafeQuantity(final Integer quantity) {
         return quantity == null ? 0 : quantity;
+    }
+
+    public StockAdjustmentService(final StockAdjustmentRepository adjustmentRepository, final InventoryRepository inventoryRepository, final InventoryTransactionRepository transactionRepository, final AuditLogRepository auditLogRepository, final ReasonCodeRepository reasonCodeRepository, final UserRepository userRepository, final WebSocketStockPublisher webSocketStockPublisher, final MetricsConfig metricsConfig) {
+        this.adjustmentRepository = adjustmentRepository;
+        this.inventoryRepository = inventoryRepository;
+        this.transactionRepository = transactionRepository;
+        this.auditLogRepository = auditLogRepository;
+        this.reasonCodeRepository = reasonCodeRepository;
+        this.userRepository = userRepository;
+        this.webSocketStockPublisher = webSocketStockPublisher;
+        this.metricsConfig = metricsConfig;
     }
 }

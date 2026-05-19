@@ -1,7 +1,7 @@
 package com.stockops.notification.kakao;
 
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.Map;
@@ -16,9 +16,7 @@ import java.util.Map;
  * @since 1.0
  * @see KakaoTalkConfig
  */
-@Slf4j
 @Service
-@RequiredArgsConstructor
 public class KakaoTalkService {
 
     private final KakaoTalkConfig config;
@@ -50,4 +48,11 @@ public class KakaoTalkService {
                 phoneNumber, message);
         return true;
     }
+
+    private static final Logger log = LoggerFactory.getLogger(KakaoTalkService.class);
+
+    public KakaoTalkService(final KakaoTalkConfig config) {
+        this.config = config;
+    }
+
 }

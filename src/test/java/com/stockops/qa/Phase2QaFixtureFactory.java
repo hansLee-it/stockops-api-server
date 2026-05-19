@@ -23,14 +23,20 @@ import com.stockops.repository.WarehouseRepository;
 import com.stockops.repository.analytics.AnalyticsExpiryWasteRepository;
 import com.stockops.repository.analytics.AnalyticsFillRateSourceRepository;
 import com.stockops.repository.analytics.AnalyticsPurchaseOrderLeadTimeRepository;
+import com.stockops.security.ScopeAccessProfile;
 import com.stockops.security.ScopeAssignment;
 import com.stockops.security.ScopeType;
+import com.stockops.security.ScopedUserDetails;
 import com.stockops.service.InventoryService;
 import com.stockops.service.OutboundService;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
@@ -102,8 +108,13 @@ public class Phase2QaFixtureFactory {
         primaryWarehouse.setName("Warehouse 10");
         final Warehouse savedPrimaryWarehouse = warehouseRepository.save(primaryWarehouse);
 
+        final Center secondaryCenter = new Center();
+        secondaryCenter.setCode("CENTER-B");
+        secondaryCenter.setName("Center B");
+        final Center savedSecondaryCenter = centerRepository.save(secondaryCenter);
+
         final Warehouse secondaryWarehouse = new Warehouse();
-        secondaryWarehouse.setCenter(savedCenter);
+        secondaryWarehouse.setCenter(savedSecondaryCenter);
         secondaryWarehouse.setCode("WH-11");
         secondaryWarehouse.setName("Warehouse 11");
         final Warehouse savedSecondaryWarehouse = warehouseRepository.save(secondaryWarehouse);
@@ -129,17 +140,36 @@ public class Phase2QaFixtureFactory {
         lot.setProductId(savedProduct.getId());
         lot.setExpiryDate(LocalDate.of(2026, 12, 31));
         lot.setReceivedDate(LocalDate.of(2026, 4, 1));
-        lot.setQuantity(90);
+        lot.setQuantity(120);
         lot.setStatus(LotStatus.ACTIVE);
         final Lot savedLot = lotRepository.save(lot);
 
-        inventoryService.increaseStock(savedProduct.getId(), savedLocation.getId(), savedLot.getId(), 90, "INBOUND", 1L, null);
+        final Role adminRole = roleRepository.findByName("ADMIN").orElseThrow();
+        final User scopedUser = new User();
+        scopedUser.setEmail("manager.center-a@stockops.local");
+        scopedUser.setPassword(passwordEncoder.encode("Password123!"));
+        scopedUser.setName("Center A Manager");
+        scopedUser.setEnabled(true);
+        scopedUser.setRole(adminRole);
+        scopedUser.setScopeAssignments(new LinkedHashSet<>(Set.of(new ScopeAssignment(ScopeType.WAREHOUSE, savedCenter.getId(), savedPrimaryWarehouse.getId()))));
+        final User savedScopedUser = userRepository.save(scopedUser);
+
+        final User systemUser = new User();
+        systemUser.setEmail("phase2-system-" + System.nanoTime() + "@stockops.local");
+        systemUser.setPassword(passwordEncoder.encode("Password123!"));
+        systemUser.setName("Phase2 System User");
+        systemUser.setEnabled(true);
+        systemUser.setRole(adminRole);
+        final User savedSystemUser = userRepository.save(systemUser);
+        authenticateAsGlobalAdmin(savedSystemUser);
+
+        inventoryService.increaseStock(savedProduct.getId(), savedLocation.getId(), savedLot.getId(), 120, "INBOUND", 1L, null);
 
         for (int day = 0; day < 28; day++) {
             final LocalDate outboundDate = LocalDate.of(2026, 5, 1).minusDays(28L - day);
-            final var outbound = outboundService.createOutbound(new CreateOutboundRequest(outboundDate, "QA Customer"), null);
+            final var outbound = outboundService.createOutbound(new CreateOutboundRequest(outboundDate, "QA Customer"), savedSystemUser.getId());
             outboundService.addItem(outbound.id(), new AddOutboundItemRequest(savedProduct.getId(), day % 2 == 0 ? 3 : 4));
-            outboundService.confirmOutbound(outbound.id(), null);
+            outboundService.confirmOutbound(outbound.id(), savedSystemUser.getId());
         }
 
         final AnalyticsExpiryWaste expiryWaste = new AnalyticsExpiryWaste();
@@ -173,17 +203,28 @@ public class Phase2QaFixtureFactory {
         fillRateSource.setShippedQuantity(12);
         analyticsFillRateSourceRepository.save(fillRateSource);
 
-        final Role adminRole = roleRepository.findByName("ADMIN").orElseThrow();
-        final User scopedUser = new User();
-        scopedUser.setEmail("manager.center-a@stockops.local");
-        scopedUser.setPassword(passwordEncoder.encode("Password123!"));
-        scopedUser.setName("Center A Manager");
-        scopedUser.setEnabled(true);
-        scopedUser.setRole(adminRole);
-        scopedUser.setScopeAssignments(new LinkedHashSet<>(Set.of(new ScopeAssignment(ScopeType.WAREHOUSE, savedCenter.getId(), savedPrimaryWarehouse.getId()))));
-        final User savedScopedUser = userRepository.save(scopedUser);
-
+        SecurityContextHolder.clearContext();
         return new Phase2QaFixture(savedCenter, savedPrimaryWarehouse, savedSecondaryWarehouse, savedLocation, savedProduct, savedScopedUser);
+    }
+
+    private void authenticateAsGlobalAdmin(final User user) {
+        final ScopeAccessProfile scope = new ScopeAccessProfile(
+                true,
+                List.of(ScopeAssignment.global()),
+                Set.of(),
+                Set.of());
+        final ScopedUserDetails userDetails = new ScopedUserDetails(
+                user.getId(),
+                user.getEmail(),
+                user.getPassword(),
+                true,
+                List.of(new SimpleGrantedAuthority("INVENTORY_READ")),
+                scope);
+        SecurityContextHolder.getContext()
+                .setAuthentication(new UsernamePasswordAuthenticationToken(
+                        userDetails,
+                        null,
+                        userDetails.getAuthorities()));
     }
 
     public record Phase2QaFixture(Center center,

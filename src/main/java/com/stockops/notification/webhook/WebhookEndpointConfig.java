@@ -9,9 +9,6 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
 
 /**
  * Persistent configuration for a webhook endpoint.
@@ -21,11 +18,8 @@ import lombok.NoArgsConstructor;
  * @author StockOps Team
  * @since 1.0
  */
-@Data
 @Entity
 @Table(name = "webhook_endpoint_config")
-@NoArgsConstructor
-@EqualsAndHashCode(callSuper = true)
 public class WebhookEndpointConfig extends BaseEntity {
 
     @Id
@@ -65,5 +59,64 @@ public class WebhookEndpointConfig extends BaseEntity {
         DISCORD,
         TEAMS,
         GENERIC
+    }
+
+    public WebhookEndpointConfig() {
+    }
+
+    public Long getId() {
+        return this.id;
+    }
+
+    public void setId(final Long id) {
+        this.id = id;
+    }
+
+    public Long getCenterId() {
+        return this.centerId;
+    }
+
+    public void setCenterId(final Long centerId) {
+        this.centerId = centerId;
+    }
+
+    public Long getWarehouseId() {
+        return this.warehouseId;
+    }
+
+    public void setWarehouseId(final Long warehouseId) {
+        this.warehouseId = warehouseId;
+    }
+
+    public WebhookProviderType getProviderType() {
+        return this.providerType;
+    }
+
+    public void setProviderType(final WebhookProviderType providerType) {
+        this.providerType = providerType;
+    }
+
+    public String getWebhookUrl() {
+        return this.webhookUrl;
+    }
+
+    public void setWebhookUrl(final String webhookUrl) {
+        this.webhookUrl = webhookUrl;
+    }
+
+    public boolean isEnabled() {
+        return this.enabled;
+    }
+
+    public void setEnabled(final boolean enabled) {
+        this.enabled = enabled;
+    }
+
+    public String getExtraConfig() {
+        return this.extraConfig;
+    }
+
+    public void setExtraConfig(final String extraConfig) {
+        this.extraConfig = extraConfig;
     }
 }

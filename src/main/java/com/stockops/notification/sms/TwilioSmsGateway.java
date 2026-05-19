@@ -1,7 +1,8 @@
 package com.stockops.notification.sms;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.stockops.config.SmsConfig;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.stereotype.Component;
@@ -25,7 +26,6 @@ import org.springframework.http.ResponseEntity;
  * @author StockOps Team
  * @since 1.0
  */
-@Slf4j
 @Component
 @ConditionalOnProperty(name = "sms.enabled", havingValue = "true")
 public class TwilioSmsGateway implements SmsGateway {
@@ -100,4 +100,6 @@ public class TwilioSmsGateway implements SmsGateway {
     }
 
     record TwilioResponse(String messageSid, String status, String errorMessage) {}
+
+    private static final Logger log = LoggerFactory.getLogger(TwilioSmsGateway.class);
 }

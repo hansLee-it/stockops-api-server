@@ -1,7 +1,7 @@
 package com.stockops.notification.webhook;
 
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.Map;
@@ -19,9 +19,7 @@ import java.util.Map;
  * @see WebhookProviderRegistry
  * @see WebhookProvider
  */
-@Slf4j
 @Service
-@RequiredArgsConstructor
 public class WebhookService {
 
     private final WebhookProviderRegistry registry;
@@ -69,4 +67,11 @@ public class WebhookService {
                     providerType, payload.eventType(), e.getMessage(), e);
         }
     }
+
+    private static final Logger log = LoggerFactory.getLogger(WebhookService.class);
+
+    public WebhookService(final WebhookProviderRegistry registry) {
+        this.registry = registry;
+    }
+
 }

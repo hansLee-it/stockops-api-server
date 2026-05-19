@@ -37,7 +37,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -49,7 +48,6 @@ import org.springframework.transaction.annotation.Transactional;
  * @since 2.0
  */
 @Service
-@RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class AnalyticsReportingService {
 
@@ -648,5 +646,17 @@ public class AnalyticsReportingService {
             this.cancelledQuantity += cancelledDelta;
             this.shippedQuantity += shippedDelta;
         }
+    }
+
+    public AnalyticsReportingService(final AnalyticsDemandHistoryRepository analyticsDemandHistoryRepository, final AnalyticsStockPositionRepository analyticsStockPositionRepository, final AnalyticsExpiryWasteRepository analyticsExpiryWasteRepository, final AnalyticsPurchaseOrderLeadTimeRepository analyticsPurchaseOrderLeadTimeRepository, final AnalyticsFillRateSourceRepository analyticsFillRateSourceRepository, final ProductRepository productRepository, final CenterRepository centerRepository, final WarehouseRepository warehouseRepository, final ScopeGuard scopeGuard) {
+        this.analyticsDemandHistoryRepository = analyticsDemandHistoryRepository;
+        this.analyticsStockPositionRepository = analyticsStockPositionRepository;
+        this.analyticsExpiryWasteRepository = analyticsExpiryWasteRepository;
+        this.analyticsPurchaseOrderLeadTimeRepository = analyticsPurchaseOrderLeadTimeRepository;
+        this.analyticsFillRateSourceRepository = analyticsFillRateSourceRepository;
+        this.productRepository = productRepository;
+        this.centerRepository = centerRepository;
+        this.warehouseRepository = warehouseRepository;
+        this.scopeGuard = scopeGuard;
     }
 }

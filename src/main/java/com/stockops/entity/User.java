@@ -1,5 +1,6 @@
 package com.stockops.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.stockops.security.ScopeAssignment;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
@@ -12,9 +13,6 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
 
 import java.util.LinkedHashSet;
 import java.util.Set;
@@ -27,11 +25,8 @@ import java.util.Set;
  * @since 1.0
  * @see Role
  */
-@Data
 @Entity
 @Table(name = "users")
-@NoArgsConstructor
-@EqualsAndHashCode(callSuper = true)
 public class User extends BaseEntity {
 
     @Id
@@ -63,4 +58,72 @@ public class User extends BaseEntity {
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "user_scope_assignments", joinColumns = @JoinColumn(name = "user_id"))
     private Set<ScopeAssignment> scopeAssignments = new LinkedHashSet<>();
+
+    public User() {
+    }
+
+    public Long getId() {
+        return this.id;
+    }
+
+    public void setId(final Long id) {
+        this.id = id;
+    }
+
+    public String getEmail() {
+        return this.email;
+    }
+
+    public void setEmail(final String email) {
+        this.email = email;
+    }
+
+    @JsonIgnore
+    public String getPassword() {
+        return this.password;
+    }
+
+    public void setPassword(final String password) {
+        this.password = password;
+    }
+
+    public String getName() {
+        return this.name;
+    }
+
+    public void setName(final String name) {
+        this.name = name;
+    }
+
+    public boolean isEnabled() {
+        return this.enabled;
+    }
+
+    public void setEnabled(final boolean enabled) {
+        this.enabled = enabled;
+    }
+
+    public String getPhone() {
+        return this.phone;
+    }
+
+    public void setPhone(final String phone) {
+        this.phone = phone;
+    }
+
+    public Role getRole() {
+        return this.role;
+    }
+
+    public void setRole(final Role role) {
+        this.role = role;
+    }
+
+    public Set<ScopeAssignment> getScopeAssignments() {
+        return this.scopeAssignments;
+    }
+
+    public void setScopeAssignments(final Set<ScopeAssignment> scopeAssignments) {
+        this.scopeAssignments = scopeAssignments;
+    }
 }

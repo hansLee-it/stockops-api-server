@@ -1,5 +1,7 @@
 package com.stockops.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.stockops.entity.AuditLog;
 import com.stockops.entity.Inventory;
 import com.stockops.entity.InventoryStatus;
@@ -12,8 +14,6 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -29,9 +29,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  * @see InventoryRepository
  * @see AuditLogRepository
  */
-@Slf4j
 @Service
-@RequiredArgsConstructor
 public class ExpiryQuarantineService {
 
     private static final String AUDIT_ACTION_AUTO_QUARANTINE = "AUTO_QUARANTINE";
@@ -127,5 +125,14 @@ public class ExpiryQuarantineService {
         auditLog.setPerformedBy(null);
         auditLog.setPerformedAt(Instant.now());
         auditLogRepository.save(auditLog);
+    }
+
+    private static final Logger log = LoggerFactory.getLogger(ExpiryQuarantineService.class);
+
+    public ExpiryQuarantineService(final LotRepository lotRepository, final InventoryRepository inventoryRepository, final AuditLogRepository auditLogRepository, final TransactionTemplate transactionTemplate) {
+        this.lotRepository = lotRepository;
+        this.inventoryRepository = inventoryRepository;
+        this.auditLogRepository = auditLogRepository;
+        this.transactionTemplate = transactionTemplate;
     }
 }

@@ -5,7 +5,6 @@ import com.stockops.entity.Location;
 import com.stockops.entity.Warehouse;
 import com.stockops.repository.InventoryRepository;
 import com.stockops.repository.LocationRepository;
-import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,7 +20,6 @@ import java.util.Map;
  * @since 2.0
  */
 @Service
-@RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class CenterInventoryAggregationService {
 
@@ -36,7 +34,7 @@ public class CenterInventoryAggregationService {
      * @param centerId center identifier
      * @return aggregated inventory summary
      */
-    @Cacheable(value = "center::inventory", key = "#centerId", sync = true)
+    @Cacheable(value = "center::inventory", key = "#centerId")
     public Map<String, Object> getCenterInventorySummary(Long centerId) {
         List<Warehouse> warehouses = warehouseService.findByCenterId(centerId);
 
@@ -63,5 +61,11 @@ public class CenterInventoryAggregationService {
         summary.put("totalItems", totalItems);
 
         return summary;
+    }
+
+    public CenterInventoryAggregationService(final WarehouseService warehouseService, final LocationRepository locationRepository, final InventoryRepository inventoryRepository) {
+        this.warehouseService = warehouseService;
+        this.locationRepository = locationRepository;
+        this.inventoryRepository = inventoryRepository;
     }
 }

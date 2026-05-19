@@ -10,9 +10,6 @@ import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
 
 /**
  * Persisted deterministic demand-forecast snapshot for a product and warehouse scope.
@@ -21,7 +18,6 @@ import lombok.NoArgsConstructor;
  * @author StockOps Team
  * @since 2.0
  */
-@Data
 @Entity
 @Table(
         schema = "analytics",
@@ -29,8 +25,6 @@ import lombok.NoArgsConstructor;
         uniqueConstraints = @UniqueConstraint(
                 name = "uk_ai_forecast_snapshot_scope_date",
                 columnNames = {"business_date", "product_id", "center_id", "warehouse_id"}))
-@NoArgsConstructor
-@EqualsAndHashCode(callSuper = true)
 public class AIForecastSnapshot extends BaseEntity {
 
     @Id
@@ -87,4 +81,151 @@ public class AIForecastSnapshot extends BaseEntity {
 
     @Column(name = "model_version", nullable = false, length = 50)
     private String modelVersion = "statistical";
+
+    public AIForecastSnapshot() {
+    }
+
+    public Long getId() {
+        return this.id;
+    }
+
+    public void setId(final Long id) {
+        this.id = id;
+    }
+
+    public LocalDate getBusinessDate() {
+        return this.businessDate;
+    }
+
+    public void setBusinessDate(final LocalDate businessDate) {
+        this.businessDate = businessDate;
+    }
+
+    public LocalDate getForecastStartDate() {
+        return this.forecastStartDate;
+    }
+
+    public void setForecastStartDate(final LocalDate forecastStartDate) {
+        this.forecastStartDate = forecastStartDate;
+    }
+
+    public LocalDate getForecastEndDate() {
+        return this.forecastEndDate;
+    }
+
+    public void setForecastEndDate(final LocalDate forecastEndDate) {
+        this.forecastEndDate = forecastEndDate;
+    }
+
+    public Long getProductId() {
+        return this.productId;
+    }
+
+    public void setProductId(final Long productId) {
+        this.productId = productId;
+    }
+
+    public Long getCenterId() {
+        return this.centerId;
+    }
+
+    public void setCenterId(final Long centerId) {
+        this.centerId = centerId;
+    }
+
+    public Long getWarehouseId() {
+        return this.warehouseId;
+    }
+
+    public void setWarehouseId(final Long warehouseId) {
+        this.warehouseId = warehouseId;
+    }
+
+    public BigDecimal getTrailingSevenDayAverage() {
+        return this.trailingSevenDayAverage;
+    }
+
+    public void setTrailingSevenDayAverage(final BigDecimal trailingSevenDayAverage) {
+        this.trailingSevenDayAverage = trailingSevenDayAverage;
+    }
+
+    public BigDecimal getSameWeekdayAverage() {
+        return this.sameWeekdayAverage;
+    }
+
+    public void setSameWeekdayAverage(final BigDecimal sameWeekdayAverage) {
+        this.sameWeekdayAverage = sameWeekdayAverage;
+    }
+
+    public BigDecimal getWeightedDailyDemand() {
+        return this.weightedDailyDemand;
+    }
+
+    public void setWeightedDailyDemand(final BigDecimal weightedDailyDemand) {
+        this.weightedDailyDemand = weightedDailyDemand;
+    }
+
+    public Integer getSevenDayForecastQuantity() {
+        return this.sevenDayForecastQuantity;
+    }
+
+    public void setSevenDayForecastQuantity(final Integer sevenDayForecastQuantity) {
+        this.sevenDayForecastQuantity = sevenDayForecastQuantity;
+    }
+
+    public Integer getLeadTimeDays() {
+        return this.leadTimeDays;
+    }
+
+    public void setLeadTimeDays(final Integer leadTimeDays) {
+        this.leadTimeDays = leadTimeDays;
+    }
+
+    public Integer getLeadTimeDemandQuantity() {
+        return this.leadTimeDemandQuantity;
+    }
+
+    public void setLeadTimeDemandQuantity(final Integer leadTimeDemandQuantity) {
+        this.leadTimeDemandQuantity = leadTimeDemandQuantity;
+    }
+
+    public Integer getHistoryDaysConsidered() {
+        return this.historyDaysConsidered;
+    }
+
+    public void setHistoryDaysConsidered(final Integer historyDaysConsidered) {
+        this.historyDaysConsidered = historyDaysConsidered;
+    }
+
+    public Integer getDemandEventCount() {
+        return this.demandEventCount;
+    }
+
+    public void setDemandEventCount(final Integer demandEventCount) {
+        this.demandEventCount = demandEventCount;
+    }
+
+    public boolean isInsufficientHistory() {
+        return this.insufficientHistory;
+    }
+
+    public void setInsufficientHistory(final boolean insufficientHistory) {
+        this.insufficientHistory = insufficientHistory;
+    }
+
+    public String getExplanationSummary() {
+        return this.explanationSummary;
+    }
+
+    public void setExplanationSummary(final String explanationSummary) {
+        this.explanationSummary = explanationSummary;
+    }
+
+    public String getModelVersion() {
+        return this.modelVersion;
+    }
+
+    public void setModelVersion(final String modelVersion) {
+        this.modelVersion = modelVersion;
+    }
 }

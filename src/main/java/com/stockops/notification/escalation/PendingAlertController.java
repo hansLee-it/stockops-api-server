@@ -2,7 +2,6 @@ package com.stockops.notification.escalation;
 
 import java.security.Principal;
 import java.util.List;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -22,7 +21,6 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/api/v1/pending-alerts")
-@RequiredArgsConstructor
 public class PendingAlertController {
 
     private final PendingAlertService pendingAlertService;
@@ -77,4 +75,9 @@ public class PendingAlertController {
                 alert.getCreatedAt(),
                 alert.getUpdatedAt());
     }
+
+    public PendingAlertController(final PendingAlertService pendingAlertService) {
+        this.pendingAlertService = pendingAlertService;
+    }
+
 }

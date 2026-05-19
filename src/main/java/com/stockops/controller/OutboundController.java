@@ -8,7 +8,6 @@ import com.stockops.service.OutboundService;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.List;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -29,7 +28,6 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/api/v1/outbounds")
-@RequiredArgsConstructor
 public class OutboundController {
 
     private final OutboundService outboundService;
@@ -111,5 +109,10 @@ public class OutboundController {
     @PreAuthorize("@permissionChecker.hasPermission('OUTBOUND_READ')")
     public ResponseEntity<List<OutboundItemDTO>> getOutboundItems(@PathVariable final Long id) {
         return ResponseEntity.ok(outboundService.getOutboundItems(id));
+    }
+
+    public OutboundController(final OutboundService outboundService, final com.stockops.security.CurrentUserProvider currentUserProvider) {
+        this.outboundService = outboundService;
+        this.currentUserProvider = currentUserProvider;
     }
 }

@@ -4,11 +4,16 @@
 -- ============================================
 -- 1. ENVIRONMENT PERMISSIONS
 -- ============================================
-INSERT INTO permissions (code, description) VALUES
+INSERT INTO permissions (code, description)
+SELECT source.code, source.description
+FROM (VALUES
 ('ENVIRONMENT_READ', 'Read environment monitoring data (sensors, controllers, dashboard, alerts, history)'),
 ('ENVIRONMENT_MANAGE', 'Manage environment sensors and controllers (create, update, delete)'),
 ('ENVIRONMENT_COMMAND', 'Send commands to environment controllers')
-ON CONFLICT (code) DO NOTHING;
+) AS source (code, description)
+WHERE NOT EXISTS (
+    SELECT 1 FROM permissions target WHERE target.code = source.code
+);
 
 -- ============================================
 -- 2. ADMIN ROLE GETS ALL ENVIRONMENT PERMISSIONS
@@ -19,7 +24,11 @@ FROM roles r
 CROSS JOIN permissions p
 WHERE r.name = 'ADMIN'
   AND p.code IN ('ENVIRONMENT_READ', 'ENVIRONMENT_MANAGE', 'ENVIRONMENT_COMMAND')
-ON CONFLICT (role_id, permission_id) DO NOTHING;
+AND NOT EXISTS (
+    SELECT 1 FROM role_permissions existing
+    WHERE existing.role_id = r.id
+      AND existing.permission_id = p.id
+);
 
 -- ============================================
 -- 3. MANAGER ROLE GETS READ + MANAGE + COMMAND
@@ -33,7 +42,11 @@ JOIN permissions p ON p.code IN (
     'ENVIRONMENT_COMMAND'
 )
 WHERE r.name = 'MANAGER'
-ON CONFLICT (role_id, permission_id) DO NOTHING;
+AND NOT EXISTS (
+    SELECT 1 FROM role_permissions existing
+    WHERE existing.role_id = r.id
+      AND existing.permission_id = p.id
+);
 
 -- ============================================
 -- 4. USER/STAFF ROLE GETS READ ONLY
@@ -43,4 +56,8 @@ SELECT r.id, p.id
 FROM roles r
 JOIN permissions p ON p.code IN ('ENVIRONMENT_READ')
 WHERE r.name IN ('USER', 'STAFF')
-ON CONFLICT (role_id, permission_id) DO NOTHING;
+AND NOT EXISTS (
+    SELECT 1 FROM role_permissions existing
+    WHERE existing.role_id = r.id
+      AND existing.permission_id = p.id
+);

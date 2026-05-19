@@ -6,9 +6,6 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
 
 /**
  * Stock adjustment entity.
@@ -16,11 +13,8 @@ import lombok.NoArgsConstructor;
  * @author StockOps Team
  * @since 1.0
  */
-@Data
 @Entity
 @Table(name = "stock_adjustments")
-@NoArgsConstructor
-@EqualsAndHashCode(callSuper = true)
 public class StockAdjustment extends BaseEntity {
 
     @Id
@@ -53,4 +47,87 @@ public class StockAdjustment extends BaseEntity {
 
     @Column(name = "approved_by")
     private Long approvedBy;
+
+    public StockAdjustment() {
+    }
+
+    public Long getId() {
+        return this.id;
+    }
+
+    public void setId(final Long id) {
+        this.id = id;
+    }
+
+    public Long getInventoryId() {
+        return this.inventoryId;
+    }
+
+    public void setInventoryId(final Long inventoryId) {
+        this.inventoryId = inventoryId;
+    }
+
+    public Integer getBeforeQuantity() {
+        return this.beforeQuantity;
+    }
+
+    public void setBeforeQuantity(final Integer beforeQuantity) {
+        this.beforeQuantity = beforeQuantity;
+    }
+
+    public Integer getAfterQuantity() {
+        return this.afterQuantity;
+    }
+
+    public void setAfterQuantity(final Integer afterQuantity) {
+        this.afterQuantity = afterQuantity;
+    }
+
+    public Integer getDifference() {
+        return this.difference;
+    }
+
+    public void setDifference(final Integer difference) {
+        this.difference = difference;
+    }
+
+    public Long getReasonCodeId() {
+        return this.reasonCodeId;
+    }
+
+    public void setReasonCodeId(final Long reasonCodeId) {
+        this.reasonCodeId = reasonCodeId;
+    }
+
+    public String getNote() {
+        return this.note;
+    }
+
+    public void setNote(final String note) {
+        this.note = note;
+    }
+
+    public String getStatus() {
+        return this.status;
+    }
+
+    public void setStatus(final String status) {
+        this.status = status;
+    }
+
+    public Long getCreatedBy() {
+        return this.createdBy;
+    }
+
+    public void setCreatedBy(final Long createdBy) {
+        this.createdBy = createdBy;
+    }
+
+    public Long getApprovedBy() {
+        return this.approvedBy;
+    }
+
+    public void setApprovedBy(final Long approvedBy) {
+        this.approvedBy = approvedBy;
+    }
 }

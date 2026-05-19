@@ -9,7 +9,6 @@ import jakarta.validation.Valid;
 import java.net.URI;
 import java.security.Principal;
 import java.util.List;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -28,7 +27,6 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/api/v1/inventory-transfers")
-@RequiredArgsConstructor
 public class InventoryTransferController {
 
     private final InventoryTransferService transferService;
@@ -82,5 +80,10 @@ public class InventoryTransferController {
         return userRepository.findByEmail(principal.getName())
                 .map(user -> user.getId())
                 .orElseThrow(() -> new InvalidOperationException("Authenticated user not found"));
+    }
+
+    public InventoryTransferController(final InventoryTransferService transferService, final UserRepository userRepository) {
+        this.transferService = transferService;
+        this.userRepository = userRepository;
     }
 }

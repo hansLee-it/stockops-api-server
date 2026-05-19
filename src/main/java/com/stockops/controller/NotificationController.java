@@ -5,7 +5,6 @@ import com.stockops.service.NotificationService;
 import java.security.Principal;
 import java.util.List;
 import java.util.Map;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -25,7 +24,6 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/api/v1/notifications")
-@RequiredArgsConstructor
 public class NotificationController {
 
     private final NotificationService notificationService;
@@ -82,4 +80,9 @@ public class NotificationController {
         notificationService.markAllAsRead(principal.getName());
         return ResponseEntity.ok().build();
     }
+
+    public NotificationController(final NotificationService notificationService) {
+        this.notificationService = notificationService;
+    }
+
 }

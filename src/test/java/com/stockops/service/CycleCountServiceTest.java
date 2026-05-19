@@ -82,6 +82,7 @@ class CycleCountServiceTest {
         final Inventory inventory = new Inventory();
         inventory.setId(100L);
         inventory.setLocationId(300L);
+        inventory.setQuantity(7);
 
         when(userRepository.existsById(9L)).thenReturn(true);
         when(locationRepository.existsById(300L)).thenReturn(true);
@@ -149,6 +150,36 @@ class CycleCountServiceTest {
         final ArgumentCaptor<CycleCount> cycleCountCaptor = ArgumentCaptor.forClass(CycleCount.class);
         verify(cycleCountRepository).save(cycleCountCaptor.capture());
         assertThat(cycleCountCaptor.getValue().getStatus()).isEqualTo(CycleCountStatus.IN_PROGRESS);
+    }
+
+    /**
+     * Verifies that cycle counts are listed with their detail rows.
+     */
+    @Test
+    void listCycleCountsReturnsCountsWithItems() {
+        final CycleCount cycleCount = new CycleCount();
+        cycleCount.setId(10L);
+        cycleCount.setStatus(CycleCountStatus.PENDING);
+        cycleCount.setLocationId(300L);
+        cycleCount.setCreatedBy(9L);
+
+        final CycleCountItem item = new CycleCountItem();
+        item.setId(1L);
+        item.setCycleCountId(10L);
+        item.setInventoryId(100L);
+        item.setExpectedQuantity(5);
+
+        when(cycleCountRepository.findAllByOrderByCreatedAtDescIdDesc()).thenReturn(List.of(cycleCount));
+        when(cycleCountItemRepository.findByCycleCountIdOrderByIdAsc(10L)).thenReturn(List.of(item));
+
+        final List<CycleCountDTO> results = cycleCountService.listCycleCounts();
+
+        assertThat(results).singleElement().satisfies(result -> {
+            assertThat(result.id()).isEqualTo(10L);
+            assertThat(result.items()).singleElement()
+                    .extracting(CycleCountItemDTO::inventoryId)
+                    .isEqualTo(100L);
+        });
     }
 
     /**

@@ -15,14 +15,19 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.stockops.notification.escalation.EscalationPolicy;
 import com.stockops.notification.escalation.EscalationPolicyRepository;
 import com.stockops.notification.escalation.EscalationRule;
+import com.stockops.entity.Center;
+import com.stockops.repository.CenterRepository;
 import com.stockops.security.PermissionChecker;
 import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.TestingAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,7 +39,7 @@ import org.springframework.transaction.annotation.Transactional;
  * @since 2.0
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
-@AutoConfigureMockMvc
+@AutoConfigureMockMvc(addFilters = false)
 @Transactional
 class EscalationControllerTest {
 
@@ -44,12 +49,27 @@ class EscalationControllerTest {
     @Autowired
     private EscalationPolicyRepository policyRepository;
 
+    @Autowired
+    private CenterRepository centerRepository;
+
     @MockBean
     private PermissionChecker permissionChecker;
 
+    private Long centerId;
+
+    @BeforeEach
+    void setUp() {
+        Center center = new Center();
+        center.setCode("ESC-CENTER-" + System.nanoTime());
+        center.setName("Escalation Test Center");
+        centerId = centerRepository.save(center).getId();
+    }
+
     private void stubPermissions() {
+        SecurityContextHolder.getContext()
+                .setAuthentication(new TestingAuthenticationToken("test-user", "n/a", "ROLE_ADMIN"));
         when(permissionChecker.hasPermission(anyString())).thenReturn(true);
-        when(permissionChecker.hasAnyPermission(any())).thenReturn(true);
+        when(permissionChecker.hasAnyPermission(any(String[].class))).thenReturn(true);
         when(permissionChecker.hasCenterScope(anyLong())).thenReturn(true);
         when(permissionChecker.hasWarehouseScope(anyLong())).thenReturn(true);
         when(permissionChecker.hasPermissionForCenter(anyString(), anyLong())).thenReturn(true);
@@ -58,7 +78,7 @@ class EscalationControllerTest {
 
     private EscalationPolicy seedPolicy() {
         EscalationPolicy policy = new EscalationPolicy();
-        policy.setCenterId(1L);
+        policy.setCenterId(centerId);
         policy.setAlertType("TEMPERATURE");
         policy.setActive(true);
 
@@ -68,7 +88,7 @@ class EscalationControllerTest {
         rule.setChannels(List.of("EMAIL"));
         rule.setNotifyRoles(List.of("ADMIN"));
         rule.setPolicy(policy);
-        policy.setRules(List.of(rule));
+        policy.getRules().add(rule);
 
         return policyRepository.save(policy);
     }
@@ -81,7 +101,7 @@ class EscalationControllerTest {
         stubPermissions();
         seedPolicy();
 
-        mockMvc.perform(get("/api/v1/escalation-policies?centerId=1"))
+        mockMvc.perform(get("/api/v1/escalation-policies?centerId=" + centerId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isArray())
                 .andExpect(jsonPath("$.length()").value(1));
@@ -109,7 +129,7 @@ class EscalationControllerTest {
         stubPermissions();
         seedPolicy();
 
-        mockMvc.perform(get("/api/v1/escalation-policies/resolve?centerId=1&alertType=TEMPERATURE"))
+        mockMvc.perform(get("/api/v1/escalation-policies/resolve?centerId=" + centerId + "&alertType=TEMPERATURE"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.alertType").value("TEMPERATURE"));
     }
@@ -132,8 +152,8 @@ class EscalationControllerTest {
     void createPolicyReturns200() throws Exception {
         stubPermissions();
         String json = """
-                {"centerId":1,"warehouseId":null,"alertType":"HUMIDITY","active":true,"rules":[{"level":1,"delayMinutes":5,"notifyRoles":["ADMIN"],"channels":["EMAIL"]}]}
-                """;
+                {"centerId":%d,"warehouseId":null,"alertType":"HUMIDITY","active":true,"rules":[{"level":1,"delayMinutes":5,"notifyRoles":["ADMIN"],"channels":["EMAIL"]}]}
+                """.formatted(centerId);
 
         mockMvc.perform(post("/api/v1/escalation-policies")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -151,8 +171,8 @@ class EscalationControllerTest {
         stubPermissions();
         EscalationPolicy policy = seedPolicy();
         String json = """
-                {"centerId":1,"warehouseId":null,"alertType":"UPDATED_TYPE","active":false,"rules":[]}
-                """;
+                {"centerId":%d,"warehouseId":null,"alertType":"UPDATED_TYPE","active":false,"rules":[]}
+                """.formatted(centerId);
 
         mockMvc.perform(put("/api/v1/escalation-policies/{id}", policy.getId())
                         .contentType(MediaType.APPLICATION_JSON)

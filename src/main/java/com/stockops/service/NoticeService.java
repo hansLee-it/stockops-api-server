@@ -4,13 +4,11 @@ import com.stockops.entity.Notice;
 import com.stockops.entity.NoticeType;
 import com.stockops.exception.ResourceNotFoundException;
 import com.stockops.repository.NoticeRepository;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 @Service
-@RequiredArgsConstructor
 public class NoticeService {
 
     private final NoticeRepository noticeRepository;
@@ -52,4 +50,9 @@ public class NoticeService {
     public List<Notice> getAllNotices() {
         return noticeRepository.findAll();
     }
+
+    public NoticeService(final NoticeRepository noticeRepository) {
+        this.noticeRepository = noticeRepository;
+    }
+
 }

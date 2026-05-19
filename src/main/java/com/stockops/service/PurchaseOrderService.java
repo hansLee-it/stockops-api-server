@@ -6,7 +6,6 @@ import com.stockops.exception.InvalidOperationException;
 import com.stockops.exception.ResourceNotFoundException;
 import com.stockops.repository.*;
 import com.stockops.security.ScopeGuard;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,7 +24,6 @@ import java.util.List;
  * @see InventoryService
  */
 @Service
-@RequiredArgsConstructor
 @Transactional
 public class PurchaseOrderService {
 
@@ -477,5 +475,22 @@ public class PurchaseOrderService {
 
     private int nullSafeQuantity(final Integer quantity) {
         return quantity == null ? 0 : quantity;
+    }
+
+    public PurchaseOrderService(final PurchaseOrderRepository purchaseOrderRepository, final PurchaseOrderItemRepository purchaseOrderItemRepository, final PurchaseOrderShipmentRepository shipmentRepository, final PurchaseOrderShipmentItemRepository shipmentItemRepository, final ProductRepository productRepository, final CenterService centerService, final WarehouseService warehouseService, final NotificationService notificationService, final ScopeGuard scopeGuard, final InboundRepository inboundRepository, final InboundItemRepository inboundItemRepository, final InventoryService inventoryService, final LocationRepository locationRepository, final LotRepository lotRepository) {
+        this.purchaseOrderRepository = purchaseOrderRepository;
+        this.purchaseOrderItemRepository = purchaseOrderItemRepository;
+        this.shipmentRepository = shipmentRepository;
+        this.shipmentItemRepository = shipmentItemRepository;
+        this.productRepository = productRepository;
+        this.centerService = centerService;
+        this.warehouseService = warehouseService;
+        this.notificationService = notificationService;
+        this.scopeGuard = scopeGuard;
+        this.inboundRepository = inboundRepository;
+        this.inboundItemRepository = inboundItemRepository;
+        this.inventoryService = inventoryService;
+        this.locationRepository = locationRepository;
+        this.lotRepository = lotRepository;
     }
 }

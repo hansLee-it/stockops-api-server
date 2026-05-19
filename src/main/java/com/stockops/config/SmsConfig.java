@@ -1,6 +1,5 @@
 package com.stockops.config;
 
-import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
@@ -10,7 +9,6 @@ import org.springframework.stereotype.Component;
  * @author StockOps Team
  * @since 1.0
  */
-@Data
 @Component
 @ConfigurationProperties(prefix = "sms")
 public class SmsConfig {
@@ -18,10 +16,49 @@ public class SmsConfig {
     private boolean enabled;
     private TwilioProperties twilio = new TwilioProperties();
 
-    @Data
     public static class TwilioProperties {
         private String accountSid;
         private String authToken;
         private String fromNumber;
+    
+        public String getAccountSid() {
+            return this.accountSid;
+        }
+
+        public void setAccountSid(final String accountSid) {
+            this.accountSid = accountSid;
+        }
+
+        public String getAuthToken() {
+            return this.authToken;
+        }
+
+        public void setAuthToken(final String authToken) {
+            this.authToken = authToken;
+        }
+
+        public String getFromNumber() {
+            return this.fromNumber;
+        }
+
+        public void setFromNumber(final String fromNumber) {
+            this.fromNumber = fromNumber;
+        }
+}
+
+    public boolean isEnabled() {
+        return this.enabled;
+    }
+
+    public void setEnabled(final boolean enabled) {
+        this.enabled = enabled;
+    }
+
+    public TwilioProperties getTwilio() {
+        return this.twilio;
+    }
+
+    public void setTwilio(final TwilioProperties twilio) {
+        this.twilio = twilio;
     }
 }

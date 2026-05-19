@@ -18,14 +18,19 @@ import com.stockops.notification.config.NotificationChannelConfigRepository;
 import com.stockops.notification.webhook.WebhookEndpointConfig;
 import com.stockops.notification.webhook.WebhookEndpointConfigRepository;
 import com.stockops.notification.webhook.WebhookService;
+import com.stockops.entity.Center;
+import com.stockops.repository.CenterRepository;
 import com.stockops.security.PermissionChecker;
 import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.TestingAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,7 +42,7 @@ import org.springframework.transaction.annotation.Transactional;
  * @since 2.0
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
-@AutoConfigureMockMvc
+@AutoConfigureMockMvc(addFilters = false)
 @Transactional
 class NotificationChannelConfigControllerTest {
 
@@ -50,15 +55,30 @@ class NotificationChannelConfigControllerTest {
     @Autowired
     private WebhookEndpointConfigRepository webhookEndpointConfigRepository;
 
+    @Autowired
+    private CenterRepository centerRepository;
+
     @MockBean
     private PermissionChecker permissionChecker;
 
     @MockBean
     private WebhookService webhookService;
 
+    private Long centerId;
+
+    @BeforeEach
+    void setUp() {
+        Center center = new Center();
+        center.setCode("CENTER-" + System.nanoTime());
+        center.setName("Test Center");
+        centerId = centerRepository.save(center).getId();
+    }
+
     private void stubPermissions() {
+        SecurityContextHolder.getContext()
+                .setAuthentication(new TestingAuthenticationToken("test-user", "n/a", "ROLE_ADMIN"));
         when(permissionChecker.hasPermission(anyString())).thenReturn(true);
-        when(permissionChecker.hasAnyPermission(any())).thenReturn(true);
+        when(permissionChecker.hasAnyPermission(any(String[].class))).thenReturn(true);
         when(permissionChecker.hasCenterScope(anyLong())).thenReturn(true);
         when(permissionChecker.hasWarehouseScope(anyLong())).thenReturn(true);
         when(permissionChecker.hasPermissionForCenter(anyString(), anyLong())).thenReturn(true);
@@ -67,7 +87,7 @@ class NotificationChannelConfigControllerTest {
 
     private NotificationChannelConfig seedConfig() {
         NotificationChannelConfig config = new NotificationChannelConfig();
-        config.setCenterId(1L);
+        config.setCenterId(centerId);
         config.setAlertType("TEMPERATURE");
         config.setActive(true);
         config.setChannels(List.of(
@@ -84,7 +104,7 @@ class NotificationChannelConfigControllerTest {
         stubPermissions();
         seedConfig();
 
-        mockMvc.perform(get("/api/v1/notification-channel-configs?centerId=1"))
+        mockMvc.perform(get("/api/v1/notification-channel-configs?centerId=" + centerId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isArray())
                 .andExpect(jsonPath("$.length()").value(1));
@@ -112,7 +132,7 @@ class NotificationChannelConfigControllerTest {
         stubPermissions();
         seedConfig();
 
-        mockMvc.perform(get("/api/v1/notification-channel-configs/resolve?centerId=1&alertType=TEMPERATURE"))
+        mockMvc.perform(get("/api/v1/notification-channel-configs/resolve?centerId=" + centerId + "&alertType=TEMPERATURE"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.alertType").value("TEMPERATURE"));
     }
@@ -135,8 +155,8 @@ class NotificationChannelConfigControllerTest {
     void createConfigReturns200() throws Exception {
         stubPermissions();
         String json = """
-                {"centerId":1,"warehouseId":null,"alertType":"HUMIDITY","active":true,"channels":[{"type":"EMAIL","enabled":true,"webhookProvider":null}]}
-                """;
+                {"centerId":%d,"warehouseId":null,"alertType":"HUMIDITY","active":true,"channels":[{"type":"EMAIL","enabled":true,"webhookProvider":null}]}
+                """.formatted(centerId);
 
         mockMvc.perform(post("/api/v1/notification-channel-configs")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -154,8 +174,8 @@ class NotificationChannelConfigControllerTest {
         stubPermissions();
         NotificationChannelConfig config = seedConfig();
         String json = """
-                {"centerId":1,"warehouseId":null,"alertType":"UPDATED_TYPE","active":false,"channels":[]}
-                """;
+                {"centerId":%d,"warehouseId":null,"alertType":"UPDATED_TYPE","active":false,"channels":[]}
+                """.formatted(centerId);
 
         mockMvc.perform(put("/api/v1/notification-channel-configs/{id}", config.getId())
                         .contentType(MediaType.APPLICATION_JSON)
@@ -192,7 +212,7 @@ class NotificationChannelConfigControllerTest {
         doNothing().when(webhookService).send(anyString(), anyString(), any());
 
         NotificationChannelConfig config = new NotificationChannelConfig();
-        config.setCenterId(1L);
+        config.setCenterId(centerId);
         config.setAlertType("TEMPERATURE");
         config.setActive(true);
         config.setChannels(List.of(
@@ -201,7 +221,7 @@ class NotificationChannelConfigControllerTest {
         config = configRepository.save(config);
 
         WebhookEndpointConfig endpoint = new WebhookEndpointConfig();
-        endpoint.setCenterId(1L);
+        endpoint.setCenterId(centerId);
         endpoint.setProviderType(WebhookEndpointConfig.WebhookProviderType.SLACK);
         endpoint.setWebhookUrl("");
         endpoint.setEnabled(true);

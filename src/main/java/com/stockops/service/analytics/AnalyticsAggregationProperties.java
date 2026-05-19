@@ -1,7 +1,5 @@
 package com.stockops.service.analytics;
 
-import lombok.Getter;
-import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
@@ -10,8 +8,6 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @author StockOps Team
  * @since 2.0
  */
-@Getter
-@Setter
 @ConfigurationProperties(prefix = "stockops.analytics")
 public class AnalyticsAggregationProperties {
 
@@ -22,4 +18,36 @@ public class AnalyticsAggregationProperties {
     private int incrementalLookbackDays = 30;
 
     private int backfillDays = 365;
+
+    public boolean isEnabled() {
+        return this.enabled;
+    }
+
+    public void setEnabled(final boolean enabled) {
+        this.enabled = enabled;
+    }
+
+    public String getBusinessZone() {
+        return this.businessZone;
+    }
+
+    public void setBusinessZone(final String businessZone) {
+        this.businessZone = businessZone;
+    }
+
+    public int getIncrementalLookbackDays() {
+        return this.incrementalLookbackDays;
+    }
+
+    public void setIncrementalLookbackDays(final int incrementalLookbackDays) {
+        this.incrementalLookbackDays = incrementalLookbackDays;
+    }
+
+    public int getBackfillDays() {
+        return this.backfillDays;
+    }
+
+    public void setBackfillDays(final int backfillDays) {
+        this.backfillDays = backfillDays;
+    }
 }

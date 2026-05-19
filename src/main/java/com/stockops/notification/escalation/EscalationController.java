@@ -1,7 +1,6 @@
 package com.stockops.notification.escalation;
 
 import java.util.List;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -22,7 +21,6 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/api/v1/escalation-policies")
-@RequiredArgsConstructor
 public class EscalationController {
 
     private final EscalationService escalationService;
@@ -102,4 +100,9 @@ public class EscalationController {
                 policy.getCreatedAt(),
                 policy.getUpdatedAt());
     }
+
+    public EscalationController(final EscalationService escalationService) {
+        this.escalationService = escalationService;
+    }
+
 }

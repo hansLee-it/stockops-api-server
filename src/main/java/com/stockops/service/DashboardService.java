@@ -15,7 +15,6 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
-import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,7 +34,6 @@ import org.springframework.transaction.annotation.Transactional;
  * @see InventoryTransactionRepository
  */
 @Service
-@RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class DashboardService {
 
@@ -57,7 +55,7 @@ public class DashboardService {
      *
      * @return dashboard summary DTO
      */
-    @Cacheable(value = "dashboard::summary", sync = true)
+    @Cacheable(value = "dashboard::summary")
     public DashboardSummaryDTO getSummary() {
         final io.micrometer.core.instrument.Timer.Sample sample = metricsConfig.startDashboardTimer();
         try {
@@ -157,5 +155,17 @@ public class DashboardService {
         final Instant now = Instant.now();
         final Instant start = now.minus(7, ChronoUnit.DAYS);
         return inventoryTransactionRepository.countByCreatedAtBetween(start, now);
+    }
+
+    public DashboardService(final ProductRepository productRepository, final InventoryRepository inventoryRepository, final CycleCountRepository cycleCountRepository, final InboundRepository inboundRepository, final OutboundRepository outboundRepository, final StockAdjustmentRepository stockAdjustmentRepository, final ExpiryAlertRepository expiryAlertRepository, final InventoryTransactionRepository inventoryTransactionRepository, final MetricsConfig metricsConfig) {
+        this.productRepository = productRepository;
+        this.inventoryRepository = inventoryRepository;
+        this.cycleCountRepository = cycleCountRepository;
+        this.inboundRepository = inboundRepository;
+        this.outboundRepository = outboundRepository;
+        this.stockAdjustmentRepository = stockAdjustmentRepository;
+        this.expiryAlertRepository = expiryAlertRepository;
+        this.inventoryTransactionRepository = inventoryTransactionRepository;
+        this.metricsConfig = metricsConfig;
     }
 }

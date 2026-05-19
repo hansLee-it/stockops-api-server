@@ -50,7 +50,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -63,7 +62,6 @@ import org.springframework.transaction.annotation.Transactional;
  * @see InventoryQueryService
  */
 @Service
-@RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class PdfReportService {
 
@@ -809,5 +807,14 @@ public class PdfReportService {
             ColumnText.showTextAligned(writer.getDirectContent(), Element.ALIGN_RIGHT, footerRight,
                     document.right(), document.bottom() - 18, 0);
         }
+    }
+
+    public PdfReportService(final InventoryQueryService inventoryQueryService, final AnalyticsReportingService analyticsReportingService, final LocationRepository locationRepository, final WarehouseRepository warehouseRepository, final CenterRepository centerRepository, final ScopeGuard scopeGuard) {
+        this.inventoryQueryService = inventoryQueryService;
+        this.analyticsReportingService = analyticsReportingService;
+        this.locationRepository = locationRepository;
+        this.warehouseRepository = warehouseRepository;
+        this.centerRepository = centerRepository;
+        this.scopeGuard = scopeGuard;
     }
 }

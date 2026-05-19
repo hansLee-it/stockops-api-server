@@ -9,9 +9,6 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import java.time.LocalDate;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
 
 /**
  * Daily purchase-order lead-time source row.
@@ -20,7 +17,6 @@ import lombok.NoArgsConstructor;
  * @author StockOps Team
  * @since 2.0
  */
-@Data
 @Entity
 @Table(
         schema = "analytics",
@@ -28,8 +24,6 @@ import lombok.NoArgsConstructor;
         uniqueConstraints = @UniqueConstraint(
                 name = "uk_analytics_daily_po_lead_time",
                 columnNames = {"business_date", "product_id", "center_id", "warehouse_id"}))
-@NoArgsConstructor
-@EqualsAndHashCode(callSuper = true)
 public class AnalyticsPurchaseOrderLeadTime extends BaseEntity {
 
     @Id
@@ -56,4 +50,71 @@ public class AnalyticsPurchaseOrderLeadTime extends BaseEntity {
 
     @Column(name = "total_lead_time_hours", nullable = false)
     private Long totalLeadTimeHours;
+
+    public AnalyticsPurchaseOrderLeadTime() {
+    }
+
+    public Long getId() {
+        return this.id;
+    }
+
+    public void setId(final Long id) {
+        this.id = id;
+    }
+
+    public LocalDate getBusinessDate() {
+        return this.businessDate;
+    }
+
+    public void setBusinessDate(final LocalDate businessDate) {
+        this.businessDate = businessDate;
+    }
+
+    public Long getProductId() {
+        return this.productId;
+    }
+
+    public void setProductId(final Long productId) {
+        this.productId = productId;
+    }
+
+    public Long getCenterId() {
+        return this.centerId;
+    }
+
+    public void setCenterId(final Long centerId) {
+        this.centerId = centerId;
+    }
+
+    public Long getWarehouseId() {
+        return this.warehouseId;
+    }
+
+    public void setWarehouseId(final Long warehouseId) {
+        this.warehouseId = warehouseId;
+    }
+
+    public Integer getPurchaseOrderCount() {
+        return this.purchaseOrderCount;
+    }
+
+    public void setPurchaseOrderCount(final Integer purchaseOrderCount) {
+        this.purchaseOrderCount = purchaseOrderCount;
+    }
+
+    public Integer getLeadTimeSampleCount() {
+        return this.leadTimeSampleCount;
+    }
+
+    public void setLeadTimeSampleCount(final Integer leadTimeSampleCount) {
+        this.leadTimeSampleCount = leadTimeSampleCount;
+    }
+
+    public Long getTotalLeadTimeHours() {
+        return this.totalLeadTimeHours;
+    }
+
+    public void setTotalLeadTimeHours(final Long totalLeadTimeHours) {
+        this.totalLeadTimeHours = totalLeadTimeHours;
+    }
 }

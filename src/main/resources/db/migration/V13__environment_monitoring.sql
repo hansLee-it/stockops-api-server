@@ -38,8 +38,7 @@ COMMENT ON COLUMN sensor_devices.created_at IS '생성 시각 (UTC 기준 저장
 COMMENT ON COLUMN sensor_devices.updated_at IS '수정 시각 (UTC 기준 저장)';
 
 CREATE UNIQUE INDEX IF NOT EXISTS uk_sensor_devices_external_sensor_id_active
-    ON sensor_devices (external_sensor_id)
-    WHERE deleted = FALSE;
+    ON sensor_devices (external_sensor_id, deleted);
 
 CREATE INDEX IF NOT EXISTS idx_sensor_devices_deleted
     ON sensor_devices (deleted);
@@ -76,8 +75,7 @@ COMMENT ON COLUMN environment_controllers.created_at IS '생성 시각 (UTC 기�
 COMMENT ON COLUMN environment_controllers.updated_at IS '수정 시각 (UTC 기준 저장)';
 
 CREATE UNIQUE INDEX IF NOT EXISTS uk_environment_controllers_external_controller_id_active
-    ON environment_controllers (external_controller_id)
-    WHERE deleted = FALSE;
+    ON environment_controllers (external_controller_id, deleted);
 
 CREATE INDEX IF NOT EXISTS idx_environment_controllers_deleted
     ON environment_controllers (deleted);

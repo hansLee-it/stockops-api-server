@@ -18,7 +18,6 @@ import com.stockops.repository.LocationRepository;
 import com.stockops.repository.InboundRepository;
 import com.stockops.repository.InboundItemRepository;
 import com.stockops.repository.WarehouseRepository;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,7 +33,6 @@ import java.util.stream.Stream;
  * @since 2.0
  */
 @Service
-@RequiredArgsConstructor
 @Transactional
 public class WarehouseService {
 
@@ -231,5 +229,15 @@ public class WarehouseService {
 
     private int nullSafeQuantity(Integer quantity) {
         return quantity == null ? 0 : quantity;
+    }
+
+    public WarehouseService(final WarehouseRepository warehouseRepository, final CenterService centerService, final LocationRepository locationRepository, final InventoryRepository inventoryRepository, final InboundRepository inboundRepository, final InboundItemRepository inboundItemRepository, final InventoryTransferRepository inventoryTransferRepository) {
+        this.warehouseRepository = warehouseRepository;
+        this.centerService = centerService;
+        this.locationRepository = locationRepository;
+        this.inventoryRepository = inventoryRepository;
+        this.inboundRepository = inboundRepository;
+        this.inboundItemRepository = inboundItemRepository;
+        this.inventoryTransferRepository = inventoryTransferRepository;
     }
 }

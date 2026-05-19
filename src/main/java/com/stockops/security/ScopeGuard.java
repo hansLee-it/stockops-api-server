@@ -5,7 +5,6 @@ import com.stockops.exception.ResourceNotFoundException;
 import com.stockops.exception.ForbiddenException;
 import com.stockops.repository.LocationRepository;
 import com.stockops.repository.WarehouseRepository;
-import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
@@ -24,7 +23,6 @@ import java.util.function.Function;
  * @since 2.0
  */
 @Component
-@RequiredArgsConstructor
 public class ScopeGuard {
 
     private final LocationRepository locationRepository;
@@ -234,5 +232,10 @@ public class ScopeGuard {
     }
 
     private record LocationScope(Long centerId, Long warehouseId) {
+    }
+
+    public ScopeGuard(final LocationRepository locationRepository, final WarehouseRepository warehouseRepository) {
+        this.locationRepository = locationRepository;
+        this.warehouseRepository = warehouseRepository;
     }
 }

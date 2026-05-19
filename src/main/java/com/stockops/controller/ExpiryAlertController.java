@@ -9,7 +9,6 @@ import com.stockops.repository.ProductRepository;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -27,7 +26,6 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/api/v1/alerts")
-@RequiredArgsConstructor
 public class ExpiryAlertController {
 
     private final ExpiryAlertRepository expiryAlertRepository;
@@ -120,5 +118,11 @@ public class ExpiryAlertController {
                 alert.getQuantity(),
                 alert.isAcknowledged(),
                 alert.getCreatedAt());
+    }
+
+    public ExpiryAlertController(final ExpiryAlertRepository expiryAlertRepository, final LotRepository lotRepository, final ProductRepository productRepository) {
+        this.expiryAlertRepository = expiryAlertRepository;
+        this.lotRepository = lotRepository;
+        this.productRepository = productRepository;
     }
 }

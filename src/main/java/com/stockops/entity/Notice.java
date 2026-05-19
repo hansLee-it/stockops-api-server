@@ -1,7 +1,6 @@
 package com.stockops.entity;
 
 import jakarta.persistence.*;
-import lombok.*;
 import org.hibernate.annotations.SQLRestriction;
 import java.time.Instant;
 
@@ -10,10 +9,6 @@ import java.time.Instant;
  */
 @Entity
 @Table(name = "notices")
-@Getter
-@Setter
-@NoArgsConstructor
-@EqualsAndHashCode(callSuper = true)
 @SQLRestriction("deleted = false")
 public class Notice extends BaseEntity {
 
@@ -39,4 +34,63 @@ public class Notice extends BaseEntity {
 
     @Column(name = "notice_at")
     private Instant noticeAt;
+
+    public Notice() {
+    }
+
+    public Long getId() {
+        return this.id;
+    }
+
+    public void setId(final Long id) {
+        this.id = id;
+    }
+
+    public String getTitle() {
+        return this.title;
+    }
+
+    public void setTitle(final String title) {
+        this.title = title;
+    }
+
+    public String getContent() {
+        return this.content;
+    }
+
+    public void setContent(final String content) {
+        this.content = content;
+    }
+
+    public NoticeType getType() {
+        return this.type;
+    }
+
+    public void setType(final NoticeType type) {
+        this.type = type;
+    }
+
+    public Boolean getActive() {
+        return this.active;
+    }
+
+    public void setActive(final Boolean active) {
+        this.active = active;
+    }
+
+    public Long getCreatedBy() {
+        return this.createdBy;
+    }
+
+    public void setCreatedBy(final Long createdBy) {
+        this.createdBy = createdBy;
+    }
+
+    public Instant getNoticeAt() {
+        return this.noticeAt;
+    }
+
+    public void setNoticeAt(final Instant noticeAt) {
+        this.noticeAt = noticeAt;
+    }
 }

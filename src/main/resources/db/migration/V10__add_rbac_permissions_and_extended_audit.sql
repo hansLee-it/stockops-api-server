@@ -17,7 +17,9 @@ ALTER TABLE audit_logs
     ALTER COLUMN entity_id DROP NOT NULL;
 
 ALTER TABLE audit_logs
-    ADD COLUMN target_identifier VARCHAR(255),
+    ADD COLUMN target_identifier VARCHAR(255);
+
+ALTER TABLE audit_logs
     ADD COLUMN performed_by_email VARCHAR(255);
 
 INSERT INTO roles (name, description, created_at)
@@ -28,7 +30,9 @@ INSERT INTO roles (name, description, created_at)
 SELECT 'STAFF', 'Operational staff', NOW()
 WHERE NOT EXISTS (SELECT 1 FROM roles WHERE name = 'STAFF');
 
-INSERT INTO permissions (code, description) VALUES
+INSERT INTO permissions (code, description)
+SELECT source.code, source.description
+FROM (VALUES
 ('AUDIT_LOG_READ', 'Read audit logs'),
 ('CENTER_CREATE', 'Create centers'),
 ('CENTER_DELETE', 'Delete centers'),
@@ -77,14 +81,21 @@ INSERT INTO permissions (code, description) VALUES
 ('WAREHOUSE_DELETE', 'Delete warehouses'),
 ('WAREHOUSE_READ', 'Read warehouses'),
 ('WAREHOUSE_UPDATE', 'Update warehouses')
-ON CONFLICT (code) DO NOTHING;
+) AS source (code, description)
+WHERE NOT EXISTS (
+    SELECT 1 FROM permissions target WHERE target.code = source.code
+);
 
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id
 FROM roles r
 CROSS JOIN permissions p
 WHERE r.name = 'ADMIN'
-ON CONFLICT (role_id, permission_id) DO NOTHING;
+AND NOT EXISTS (
+    SELECT 1 FROM role_permissions existing
+    WHERE existing.role_id = r.id
+      AND existing.permission_id = p.id
+);
 
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id
@@ -103,7 +114,11 @@ JOIN permissions p ON p.code IN (
     'WAREHOUSE_CREATE', 'WAREHOUSE_READ', 'WAREHOUSE_UPDATE'
 )
 WHERE r.name = 'MANAGER'
-ON CONFLICT (role_id, permission_id) DO NOTHING;
+AND NOT EXISTS (
+    SELECT 1 FROM role_permissions existing
+    WHERE existing.role_id = r.id
+      AND existing.permission_id = p.id
+);
 
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id
@@ -115,4 +130,8 @@ JOIN permissions p ON p.code IN (
     'PRODUCT_READ', 'PURCHASE_ORDER_READ', 'REASON_CODE_READ', 'WAREHOUSE_READ'
 )
 WHERE r.name IN ('USER', 'STAFF')
-ON CONFLICT (role_id, permission_id) DO NOTHING;
+AND NOT EXISTS (
+    SELECT 1 FROM role_permissions existing
+    WHERE existing.role_id = r.id
+      AND existing.permission_id = p.id
+);

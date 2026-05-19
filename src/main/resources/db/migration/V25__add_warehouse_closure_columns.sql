@@ -1,6 +1,8 @@
 -- V25: Add warehouse closure tracking columns
 ALTER TABLE warehouses
-    ADD COLUMN closure_reason TEXT,
+    ADD COLUMN closure_reason TEXT;
+
+ALTER TABLE warehouses
     ADD COLUMN closed_at TIMESTAMP WITH TIME ZONE;
 
 COMMENT ON COLUMN warehouses.closure_reason IS '창고 폐쇄 사유';

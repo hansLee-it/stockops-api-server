@@ -1,5 +1,7 @@
 package com.stockops.service.analytics;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.stockops.entity.InventoryStatus;
 import com.stockops.entity.analytics.AnalyticsDemandHistory;
 import com.stockops.entity.analytics.AnalyticsExpiryWaste;
@@ -27,8 +29,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -41,9 +41,7 @@ import org.springframework.transaction.annotation.Transactional;
  * @author StockOps Team
  * @since 2.0
  */
-@Slf4j
 @Service
-@RequiredArgsConstructor
 public class AnalyticsAggregationService {
 
     private static final String OUTBOUND_STATUS_CONFIRMED = "CONFIRMED";
@@ -562,5 +560,17 @@ public class AnalyticsAggregationService {
         private int acceptedQuantity;
         private int cancelledQuantity;
         private int shippedQuantity;
+    }
+
+    private static final Logger log = LoggerFactory.getLogger(AnalyticsAggregationService.class);
+
+    public AnalyticsAggregationService(final AnalyticsAggregationProperties properties, final NamedParameterJdbcTemplate jdbcTemplate, final AnalyticsDemandHistoryRepository demandHistoryRepository, final AnalyticsStockPositionRepository stockPositionRepository, final AnalyticsExpiryWasteRepository expiryWasteRepository, final AnalyticsPurchaseOrderLeadTimeRepository purchaseOrderLeadTimeRepository, final AnalyticsFillRateSourceRepository fillRateSourceRepository) {
+        this.properties = properties;
+        this.jdbcTemplate = jdbcTemplate;
+        this.demandHistoryRepository = demandHistoryRepository;
+        this.stockPositionRepository = stockPositionRepository;
+        this.expiryWasteRepository = expiryWasteRepository;
+        this.purchaseOrderLeadTimeRepository = purchaseOrderLeadTimeRepository;
+        this.fillRateSourceRepository = fillRateSourceRepository;
     }
 }

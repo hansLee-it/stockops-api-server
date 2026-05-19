@@ -1,23 +1,36 @@
 CREATE SCHEMA IF NOT EXISTS analytics;
 
-INSERT INTO permissions (code, description) VALUES
+INSERT INTO permissions (code, description)
+SELECT source.code, source.description
+FROM (VALUES
 ('AI_RECOMMENDATION_READ', 'Read deterministic AI reorder recommendations'),
 ('AI_RECOMMENDATION_APPROVE', 'Approve AI reorder recommendations into draft purchase orders')
-ON CONFLICT (code) DO NOTHING;
+) AS source (code, description)
+WHERE NOT EXISTS (
+    SELECT 1 FROM permissions target WHERE target.code = source.code
+);
 
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id
 FROM roles r
 JOIN permissions p ON p.code IN ('AI_RECOMMENDATION_READ', 'AI_RECOMMENDATION_APPROVE')
 WHERE r.name IN ('ADMIN', 'MANAGER')
-ON CONFLICT (role_id, permission_id) DO NOTHING;
+AND NOT EXISTS (
+    SELECT 1 FROM role_permissions existing
+    WHERE existing.role_id = r.id
+      AND existing.permission_id = p.id
+);
 
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id
 FROM roles r
 JOIN permissions p ON p.code IN ('AI_RECOMMENDATION_READ')
 WHERE r.name IN ('USER', 'STAFF')
-ON CONFLICT (role_id, permission_id) DO NOTHING;
+AND NOT EXISTS (
+    SELECT 1 FROM role_permissions existing
+    WHERE existing.role_id = r.id
+      AND existing.permission_id = p.id
+);
 
 CREATE TABLE analytics.ai_forecast_snapshots (
     id BIGSERIAL PRIMARY KEY,
@@ -57,8 +70,8 @@ CREATE TABLE analytics.ai_reorder_recommendations (
     recommended_quantity INTEGER NOT NULL DEFAULT 0,
     status VARCHAR(50) NOT NULL,
     explanation_summary VARCHAR(500),
-    approved_purchase_order_id BIGINT REFERENCES purchase_orders(id),
-    approved_by_user_id BIGINT REFERENCES users(id),
+    approved_purchase_order_id BIGINT REFERENCES public.purchase_orders(id),
+    approved_by_user_id BIGINT REFERENCES public.users(id),
     approved_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),

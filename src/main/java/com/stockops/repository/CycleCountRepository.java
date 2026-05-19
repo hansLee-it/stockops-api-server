@@ -3,6 +3,7 @@ package com.stockops.repository;
 import com.stockops.entity.CycleCount;
 import com.stockops.entity.CycleCountStatus;
 import java.util.Collection;
+import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 /**
@@ -20,4 +21,11 @@ public interface CycleCountRepository extends JpaRepository<CycleCount, Long> {
      * @return matching cycle count total
      */
     long countByStatusIn(Collection<CycleCountStatus> statuses);
+
+    /**
+     * Finds cycle counts in newest-first order for the management list.
+     *
+     * @return ordered cycle count headers
+     */
+    List<CycleCount> findAllByOrderByCreatedAtDescIdDesc();
 }

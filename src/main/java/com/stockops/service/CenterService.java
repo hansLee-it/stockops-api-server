@@ -3,7 +3,6 @@ package com.stockops.service;
 import com.stockops.entity.Center;
 import com.stockops.exception.InvalidOperationException;
 import com.stockops.repository.CenterRepository;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,7 +16,6 @@ import java.util.Objects;
  * @since 2.0
  */
 @Service
-@RequiredArgsConstructor
 @Transactional
 public class CenterService {
 
@@ -71,4 +69,9 @@ public class CenterService {
         center.setStatus("CLOSED");
         centerRepository.save(center);
     }
+
+    public CenterService(final CenterRepository centerRepository) {
+        this.centerRepository = centerRepository;
+    }
+
 }

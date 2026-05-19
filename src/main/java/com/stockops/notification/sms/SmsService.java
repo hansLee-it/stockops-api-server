@@ -1,8 +1,8 @@
 package com.stockops.notification.sms;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.stockops.notification.sms.SmsSendHistory.SmsSendStatus;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,9 +18,7 @@ import java.util.concurrent.ThreadLocalRandom;
  * @see SmsGateway
  * @see SmsSendHistory
  */
-@Slf4j
 @Service
-@RequiredArgsConstructor
 public class SmsService {
 
     private static final int MAX_RETRY_ATTEMPTS = 3;
@@ -85,5 +83,12 @@ public class SmsService {
             history.setSentAt(Instant.now());
         }
         historyRepository.save(history);
+    }
+
+    private static final Logger log = LoggerFactory.getLogger(SmsService.class);
+
+    public SmsService(final SmsGateway smsGateway, final SmsSendHistoryRepository historyRepository) {
+        this.smsGateway = smsGateway;
+        this.historyRepository = historyRepository;
     }
 }

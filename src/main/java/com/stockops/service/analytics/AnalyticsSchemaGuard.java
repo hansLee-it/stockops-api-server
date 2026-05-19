@@ -1,11 +1,11 @@
 package com.stockops.service.analytics;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import javax.sql.DataSource;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
@@ -20,9 +20,7 @@ import org.springframework.stereotype.Component;
  * @author StockOps Team
  * @since 2.0
  */
-@Slf4j
 @Component
-@RequiredArgsConstructor
 @Order(1)
 @ConditionalOnProperty(prefix = "stockops.analytics", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class AnalyticsSchemaGuard implements ApplicationRunner {
@@ -57,14 +55,12 @@ public class AnalyticsSchemaGuard implements ApplicationRunner {
     private void verifyColumnExists(final String schema, final String table, final String column) {
         try (Connection connection = dataSource.getConnection()) {
             final DatabaseMetaData metaData = connection.getMetaData();
-            try (ResultSet columns = metaData.getColumns(null, schema, table, column)) {
-                if (!columns.next()) {
-                    throw new IllegalStateException(
-                            String.format(
-                                    "Analytics schema mismatch: required column '%s.%s.%s' is missing. "
-                                            + "Ensure Flyway migration V33 has been applied.",
-                                    schema, table, column));
-                }
+            if (!columnExists(metaData, schema, table, column)) {
+                throw new IllegalStateException(
+                        String.format(
+                                "Analytics schema mismatch: required column '%s.%s.%s' is missing. "
+                                        + "Ensure Flyway migration V33 has been applied.",
+                                schema, table, column));
             }
         } catch (final IllegalStateException e) {
             throw e;
@@ -73,4 +69,35 @@ public class AnalyticsSchemaGuard implements ApplicationRunner {
                     "Analytics schema guard failed while inspecting database metadata", e);
         }
     }
+
+    private boolean columnExists(
+            final DatabaseMetaData metaData,
+            final String schema,
+            final String table,
+            final String column) throws Exception {
+        final String[] schemas = {schema, schema.toUpperCase(), null};
+        final String[] tables = {table, table.toUpperCase()};
+        final String[] columns = {column, column.toUpperCase()};
+
+        for (final String schemaCandidate : schemas) {
+            for (final String tableCandidate : tables) {
+                for (final String columnCandidate : columns) {
+                    try (ResultSet resultSet =
+                            metaData.getColumns(null, schemaCandidate, tableCandidate, columnCandidate)) {
+                        if (resultSet.next()) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    private static final Logger log = LoggerFactory.getLogger(AnalyticsSchemaGuard.class);
+
+    public AnalyticsSchemaGuard(final DataSource dataSource) {
+        this.dataSource = dataSource;
+    }
+
 }

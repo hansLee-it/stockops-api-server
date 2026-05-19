@@ -10,7 +10,6 @@ import com.stockops.repository.InventoryTransactionRepository;
 import com.stockops.repository.LocationRepository;
 import com.stockops.repository.ProductRepository;
 import com.stockops.repository.WarehouseRepository;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,7 +36,6 @@ import java.util.stream.Collectors;
  * @since 2.0
  */
 @Service
-@RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class InventoryTurnoverReportService {
 
@@ -206,5 +204,13 @@ public class InventoryTurnoverReportService {
                 turnoverRate,
                 periodDays
         );
+    }
+
+    public InventoryTurnoverReportService(final InventoryTransactionRepository transactionRepository, final InventoryRepository inventoryRepository, final ProductRepository productRepository, final WarehouseRepository warehouseRepository, final LocationRepository locationRepository) {
+        this.transactionRepository = transactionRepository;
+        this.inventoryRepository = inventoryRepository;
+        this.productRepository = productRepository;
+        this.warehouseRepository = warehouseRepository;
+        this.locationRepository = locationRepository;
     }
 }

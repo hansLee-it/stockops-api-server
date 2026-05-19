@@ -3,7 +3,6 @@ package com.stockops.notification.escalation;
 import com.stockops.exception.ResourceNotFoundException;
 import java.time.Instant;
 import java.util.List;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,7 +15,6 @@ import org.springframework.transaction.annotation.Transactional;
  * @see EscalationScheduler
  */
 @Service
-@RequiredArgsConstructor
 @Transactional
 public class PendingAlertService {
 
@@ -92,4 +90,9 @@ public class PendingAlertService {
         return pendingAlertRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Pending alert not found: " + id));
     }
+
+    public PendingAlertService(final PendingAlertRepository pendingAlertRepository) {
+        this.pendingAlertRepository = pendingAlertRepository;
+    }
+
 }

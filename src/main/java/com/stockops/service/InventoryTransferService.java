@@ -15,7 +15,6 @@ import com.stockops.repository.UserRepository;
 import com.stockops.repository.WarehouseRepository;
 import com.stockops.security.ScopeGuard;
 import java.util.List;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,7 +29,6 @@ import org.springframework.transaction.annotation.Transactional;
  * @see InventoryService
  */
 @Service
-@RequiredArgsConstructor
 public class InventoryTransferService {
 
     private final InventoryTransferRepository transferRepository;
@@ -249,5 +247,14 @@ public class InventoryTransferService {
         return userRepository.findById(userId)
                 .map(User::getName)
                 .orElse(null);
+    }
+
+    public InventoryTransferService(final InventoryTransferRepository transferRepository, final InventoryService inventoryService, final LocationRepository locationRepository, final WarehouseRepository warehouseRepository, final UserRepository userRepository, final ScopeGuard scopeGuard) {
+        this.transferRepository = transferRepository;
+        this.inventoryService = inventoryService;
+        this.locationRepository = locationRepository;
+        this.warehouseRepository = warehouseRepository;
+        this.userRepository = userRepository;
+        this.scopeGuard = scopeGuard;
     }
 }

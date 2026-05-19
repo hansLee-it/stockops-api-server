@@ -1,0 +1,25 @@
+spring:
+  profiles:
+    default: local
+  cache:
+    type: simple
+  data:
+    redis:
+      repositories:
+        enabled: false
+  datasource:
+    url: jdbc:h2:mem:stockops-test;MODE=PostgreSQL;NON_KEYWORDS=VALUE;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  mail:
+    host: localhost
+    port: 2525
+
+stockops:
+  redis:
+    enabled: false
+
+jwt:
+  secret: stockops-test-secret-key-with-at-least-256-bits
+  expiration: 86400000

@@ -1,10 +1,11 @@
 package com.stockops.ai.forecast;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.stockops.entity.ai.AIRecommendationStatus;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
@@ -23,7 +24,6 @@ import org.springframework.stereotype.Service;
  * @see AiForecastClient
  * @see StatisticalForecastModel
  */
-@Slf4j
 @Service("prophetForecastModel")
 public class ProphetForecastModel implements ForecastModel {
 
@@ -151,4 +151,6 @@ public class ProphetForecastModel implements ForecastModel {
                 explanationSummary,
                 MODEL_ID);
     }
+
+    private static final Logger log = LoggerFactory.getLogger(ProphetForecastModel.class);
 }

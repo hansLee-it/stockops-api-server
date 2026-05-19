@@ -1,7 +1,5 @@
 package com.stockops.ai.provider.gemini;
 
-import lombok.Getter;
-import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
@@ -11,8 +9,6 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @since 2.0
  * @see GeminiAiProvider
  */
-@Getter
-@Setter
 @ConfigurationProperties(prefix = "stockops.ai.gemini")
 public class GeminiAiProperties {
 
@@ -23,4 +19,36 @@ public class GeminiAiProperties {
     private String modelName = "gemini-pro";
 
     private int maxTokens = 1024;
+
+    public String getApiKey() {
+        return this.apiKey;
+    }
+
+    public void setApiKey(final String apiKey) {
+        this.apiKey = apiKey;
+    }
+
+    public boolean isEnabled() {
+        return this.enabled;
+    }
+
+    public void setEnabled(final boolean enabled) {
+        this.enabled = enabled;
+    }
+
+    public String getModelName() {
+        return this.modelName;
+    }
+
+    public void setModelName(final String modelName) {
+        this.modelName = modelName;
+    }
+
+    public int getMaxTokens() {
+        return this.maxTokens;
+    }
+
+    public void setMaxTokens(final int maxTokens) {
+        this.maxTokens = maxTokens;
+    }
 }

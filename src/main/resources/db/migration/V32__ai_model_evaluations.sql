@@ -9,7 +9,7 @@ CREATE TABLE analytics.ai_model_evaluations (
     mape            NUMERIC(12, 4)  NOT NULL,
     evaluated_at    TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     model_version   VARCHAR(50)     NOT NULL DEFAULT 'prophet',
-    CONSTRAINT fk_ai_model_evaluations_product FOREIGN KEY (product_id) REFERENCES products(id)
+    CONSTRAINT fk_ai_model_evaluations_product FOREIGN KEY (product_id) REFERENCES public.products(id)
 );
 
 COMMENT ON TABLE analytics.ai_model_evaluations IS 'AI 모델 성능 평가 결과 - 상품별/모델버전별 예측 정확도 지표';

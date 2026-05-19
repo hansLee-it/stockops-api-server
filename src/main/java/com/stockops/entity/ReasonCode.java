@@ -8,8 +8,6 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 
 import java.time.Instant;
 
@@ -19,10 +17,8 @@ import java.time.Instant;
  * @author StockOps Team
  * @since 1.0
  */
-@Data
 @Entity
 @Table(name = "reason_codes")
-@NoArgsConstructor
 @EntityListeners(com.stockops.audit.MutationAuditEntityListener.class)
 public class ReasonCode {
 
@@ -48,5 +44,56 @@ public class ReasonCode {
     @PrePersist
     protected void onCreate() {
         this.createdAt = Instant.now();
+    }
+
+    public ReasonCode() {
+    }
+
+    public Long getId() {
+        return this.id;
+    }
+
+    public void setId(final Long id) {
+        this.id = id;
+    }
+
+    public String getCode() {
+        return this.code;
+    }
+
+    public void setCode(final String code) {
+        this.code = code;
+    }
+
+    public String getName() {
+        return this.name;
+    }
+
+    public void setName(final String name) {
+        this.name = name;
+    }
+
+    public String getDescription() {
+        return this.description;
+    }
+
+    public void setDescription(final String description) {
+        this.description = description;
+    }
+
+    public String getCategory() {
+        return this.category;
+    }
+
+    public void setCategory(final String category) {
+        this.category = category;
+    }
+
+    public Instant getCreatedAt() {
+        return this.createdAt;
+    }
+
+    public void setCreatedAt(final Instant createdAt) {
+        this.createdAt = createdAt;
     }
 }

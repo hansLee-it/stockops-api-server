@@ -4,7 +4,6 @@ import com.stockops.dto.CloseWarehouseRequest;
 import com.stockops.dto.WarehouseCanCloseResponse;
 import com.stockops.entity.Warehouse;
 import com.stockops.service.WarehouseService;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -19,7 +18,6 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/api/v1/warehouses")
-@RequiredArgsConstructor
 public class WarehouseController {
 
     private final WarehouseService warehouseService;
@@ -78,4 +76,9 @@ public class WarehouseController {
     public Warehouse closeWarehouse(@PathVariable Long id, @RequestBody CloseWarehouseRequest request) {
         return warehouseService.close(id, request.reason());
     }
+
+    public WarehouseController(final WarehouseService warehouseService) {
+        this.warehouseService = warehouseService;
+    }
+
 }

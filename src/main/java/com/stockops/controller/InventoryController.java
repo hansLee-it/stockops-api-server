@@ -4,7 +4,6 @@ import com.stockops.dto.InventoryDTO;
 import com.stockops.dto.InventoryTransactionDTO;
 import com.stockops.service.InventoryQueryService;
 import java.util.List;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -22,7 +21,6 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/api/v1/inventory")
-@RequiredArgsConstructor
 public class InventoryController {
 
     private final InventoryQueryService inventoryQueryService;
@@ -84,4 +82,9 @@ public class InventoryController {
         final int toIndex = Math.min(fromIndex + size, items.size());
         return items.subList(fromIndex, toIndex);
     }
+
+    public InventoryController(final InventoryQueryService inventoryQueryService) {
+        this.inventoryQueryService = inventoryQueryService;
+    }
+
 }

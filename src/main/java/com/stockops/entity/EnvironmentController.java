@@ -8,9 +8,6 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
 import org.hibernate.annotations.SQLRestriction;
 
 /**
@@ -20,11 +17,8 @@ import org.hibernate.annotations.SQLRestriction;
  * @author StockOps Team
  * @since 1.0
  */
-@Data
 @Entity
 @Table(name = "environment_controllers")
-@NoArgsConstructor
-@EqualsAndHashCode(callSuper = true)
 @SQLRestriction("deleted = false")
 public class EnvironmentController extends BaseEntity {
 
@@ -61,4 +55,87 @@ public class EnvironmentController extends BaseEntity {
 
     @Column(name = "active", nullable = false)
     private boolean active = true;
+
+    public EnvironmentController() {
+    }
+
+    public Long getId() {
+        return this.id;
+    }
+
+    public void setId(final Long id) {
+        this.id = id;
+    }
+
+    public String getName() {
+        return this.name;
+    }
+
+    public void setName(final String name) {
+        this.name = name;
+    }
+
+    public String getExternalControllerId() {
+        return this.externalControllerId;
+    }
+
+    public void setExternalControllerId(final String externalControllerId) {
+        this.externalControllerId = externalControllerId;
+    }
+
+    public String getMqttTopic() {
+        return this.mqttTopic;
+    }
+
+    public void setMqttTopic(final String mqttTopic) {
+        this.mqttTopic = mqttTopic;
+    }
+
+    public ControllerType getControllerType() {
+        return this.controllerType;
+    }
+
+    public void setControllerType(final ControllerType controllerType) {
+        this.controllerType = controllerType;
+    }
+
+    public EnvironmentAxis getTargetAxis() {
+        return this.targetAxis;
+    }
+
+    public void setTargetAxis(final EnvironmentAxis targetAxis) {
+        this.targetAxis = targetAxis;
+    }
+
+    public ControllerStatus getStatus() {
+        return this.status;
+    }
+
+    public void setStatus(final ControllerStatus status) {
+        this.status = status;
+    }
+
+    public Integer getOutputLevel() {
+        return this.outputLevel;
+    }
+
+    public void setOutputLevel(final Integer outputLevel) {
+        this.outputLevel = outputLevel;
+    }
+
+    public boolean isDeleted() {
+        return this.deleted;
+    }
+
+    public void setDeleted(final boolean deleted) {
+        this.deleted = deleted;
+    }
+
+    public boolean isActive() {
+        return this.active;
+    }
+
+    public void setActive(final boolean active) {
+        this.active = active;
+    }
 }

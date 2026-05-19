@@ -1,7 +1,6 @@
 package com.stockops.report;
 
 import com.stockops.dto.InventoryTurnoverDTO;
-import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -20,7 +19,6 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/api/v1/reports")
-@RequiredArgsConstructor
 public class InventoryTurnoverController {
 
     private final InventoryTurnoverReportService reportService;
@@ -45,4 +43,9 @@ public class InventoryTurnoverController {
         }
         return reportService.generateReport(startDate, endDate);
     }
+
+    public InventoryTurnoverController(final InventoryTurnoverReportService reportService) {
+        this.reportService = reportService;
+    }
+
 }

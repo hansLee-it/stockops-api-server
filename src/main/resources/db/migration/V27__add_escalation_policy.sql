@@ -33,8 +33,7 @@ CREATE INDEX IF NOT EXISTS idx_escalation_policies_warehouse_id
     ON escalation_policies (warehouse_id);
 
 CREATE UNIQUE INDEX IF NOT EXISTS uk_escalation_policies_scope
-    ON escalation_policies (center_id, warehouse_id, alert_type)
-    WHERE active = TRUE;
+    ON escalation_policies (center_id, warehouse_id, alert_type, active);
 
 -- ============================================
 -- 2. ESCALATION RULES TABLE

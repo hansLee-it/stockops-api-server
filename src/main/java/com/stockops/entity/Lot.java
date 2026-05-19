@@ -8,9 +8,6 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 
@@ -20,11 +17,8 @@ import java.time.LocalDate;
  * @author StockOps Team
  * @since 1.0
  */
-@Data
 @Entity
 @Table(name = "lots")
-@NoArgsConstructor
-@EqualsAndHashCode(callSuper = true)
 public class Lot extends BaseEntity {
 
     @Id
@@ -49,4 +43,63 @@ public class Lot extends BaseEntity {
     @Column(name = "status", nullable = false)
     @Enumerated(EnumType.STRING)
     private LotStatus status = LotStatus.ACTIVE;
+
+    public Lot() {
+    }
+
+    public Long getId() {
+        return this.id;
+    }
+
+    public void setId(final Long id) {
+        this.id = id;
+    }
+
+    public String getLotNumber() {
+        return this.lotNumber;
+    }
+
+    public void setLotNumber(final String lotNumber) {
+        this.lotNumber = lotNumber;
+    }
+
+    public Long getProductId() {
+        return this.productId;
+    }
+
+    public void setProductId(final Long productId) {
+        this.productId = productId;
+    }
+
+    public LocalDate getExpiryDate() {
+        return this.expiryDate;
+    }
+
+    public void setExpiryDate(final LocalDate expiryDate) {
+        this.expiryDate = expiryDate;
+    }
+
+    public LocalDate getReceivedDate() {
+        return this.receivedDate;
+    }
+
+    public void setReceivedDate(final LocalDate receivedDate) {
+        this.receivedDate = receivedDate;
+    }
+
+    public Integer getQuantity() {
+        return this.quantity;
+    }
+
+    public void setQuantity(final Integer quantity) {
+        this.quantity = quantity;
+    }
+
+    public LotStatus getStatus() {
+        return this.status;
+    }
+
+    public void setStatus(final LotStatus status) {
+        this.status = status;
+    }
 }

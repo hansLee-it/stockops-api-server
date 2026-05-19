@@ -1,5 +1,7 @@
 package com.stockops.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.stockops.entity.ExpiryAlert;
 import com.stockops.entity.Inventory;
 import com.stockops.entity.Lot;
@@ -10,8 +12,6 @@ import com.stockops.config.MetricsConfig;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,9 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
  * @see LotRepository
  * @see InventoryRepository
  */
-@Slf4j
 @Service
-@RequiredArgsConstructor
 public class ExpiryAlertService {
 
     private static final int INFO_THRESHOLD_DAYS = 30;
@@ -112,5 +110,14 @@ public class ExpiryAlertService {
             return "NOTICE";
         }
         return "INFO";
+    }
+
+    private static final Logger log = LoggerFactory.getLogger(ExpiryAlertService.class);
+
+    public ExpiryAlertService(final ExpiryAlertRepository expiryAlertRepository, final LotRepository lotRepository, final InventoryRepository inventoryRepository, final MetricsConfig metricsConfig) {
+        this.expiryAlertRepository = expiryAlertRepository;
+        this.lotRepository = lotRepository;
+        this.inventoryRepository = inventoryRepository;
+        this.metricsConfig = metricsConfig;
     }
 }

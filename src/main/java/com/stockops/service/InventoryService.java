@@ -10,7 +10,6 @@ import com.stockops.exception.ResourceNotFoundException;
 import com.stockops.repository.InventoryRepository;
 import com.stockops.repository.InventoryTransactionRepository;
 import com.stockops.repository.LotRepository;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,7 +23,6 @@ import org.springframework.transaction.annotation.Transactional;
  * @see InventoryTransactionRepository
  */
 @Service
-@RequiredArgsConstructor
 public class InventoryService {
 
     private final InventoryRepository inventoryRepository;
@@ -184,5 +182,11 @@ public class InventoryService {
 
     private int nullSafeQuantity(final Integer quantity) {
         return quantity == null ? 0 : quantity;
+    }
+
+    public InventoryService(final InventoryRepository inventoryRepository, final InventoryTransactionRepository transactionRepository, final LotRepository lotRepository) {
+        this.inventoryRepository = inventoryRepository;
+        this.transactionRepository = transactionRepository;
+        this.lotRepository = lotRepository;
     }
 }

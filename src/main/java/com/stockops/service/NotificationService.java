@@ -25,7 +25,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,7 +37,6 @@ import org.springframework.transaction.annotation.Transactional;
  * @since 1.0
  */
 @Service
-@RequiredArgsConstructor
 @Transactional
 public class NotificationService {
 
@@ -285,5 +283,15 @@ public class NotificationService {
                 notification.getMessage(),
                 notification.isRead(),
                 notification.getCreatedAt());
+    }
+
+    public NotificationService(final NotificationRepository notificationRepository, final UserService userService, final InventoryRepository inventoryRepository, final ProductRepository productRepository, final LocationRepository locationRepository, final ExpiryAlertRepository expiryAlertRepository, final MetricsConfig metricsConfig) {
+        this.notificationRepository = notificationRepository;
+        this.userService = userService;
+        this.inventoryRepository = inventoryRepository;
+        this.productRepository = productRepository;
+        this.locationRepository = locationRepository;
+        this.expiryAlertRepository = expiryAlertRepository;
+        this.metricsConfig = metricsConfig;
     }
 }

@@ -16,7 +16,6 @@ import com.stockops.repository.ProductRepository;
 import com.stockops.security.ScopeGuard;
 import java.util.Comparator;
 import java.util.List;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,7 +28,6 @@ import org.springframework.transaction.annotation.Transactional;
  * @see InventoryTransactionRepository
  */
 @Service
-@RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class InventoryQueryService {
 
@@ -193,5 +191,14 @@ public class InventoryQueryService {
 
     private int nullSafeInt(final Integer value) {
         return value == null ? 0 : value;
+    }
+
+    public InventoryQueryService(final InventoryRepository inventoryRepository, final InventoryTransactionRepository transactionRepository, final ProductRepository productRepository, final LocationRepository locationRepository, final LotRepository lotRepository, final ScopeGuard scopeGuard) {
+        this.inventoryRepository = inventoryRepository;
+        this.transactionRepository = transactionRepository;
+        this.productRepository = productRepository;
+        this.locationRepository = locationRepository;
+        this.lotRepository = lotRepository;
+        this.scopeGuard = scopeGuard;
     }
 }

@@ -9,9 +9,6 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
 
 /**
  * In-app notification entity for user-specific operational alerts.
@@ -21,15 +18,12 @@ import lombok.NoArgsConstructor;
  * @author StockOps Team
  * @since 1.0
  */
-@Data
 @Entity
 @Table(
         name = "notifications",
         uniqueConstraints = @UniqueConstraint(
                 name = "uk_notifications_user_event_key",
                 columnNames = {"user_id", "event_key"}))
-@NoArgsConstructor
-@EqualsAndHashCode(callSuper = true)
 public class Notification extends BaseEntity {
 
     @Id
@@ -54,4 +48,63 @@ public class Notification extends BaseEntity {
 
     @Column(name = "event_key", nullable = false, length = 255)
     private String eventKey;
+
+    public Notification() {
+    }
+
+    public Long getId() {
+        return this.id;
+    }
+
+    public void setId(final Long id) {
+        this.id = id;
+    }
+
+    public Long getUserId() {
+        return this.userId;
+    }
+
+    public void setUserId(final Long userId) {
+        this.userId = userId;
+    }
+
+    public NotificationType getType() {
+        return this.type;
+    }
+
+    public void setType(final NotificationType type) {
+        this.type = type;
+    }
+
+    public String getTitle() {
+        return this.title;
+    }
+
+    public void setTitle(final String title) {
+        this.title = title;
+    }
+
+    public String getMessage() {
+        return this.message;
+    }
+
+    public void setMessage(final String message) {
+        this.message = message;
+    }
+
+    public boolean isRead() {
+        return this.read;
+    }
+
+    public void setRead(final boolean read) {
+        this.read = read;
+    }
+
+    public String getEventKey() {
+        return this.eventKey;
+    }
+
+    public void setEventKey(final String eventKey) {
+        this.eventKey = eventKey;
+    }
 }

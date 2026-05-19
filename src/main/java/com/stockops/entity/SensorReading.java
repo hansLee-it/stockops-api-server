@@ -7,9 +7,6 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.Instant;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -20,11 +17,8 @@ import org.hibernate.type.SqlTypes;
  * @author StockOps Team
  * @since 1.0
  */
-@Data
 @Entity
 @Table(name = "sensor_readings")
-@NoArgsConstructor
-@EqualsAndHashCode(callSuper = true)
 public class SensorReading extends BaseEntity {
 
     @Id
@@ -55,4 +49,79 @@ public class SensorReading extends BaseEntity {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "raw_payload", columnDefinition = "jsonb")
     private String rawPayload;
+
+    public SensorReading() {
+    }
+
+    public Long getId() {
+        return this.id;
+    }
+
+    public void setId(final Long id) {
+        this.id = id;
+    }
+
+    public Long getSensorDeviceId() {
+        return this.sensorDeviceId;
+    }
+
+    public void setSensorDeviceId(final Long sensorDeviceId) {
+        this.sensorDeviceId = sensorDeviceId;
+    }
+
+    public Double getValue() {
+        return this.value;
+    }
+
+    public void setValue(final Double value) {
+        this.value = value;
+    }
+
+    public String getValueKind() {
+        return this.valueKind;
+    }
+
+    public void setValueKind(final String valueKind) {
+        this.valueKind = valueKind;
+    }
+
+    public String getUnit() {
+        return this.unit;
+    }
+
+    public void setUnit(final String unit) {
+        this.unit = unit;
+    }
+
+    public String getStatus() {
+        return this.status;
+    }
+
+    public void setStatus(final String status) {
+        this.status = status;
+    }
+
+    public Instant getRecordedAt() {
+        return this.recordedAt;
+    }
+
+    public void setRecordedAt(final Instant recordedAt) {
+        this.recordedAt = recordedAt;
+    }
+
+    public Long getSequenceId() {
+        return this.sequenceId;
+    }
+
+    public void setSequenceId(final Long sequenceId) {
+        this.sequenceId = sequenceId;
+    }
+
+    public String getRawPayload() {
+        return this.rawPayload;
+    }
+
+    public void setRawPayload(final String rawPayload) {
+        this.rawPayload = rawPayload;
+    }
 }

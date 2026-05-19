@@ -4,7 +4,6 @@ import com.stockops.repository.ProductRepository;
 import com.stockops.repository.PurchaseOrderRepository;
 import com.stockops.repository.UserRepository;
 import com.stockops.repository.InventoryRepository;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -12,7 +11,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/admin")
-@RequiredArgsConstructor
 public class AdminController {
 
     private final UserRepository userRepository;
@@ -47,5 +45,12 @@ public class AdminController {
                 Map.of("path", "/admin/menus", "label", "메뉴 관리")
             )
         ));
+    }
+
+    public AdminController(final UserRepository userRepository, final ProductRepository productRepository, final InventoryRepository inventoryRepository, final PurchaseOrderRepository purchaseOrderRepository) {
+        this.userRepository = userRepository;
+        this.productRepository = productRepository;
+        this.inventoryRepository = inventoryRepository;
+        this.purchaseOrderRepository = purchaseOrderRepository;
     }
 }

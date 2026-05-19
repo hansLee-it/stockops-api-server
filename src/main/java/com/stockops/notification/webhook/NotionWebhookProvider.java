@@ -1,7 +1,8 @@
 package com.stockops.notification.webhook;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -26,7 +27,6 @@ import java.util.Map;
  * @author StockOps Team
  * @since 1.0
  */
-@Slf4j
 @Component
 public class NotionWebhookProvider implements WebhookProvider {
 
@@ -177,4 +177,6 @@ public class NotionWebhookProvider implements WebhookProvider {
             throw new RuntimeException("JSON serialization failed", e);
         }
     }
+
+    private static final Logger log = LoggerFactory.getLogger(NotionWebhookProvider.class);
 }

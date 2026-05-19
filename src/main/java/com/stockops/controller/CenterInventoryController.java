@@ -1,7 +1,6 @@
 package com.stockops.controller;
 
 import com.stockops.service.CenterInventoryAggregationService;
-import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -14,7 +13,6 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api/v1/centers")
-@RequiredArgsConstructor
 public class CenterInventoryController {
 
     private final CenterInventoryAggregationService centerInventoryService;
@@ -23,4 +21,9 @@ public class CenterInventoryController {
     public Map<String, Object> getCenterInventory(@PathVariable Long centerId) {
         return centerInventoryService.getCenterInventorySummary(centerId);
     }
+
+    public CenterInventoryController(final CenterInventoryAggregationService centerInventoryService) {
+        this.centerInventoryService = centerInventoryService;
+    }
+
 }

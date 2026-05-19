@@ -2,7 +2,6 @@ package com.stockops.security;
 
 import com.stockops.dto.ExcelEntityType;
 import com.stockops.repository.WarehouseRepository;
-import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
@@ -16,7 +15,6 @@ import java.util.Arrays;
  * @since 1.0
  */
 @Component("permissionChecker")
-@RequiredArgsConstructor
 public class PermissionChecker {
 
     private final WarehouseRepository warehouseRepository;
@@ -32,7 +30,8 @@ public class PermissionChecker {
         return authentication != null
                 && authentication.isAuthenticated()
                 && authentication.getAuthorities().stream()
-                .anyMatch(authority -> permission.equals(authority.getAuthority()));
+                .anyMatch(authority -> "ROLE_ADMIN".equals(authority.getAuthority())
+                        || permission.equals(authority.getAuthority()));
     }
 
     /**
@@ -152,4 +151,9 @@ public class PermissionChecker {
             return null;
         }
     }
+
+    public PermissionChecker(final WarehouseRepository warehouseRepository) {
+        this.warehouseRepository = warehouseRepository;
+    }
+
 }

@@ -5,7 +5,6 @@ import com.stockops.dto.AbcXyzMatrixDTO;
 import com.stockops.dto.XyzClassificationDTO;
 import com.stockops.service.AbcXyzReportService;
 import java.util.List;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -22,7 +21,6 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/api/v1/reports")
-@RequiredArgsConstructor
 public class AbcXyzController {
 
     private final AbcXyzReportService abcXyzReportService;
@@ -65,4 +63,9 @@ public class AbcXyzController {
             @RequestParam final Long centerId) {
         return ResponseEntity.ok(abcXyzReportService.getAbcXyzMatrix(centerId));
     }
+
+    public AbcXyzController(final AbcXyzReportService abcXyzReportService) {
+        this.abcXyzReportService = abcXyzReportService;
+    }
+
 }

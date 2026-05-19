@@ -13,9 +13,6 @@ import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import java.util.ArrayList;
 import java.util.List;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
 
 /**
  * Escalation policy scoped by center/warehouse and alert type.
@@ -24,13 +21,10 @@ import lombok.NoArgsConstructor;
  * @author StockOps Team
  * @since 2.0
  */
-@Data
 @Entity
 @Table(name = "escalation_policies", uniqueConstraints = @UniqueConstraint(
         name = "uk_escalation_policies_scope",
         columnNames = {"center_id", "warehouse_id", "alert_type"}))
-@NoArgsConstructor
-@EqualsAndHashCode(callSuper = true, exclude = "rules")
 public class EscalationPolicy extends BaseEntity {
 
     @Id
@@ -51,4 +45,55 @@ public class EscalationPolicy extends BaseEntity {
 
     @OneToMany(mappedBy = "policy", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<EscalationRule> rules = new ArrayList<>();
+
+    public EscalationPolicy() {
+    }
+
+    public Long getId() {
+        return this.id;
+    }
+
+    public void setId(final Long id) {
+        this.id = id;
+    }
+
+    public Long getCenterId() {
+        return this.centerId;
+    }
+
+    public void setCenterId(final Long centerId) {
+        this.centerId = centerId;
+    }
+
+    public Long getWarehouseId() {
+        return this.warehouseId;
+    }
+
+    public void setWarehouseId(final Long warehouseId) {
+        this.warehouseId = warehouseId;
+    }
+
+    public String getAlertType() {
+        return this.alertType;
+    }
+
+    public void setAlertType(final String alertType) {
+        this.alertType = alertType;
+    }
+
+    public boolean isActive() {
+        return this.active;
+    }
+
+    public void setActive(final boolean active) {
+        this.active = active;
+    }
+
+    public List<EscalationRule> getRules() {
+        return this.rules;
+    }
+
+    public void setRules(final List<EscalationRule> rules) {
+        this.rules = rules;
+    }
 }

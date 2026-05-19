@@ -10,11 +10,6 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
-import lombok.AccessLevel;
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
 import org.hibernate.annotations.SQLRestriction;
 
 import java.util.ArrayList;
@@ -28,18 +23,13 @@ import java.util.List;
  * @author StockOps Team
  * @since 1.0
  */
-@Getter
-@Setter
 @Entity
 @Table(name = "categories")
-@NoArgsConstructor
-@EqualsAndHashCode(callSuper = true)
 @SQLRestriction("active = true")
 public class Category extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Setter(AccessLevel.NONE)
     private Long id;
 
     @Column(name = "name", nullable = false)
@@ -53,7 +43,6 @@ public class Category extends BaseEntity {
     private Category parent;
 
     @OneToMany(mappedBy = "parent", fetch = FetchType.LAZY)
-    @Setter(AccessLevel.NONE)
     private List<Category> children = new ArrayList<>();
 
     @Column(name = "level", nullable = false)
@@ -96,5 +85,64 @@ public class Category extends BaseEntity {
         this.level = level;
         this.active = true;
         this.sortOrder = 0;
+    }
+
+    public Long getId() {
+        return this.id;
+    }
+
+    public String getName() {
+        return this.name;
+    }
+
+    public void setName(final String name) {
+        this.name = name;
+    }
+
+    public String getCode() {
+        return this.code;
+    }
+
+    public void setCode(final String code) {
+        this.code = code;
+    }
+
+    public Category getParent() {
+        return this.parent;
+    }
+
+    public void setParent(final Category parent) {
+        this.parent = parent;
+    }
+
+    public List<Category> getChildren() {
+        return this.children;
+    }
+
+    public Integer getLevel() {
+        return this.level;
+    }
+
+    public void setLevel(final Integer level) {
+        this.level = level;
+    }
+
+    public Integer getSortOrder() {
+        return this.sortOrder;
+    }
+
+    public void setSortOrder(final Integer sortOrder) {
+        this.sortOrder = sortOrder;
+    }
+
+    public boolean isActive() {
+        return this.active;
+    }
+
+    public void setActive(final boolean active) {
+        this.active = active;
+    }
+
+    public Category() {
     }
 }

@@ -23,7 +23,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,7 +37,6 @@ import org.springframework.transaction.annotation.Transactional;
  * @see InventoryRepository
  */
 @Service
-@RequiredArgsConstructor
 public class CycleCountService {
 
     private final CycleCountRepository cycleCountRepository;
@@ -90,6 +88,18 @@ public class CycleCountService {
     public CycleCountDTO getCycleCount(final Long id) {
         final CycleCount cycleCount = getCycleCountEntity(id);
         return toDto(cycleCount, cycleCountItemRepository.findByCycleCountIdOrderByIdAsc(id));
+    }
+
+    /**
+     * Loads all cycle counts, newest first.
+     *
+     * @return cycle count responses
+     */
+    @Transactional(readOnly = true)
+    public List<CycleCountDTO> listCycleCounts() {
+        return cycleCountRepository.findAllByOrderByCreatedAtDescIdDesc().stream()
+                .map(cycleCount -> toDto(cycleCount, cycleCountItemRepository.findByCycleCountIdOrderByIdAsc(cycleCount.getId())))
+                .toList();
     }
 
     /**
@@ -249,5 +259,13 @@ public class CycleCountService {
 
     private int nullSafeQuantity(final Integer quantity) {
         return quantity == null ? 0 : quantity;
+    }
+
+    public CycleCountService(final CycleCountRepository cycleCountRepository, final CycleCountItemRepository cycleCountItemRepository, final InventoryRepository inventoryRepository, final LocationRepository locationRepository, final UserRepository userRepository) {
+        this.cycleCountRepository = cycleCountRepository;
+        this.cycleCountItemRepository = cycleCountItemRepository;
+        this.inventoryRepository = inventoryRepository;
+        this.locationRepository = locationRepository;
+        this.userRepository = userRepository;
     }
 }

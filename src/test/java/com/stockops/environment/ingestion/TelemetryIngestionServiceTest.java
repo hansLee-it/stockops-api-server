@@ -13,6 +13,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.stockops.entity.SensorDevice;
 import com.stockops.entity.SensorReading;
+import com.stockops.environment.WebSocketEnvironmentPublisher;
 import com.stockops.repository.SensorDeviceRepository;
 import com.stockops.repository.SensorReadingRepository;
 import java.util.Optional;
@@ -41,6 +42,9 @@ class TelemetryIngestionServiceTest {
 
     @Mock
     private SensorLatestProjectionRepository sensorLatestProjectionRepository;
+
+    @Mock
+    private WebSocketEnvironmentPublisher webSocketEnvironmentPublisher;
 
     @Mock
     private ObjectMapper objectMapper;

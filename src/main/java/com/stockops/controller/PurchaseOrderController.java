@@ -9,7 +9,6 @@ import com.stockops.service.UserService;
 import java.security.Principal;
 import java.util.List;
 import java.util.Map;
-import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -21,7 +20,6 @@ import org.springframework.web.bind.annotation.*;
  */
 @RestController
 @RequestMapping("/api/v1/purchase-orders")
-@RequiredArgsConstructor
 public class PurchaseOrderController {
 
     private final PurchaseOrderService purchaseOrderService;
@@ -136,5 +134,10 @@ public class PurchaseOrderController {
     public PurchaseOrder completePurchaseOrder(@PathVariable Long id, Principal principal) {
         final User currentUser = userService.getUserByEmail(principal.getName());
         return purchaseOrderService.complete(id, currentUser.getId());
+    }
+
+    public PurchaseOrderController(final PurchaseOrderService purchaseOrderService, final UserService userService) {
+        this.purchaseOrderService = purchaseOrderService;
+        this.userService = userService;
     }
 }

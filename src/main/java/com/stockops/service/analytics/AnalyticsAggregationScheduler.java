@@ -1,8 +1,8 @@
 package com.stockops.service.analytics;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.stockops.config.MetricsConfig;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -13,9 +13,7 @@ import org.springframework.stereotype.Component;
  * @author StockOps Team
  * @since 2.0
  */
-@Slf4j
 @Component
-@RequiredArgsConstructor
 public class AnalyticsAggregationScheduler {
 
     private final AnalyticsAggregationProperties properties;
@@ -64,5 +62,13 @@ public class AnalyticsAggregationScheduler {
                     e);
             metricsConfig.recordAnalyticsSchedulerFailure("backfill", e.getClass().getSimpleName());
         }
+    }
+
+    private static final Logger log = LoggerFactory.getLogger(AnalyticsAggregationScheduler.class);
+
+    public AnalyticsAggregationScheduler(final AnalyticsAggregationProperties properties, final AnalyticsAggregationService analyticsAggregationService, final MetricsConfig metricsConfig) {
+        this.properties = properties;
+        this.analyticsAggregationService = analyticsAggregationService;
+        this.metricsConfig = metricsConfig;
     }
 }

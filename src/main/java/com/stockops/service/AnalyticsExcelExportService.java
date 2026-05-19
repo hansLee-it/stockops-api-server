@@ -15,7 +15,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import lombok.RequiredArgsConstructor;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -30,7 +29,6 @@ import org.springframework.transaction.annotation.Transactional;
  * @since 2.0
  */
 @Service
-@RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class AnalyticsExcelExportService {
 
@@ -272,4 +270,9 @@ public class AnalyticsExcelExportService {
     private String formatPercent(final BigDecimal value) {
         return value == null ? "0%" : value.stripTrailingZeros().toPlainString() + "%";
     }
+
+    public AnalyticsExcelExportService(final AnalyticsReportingService analyticsReportingService) {
+        this.analyticsReportingService = analyticsReportingService;
+    }
+
 }

@@ -1,6 +1,5 @@
 package com.stockops.notification.kakao;
 
-import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
@@ -11,7 +10,6 @@ import org.springframework.stereotype.Component;
  * @author StockOps Team
  * @since 1.0
  */
-@Data
 @Component
 @ConfigurationProperties(prefix = "kakao")
 public class KakaoTalkConfig {
@@ -36,4 +34,36 @@ public class KakaoTalkConfig {
      * Base URL for Kakao Business API endpoints.
      */
     private String baseUrl;
+
+    public boolean isEnabled() {
+        return this.enabled;
+    }
+
+    public void setEnabled(final boolean enabled) {
+        this.enabled = enabled;
+    }
+
+    public String getApiKey() {
+        return this.apiKey;
+    }
+
+    public void setApiKey(final String apiKey) {
+        this.apiKey = apiKey;
+    }
+
+    public String getSenderKey() {
+        return this.senderKey;
+    }
+
+    public void setSenderKey(final String senderKey) {
+        this.senderKey = senderKey;
+    }
+
+    public String getBaseUrl() {
+        return this.baseUrl;
+    }
+
+    public void setBaseUrl(final String baseUrl) {
+        this.baseUrl = baseUrl;
+    }
 }

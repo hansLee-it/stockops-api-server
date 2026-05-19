@@ -24,6 +24,8 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.TestingAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,7 +37,7 @@ import org.springframework.transaction.annotation.Transactional;
  * @since 2.0
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
-@AutoConfigureMockMvc
+@AutoConfigureMockMvc(addFilters = false)
 @Transactional
 class CategoryControllerTest {
 
@@ -52,8 +54,10 @@ class CategoryControllerTest {
     private PermissionChecker permissionChecker;
 
     private void stubPermissions() {
+        SecurityContextHolder.getContext()
+                .setAuthentication(new TestingAuthenticationToken("test-user", "n/a", "ROLE_ADMIN"));
         when(permissionChecker.hasPermission(anyString())).thenReturn(true);
-        when(permissionChecker.hasAnyPermission(any())).thenReturn(true);
+        when(permissionChecker.hasAnyPermission(any(String[].class))).thenReturn(true);
         when(permissionChecker.hasCenterScope(anyLong())).thenReturn(true);
         when(permissionChecker.hasWarehouseScope(anyLong())).thenReturn(true);
         when(permissionChecker.hasPermissionForCenter(anyString(), anyLong())).thenReturn(true);
@@ -156,6 +160,8 @@ class CategoryControllerTest {
         mockMvc.perform(delete("/api/v1/categories/{id}", id))
                 .andExpect(status().isNoContent());
 
-        assertThat(categoryRepository.findById(id)).isEmpty();
+        assertThat(categoryRepository.findById(id))
+                .isPresent()
+                .hasValueSatisfying(deleted -> assertThat(deleted.isActive()).isFalse());
     }
 }

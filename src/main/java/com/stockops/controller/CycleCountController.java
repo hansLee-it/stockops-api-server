@@ -7,7 +7,7 @@ import com.stockops.security.CurrentUserProvider;
 import com.stockops.service.CycleCountService;
 import jakarta.validation.Valid;
 import java.net.URI;
-import lombok.RequiredArgsConstructor;
+import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -27,7 +27,6 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/api/v1/cycle-counts")
-@RequiredArgsConstructor
 public class CycleCountController {
 
     private final CycleCountService cycleCountService;
@@ -45,6 +44,17 @@ public class CycleCountController {
     public ResponseEntity<CycleCountDTO> createCycleCount(@Valid @RequestBody final CreateCycleCountRequest request) {
         final CycleCountDTO created = cycleCountService.createCycleCount(request, currentUserProvider.getCurrentUserId());
         return ResponseEntity.created(URI.create("/api/v1/cycle-counts/" + created.id())).body(created);
+    }
+
+    /**
+     * Lists cycle counts, newest first.
+     *
+     * @return cycle count list
+     */
+    @GetMapping
+    @PreAuthorize("@permissionChecker.hasPermission('CYCLE_COUNT_READ')")
+    public ResponseEntity<List<CycleCountDTO>> listCycleCounts() {
+        return ResponseEntity.ok(cycleCountService.listCycleCounts());
     }
 
     /**
@@ -85,5 +95,10 @@ public class CycleCountController {
     public ResponseEntity<CycleCountDTO> completeCycleCount(@PathVariable final Long id,
                                                             @Valid @RequestBody final CompleteCycleCountRequest request) {
         return ResponseEntity.ok(cycleCountService.completeCycleCount(id, request, currentUserProvider.getCurrentUserId()));
+    }
+
+    public CycleCountController(final CycleCountService cycleCountService, final CurrentUserProvider currentUserProvider) {
+        this.cycleCountService = cycleCountService;
+        this.currentUserProvider = currentUserProvider;
     }
 }

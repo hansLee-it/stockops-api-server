@@ -7,7 +7,6 @@ import com.stockops.service.ai.AIRecommendationService;
 import java.security.Principal;
 import java.time.LocalDate;
 import java.util.List;
-import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -26,7 +25,6 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/api/v1/ai/recommendations")
-@RequiredArgsConstructor
 public class AIRecommendationController {
 
     private final AIRecommendationService aiRecommendationService;
@@ -86,5 +84,10 @@ public class AIRecommendationController {
                                                      final Principal principal) {
         final User currentUser = userService.getUserByEmail(principal.getName());
         return aiRecommendationService.approveRecommendation(recommendationId, currentUser);
+    }
+
+    public AIRecommendationController(final AIRecommendationService aiRecommendationService, final UserService userService) {
+        this.aiRecommendationService = aiRecommendationService;
+        this.userService = userService;
     }
 }

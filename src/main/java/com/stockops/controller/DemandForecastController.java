@@ -1,7 +1,6 @@
 package com.stockops.controller;
 
 import com.stockops.service.DemandForecastService;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
@@ -9,7 +8,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/demand-forecast")
-@RequiredArgsConstructor
 public class DemandForecastController {
 
     private final DemandForecastService forecastService;
@@ -25,4 +23,9 @@ public class DemandForecastController {
     public ResponseEntity<List<Map<String, Object>>> getLowStockProducts() {
         return ResponseEntity.ok(forecastService.getLowStockProducts());
     }
+
+    public DemandForecastController(final DemandForecastService forecastService) {
+        this.forecastService = forecastService;
+    }
+
 }

@@ -5,13 +5,16 @@ import com.stockops.entity.AuditLog;
 import com.stockops.entity.User;
 import com.stockops.repository.AuditLogRepository;
 import com.stockops.repository.UserRepository;
-import lombok.RequiredArgsConstructor;
+import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -24,7 +27,6 @@ import java.util.List;
  * @see UserRepository
  */
 @Service
-@RequiredArgsConstructor
 public class AuditLogService {
 
     private final AuditLogRepository auditLogRepository;
@@ -39,10 +41,7 @@ public class AuditLogService {
      */
     @Transactional(readOnly = true)
     public List<AuditLogDTO> getAuditLogs(final String entityType, final Long entityId) {
-        return auditLogRepository.findAuditLogs(entityType, entityId, null, null, null, Pageable.unpaged())
-                .stream()
-                .map(this::toDto)
-                .toList();
+        return searchAuditLogs(entityType, entityId, null, null, null);
     }
 
     /**
@@ -71,10 +70,7 @@ public class AuditLogService {
      */
     @Transactional(readOnly = true)
     public List<AuditLogDTO> getAuditLogsByUser(final Long userId) {
-        return auditLogRepository.findAuditLogs(null, null, userId, null, null, Pageable.unpaged())
-                .stream()
-                .map(this::toDto)
-                .toList();
+        return searchAuditLogs(null, null, userId, null, null);
     }
 
     /**
@@ -86,10 +82,7 @@ public class AuditLogService {
      */
     @Transactional(readOnly = true)
     public List<AuditLogDTO> getAuditLogsByDateRange(final Instant start, final Instant end) {
-        return auditLogRepository.findAuditLogs(null, null, null, start, end, Pageable.unpaged())
-                .stream()
-                .map(this::toDto)
-                .toList();
+        return searchAuditLogs(null, null, null, start, end);
     }
 
     /**
@@ -108,10 +101,38 @@ public class AuditLogService {
                                              final Long userId,
                                              final Instant start,
                                              final Instant end) {
-        return auditLogRepository.findAuditLogs(entityType, entityId, userId, start, end, Pageable.unpaged())
+        return auditLogRepository.findAll(
+                        auditLogSpecification(entityType, entityId, userId, start, end),
+                        Sort.by(Sort.Direction.DESC, "performedAt", "id"))
                 .stream()
                 .map(this::toDto)
                 .toList();
+    }
+
+    private Specification<AuditLog> auditLogSpecification(final String entityType,
+                                                          final Long entityId,
+                                                          final Long userId,
+                                                          final Instant start,
+                                                          final Instant end) {
+        return (root, query, criteriaBuilder) -> {
+            final List<Predicate> predicates = new ArrayList<>();
+            if (entityType != null && !entityType.isBlank()) {
+                predicates.add(criteriaBuilder.equal(root.get("entityType"), entityType));
+            }
+            if (entityId != null) {
+                predicates.add(criteriaBuilder.equal(root.get("entityId"), entityId));
+            }
+            if (userId != null) {
+                predicates.add(criteriaBuilder.equal(root.get("performedBy"), userId));
+            }
+            if (start != null) {
+                predicates.add(criteriaBuilder.greaterThanOrEqualTo(root.get("performedAt"), start));
+            }
+            if (end != null) {
+                predicates.add(criteriaBuilder.lessThanOrEqualTo(root.get("performedAt"), end));
+            }
+            return criteriaBuilder.and(predicates.toArray(Predicate[]::new));
+        };
     }
 
     private AuditLogDTO toDto(final AuditLog auditLog) {
@@ -128,5 +149,10 @@ public class AuditLogService {
                 performer == null ? null : performer.getName(),
                 auditLog.getPerformedByEmail(),
                 auditLog.getPerformedAt());
+    }
+
+    public AuditLogService(final AuditLogRepository auditLogRepository, final UserRepository userRepository) {
+        this.auditLogRepository = auditLogRepository;
+        this.userRepository = userRepository;
     }
 }

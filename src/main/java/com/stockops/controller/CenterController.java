@@ -2,7 +2,6 @@ package com.stockops.controller;
 
 import com.stockops.entity.Center;
 import com.stockops.service.CenterService;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -17,7 +16,6 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/api/v1/centers")
-@RequiredArgsConstructor
 public class CenterController {
 
     private final CenterService centerService;
@@ -58,4 +56,9 @@ public class CenterController {
         centerService.delete(id);
         return ResponseEntity.noContent().build();
     }
+
+    public CenterController(final CenterService centerService) {
+        this.centerService = centerService;
+    }
+
 }

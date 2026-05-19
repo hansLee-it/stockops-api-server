@@ -1,10 +1,11 @@
 package com.stockops.ai.provider;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 /**
@@ -18,7 +19,6 @@ import org.springframework.stereotype.Component;
  * @since 2.0
  * @see WebhookProviderRegistry
  */
-@Slf4j
 @Component
 public class ExternalAiProviderRegistry {
 
@@ -61,4 +61,6 @@ public class ExternalAiProviderRegistry {
     public java.util.Set<String> getRegisteredIds() {
         return providers.keySet();
     }
+
+    private static final Logger log = LoggerFactory.getLogger(ExternalAiProviderRegistry.class);
 }
