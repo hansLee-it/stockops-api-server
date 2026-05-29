@@ -33,7 +33,7 @@ springdoc:
     path: /swagger-ui.html
 
 jwt:
-  secret: ${JWT_SECRET:change-me-in-production}
+  secret: ${JWT_SECRET}
   expiration: 86400000
 
 webhook:

@@ -57,6 +57,9 @@ public class SecurityConfig {
                         .contentTypeOptions(contentTypeOptions -> {})
                         .frameOptions(frameOptions -> frameOptions.deny())
                         .contentSecurityPolicy(csp -> csp.policyDirectives("default-src 'self'"))
+                        // X-XSS-Protection is deprecated and disabled.
+                        // Modern browsers ignore it; CSP (above) provides actual XSS protection.
+                        // See: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-XSS-Protection
                         .xssProtection(xss -> xss.disable())
                         .httpStrictTransportSecurity(hsts -> hsts
                                 .includeSubDomains(true)
@@ -70,8 +73,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/v1/auth/**").permitAll()
                         .requestMatchers("/error").permitAll()
-                        .requestMatchers("/actuator/**").permitAll()
-                        .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
+                        .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers("/ws/**", "/ws-sockjs/**").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

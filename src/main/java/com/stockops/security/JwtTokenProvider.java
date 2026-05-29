@@ -40,9 +40,20 @@ public class JwtTokenProvider {
 
     /**
      * Initializes the signing key from the configured shared secret.
+     * Fails fast if JWT_SECRET is not set or still uses the legacy default value.
      */
     @PostConstruct
     public void initialize() {
+        if (secret == null || secret.isBlank()) {
+            throw new IllegalStateException(
+                    "JWT_SECRET environment variable is not set. "
+                    + "The application refuses to start without a JWT secret for security reasons.");
+        }
+        if ("change-me-in-production".equals(secret)) {
+            throw new IllegalStateException(
+                    "JWT_SECRET is set to the legacy default value 'change-me-in-production'. "
+                    + "Please set a strong, unique secret before starting the application.");
+        }
         this.signingKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
     }
 

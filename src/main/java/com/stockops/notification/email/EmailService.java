@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
@@ -14,12 +15,14 @@ import org.thymeleaf.context.Context;
  * Email notification service using Spring Mail and Thymeleaf templates.
  * Supports weekly reports, alerts, and password reset emails.
  *
- * <p>When {@code email.enabled=false}, emails are logged instead of sent (mock mode).
+ * <p>Only activates when a {@link JavaMailSender} bean is present
+ * (i.e. when {@code spring.mail.host} is configured).
  *
  * @author StockOps Team
  * @since 1.0
  */
 @Service
+@ConditionalOnBean(JavaMailSender.class)
 public class EmailService {
 
     private final JavaMailSender mailSender;
