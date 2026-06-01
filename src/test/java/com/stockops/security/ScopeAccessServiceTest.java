@@ -48,7 +48,7 @@ class ScopeAccessServiceTest {
 
         assertThat(profile.global()).isTrue();
         assertThat(profile.toDto().assignments()).hasSize(1);
-        assertThat(profile.toDto().assignments().get(0).scope()).isEqualTo(ScopeType.GLOBAL);
+        assertThat(profile.toDto().assignments().get(0).scope()).isEqualTo(ScopeType.ADMIN);
     }
 
     @Test
@@ -90,6 +90,27 @@ class ScopeAccessServiceTest {
                 List.of(new ScopeAssignmentRequest(ScopeType.WAREHOUSE, null, 10L)));
 
         assertThat(assignments).containsExactly(new ScopeAssignment(ScopeType.WAREHOUSE, 1L, 10L));
+    }
+
+    @Test
+    void normalizeAssignmentsResolvesStoreAsWarehouseBackedScope() {
+        Warehouse warehouse = new Warehouse();
+        Center center = new Center();
+        center.setId(1L);
+        warehouse.setId(10L);
+        warehouse.setCenter(center);
+        when(warehouseRepository.findById(10L)).thenReturn(Optional.of(warehouse));
+
+        Set<ScopeAssignment> assignments = scopeAccessService.normalizeAssignments(
+                List.of(new ScopeAssignmentRequest(ScopeType.STORE, null, 10L)));
+
+        assertThat(assignments).containsExactly(new ScopeAssignment(ScopeType.STORE, 1L, 10L));
+    }
+
+    @Test
+    void scopeTypeReadsLegacyGlobalAsAdmin() {
+        assertThat(ScopeType.fromPersistedValue("GLOBAL")).isEqualTo(ScopeType.ADMIN);
+        assertThat(ScopeType.ADMIN.toPersistedValue()).isEqualTo("GLOBAL");
     }
 
     @Test

@@ -58,8 +58,8 @@ public class ScopeAccessService {
             assignments.add(normalizeAssignment(request));
         }
 
-        if (assignments.stream().anyMatch(assignment -> assignment.getScope() == ScopeType.GLOBAL)) {
-            return new LinkedHashSet<>(List.of(ScopeAssignment.global()));
+        if (assignments.stream().anyMatch(assignment -> assignment.getScope() == ScopeType.ADMIN)) {
+            return new LinkedHashSet<>(List.of(ScopeAssignment.admin()));
         }
 
         return assignments;
@@ -105,8 +105,8 @@ public class ScopeAccessService {
         }
 
         if (normalizedAssignments.isEmpty()
-                || normalizedAssignments.stream().anyMatch(assignment -> assignment.getScope() == ScopeType.GLOBAL)) {
-            return new ScopeAccessProfile(true, List.of(ScopeAssignment.global()), Set.of(), Set.of());
+                || normalizedAssignments.stream().anyMatch(assignment -> assignment.getScope() == ScopeType.ADMIN)) {
+            return new ScopeAccessProfile(true, List.of(ScopeAssignment.admin()), Set.of(), Set.of());
         }
 
         final LinkedHashSet<Long> centerIds = new LinkedHashSet<>();
@@ -132,18 +132,22 @@ public class ScopeAccessService {
     }
 
     private ScopeAssignment normalizeAssignment(final ScopeAssignmentRequest request) {
+        if (request.scope() == null) {
+            throw new IllegalArgumentException("Scope is required");
+        }
         return switch (request.scope()) {
-            case GLOBAL -> normalizeGlobal(request);
+            case ADMIN -> normalizeAdmin(request);
             case CENTER -> normalizeCenter(request);
             case WAREHOUSE -> normalizeWarehouse(request);
+            case STORE -> normalizeStore(request);
         };
     }
 
-    private ScopeAssignment normalizeGlobal(final ScopeAssignmentRequest request) {
+    private ScopeAssignment normalizeAdmin(final ScopeAssignmentRequest request) {
         if (request.centerId() != null || request.warehouseId() != null) {
-            throw new IllegalArgumentException("GLOBAL scope cannot target a center or warehouse");
+            throw new IllegalArgumentException("ADMIN scope cannot target a center or warehouse");
         }
-        return ScopeAssignment.global();
+        return ScopeAssignment.admin();
     }
 
     private ScopeAssignment normalizeCenter(final ScopeAssignmentRequest request) {
@@ -173,5 +177,21 @@ public class ScopeAccessService {
         }
 
         return new ScopeAssignment(ScopeType.WAREHOUSE, resolvedCenterId, request.warehouseId());
+    }
+
+    private ScopeAssignment normalizeStore(final ScopeAssignmentRequest request) {
+        if (request.warehouseId() == null) {
+            throw new IllegalArgumentException("STORE scope requires warehouseId");
+        }
+
+        final Warehouse warehouse = warehouseRepository.findById(request.warehouseId())
+                .orElseThrow(() -> new ResourceNotFoundException("Warehouse not found: " + request.warehouseId()));
+        final Long resolvedCenterId = warehouse.getCenter().getId();
+
+        if (request.centerId() != null && !request.centerId().equals(resolvedCenterId)) {
+            throw new IllegalArgumentException("STORE scope centerId must match the store warehouse's center");
+        }
+
+        return new ScopeAssignment(ScopeType.STORE, resolvedCenterId, request.warehouseId());
     }
 }

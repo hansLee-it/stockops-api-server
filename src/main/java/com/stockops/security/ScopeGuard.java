@@ -40,6 +40,12 @@ public class ScopeGuard {
         }
     }
 
+    public void assertAdminAccess() {
+        if (!currentScopeProfile().global()) {
+            throw new ForbiddenException("Access denied for admin scope");
+        }
+    }
+
     /**
      * Asserts access to a warehouse-scoped resource.
      *
@@ -50,6 +56,10 @@ public class ScopeGuard {
         if (!canAccessWarehouse(warehouseId)) {
             throw new ForbiddenException("Access denied for warehouse: " + warehouseId);
         }
+    }
+
+    public void assertStoreAccess(final Long storeId) {
+        assertWarehouseAccess(storeId);
     }
 
     /**
