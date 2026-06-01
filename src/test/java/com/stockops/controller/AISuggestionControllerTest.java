@@ -1,8 +1,10 @@
 package com.stockops.controller;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -375,20 +377,23 @@ class AISuggestionControllerTest {
     void recordFailedExecutionReturns200() throws Exception {
         stubPermissions(true);
         stubAuthentication();
+        final String errorMessage = "inventory service unavailable";
+        final AISuggestion failedSuggestion = suggestion(1L, AISuggestionStatus.FAILED);
+        failedSuggestion.setExecutionResult(objectMapper.writeValueAsString(errorMessage));
         when(userService.getUserByEmail("ai-admin")).thenReturn(currentUser());
-        when(aiSuggestionService.recordFailedExecution(anyLong(), any(), any(), anyString()))
-                .thenReturn(suggestion(1L, AISuggestionStatus.FAILED));
+        when(aiSuggestionService.recordFailedExecution(anyLong(), eq(errorMessage), any(), anyString()))
+                .thenReturn(failedSuggestion);
 
         mockMvc.perform(post("/api/v1/ai/suggestions/{id}/execute/failed", 1L)
                         .header(HttpHeaders.AUTHORIZATION, "Bearer test-token")
                         .header("X-Request-Id", "req-execute-failed")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(new AISuggestionExecuteRequest("inventory service unavailable"))))
+                        .content(objectMapper.writeValueAsString(new AISuggestionExecuteRequest(errorMessage))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("FAILED"))
-                .andExpect(jsonPath("$.errorMessage").value("{\"ok\":true}"));
+                .andExpect(jsonPath("$.errorMessage").value(containsString(errorMessage)));
 
-        verify(aiSuggestionService).recordFailedExecution(anyLong(), any(), any(), anyString());
+        verify(aiSuggestionService).recordFailedExecution(anyLong(), eq(errorMessage), any(), anyString());
     }
 
     @Test
