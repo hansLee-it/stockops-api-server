@@ -26,6 +26,7 @@ public class AISuggestionService {
     private static final String SCOPE_WAREHOUSE = "WAREHOUSE";
     private static final String ROLE_BRANCH_MANAGER = "BRANCH_MANAGER";
     private static final String ROLE_SALES_STAFF = "SALES_STAFF";
+    private static final String SOURCE_TYPE_AI_AGENT = "AI_AGENT";
 
     private final AISuggestionRepository aiSuggestionRepository;
     private final PermissionChecker permissionChecker;
@@ -51,7 +52,11 @@ public class AISuggestionService {
         assertSuggestionScope(suggestion);
 
         final AISuggestion saved = aiSuggestionRepository.save(suggestion);
-        aiSuggestionAuditService.recordCreate(saved, auditActor(currentUser), requestId);
+        if (isToolCreatedSuggestion(saved)) {
+            aiSuggestionAuditService.recordToolCreatedSuggestion(saved, auditActor(currentUser), requestId);
+        } else {
+            aiSuggestionAuditService.recordCreate(saved, auditActor(currentUser), requestId);
+        }
         return saved;
     }
 
@@ -86,7 +91,7 @@ public class AISuggestionService {
         assertNotExpired(suggestion);
 
         final AISuggestion before = copyOf(suggestion);
-        suggestion.transitionTo(AISuggestionStatus.APPROVED);
+        transitionSuggestion(suggestion, AISuggestionStatus.APPROVED);
         suggestion.setReviewedByUserId(currentUser == null ? null : currentUser.getId());
         suggestion.setReviewedAt(Instant.now());
         suggestion.setApprovedByUserId(currentUser == null ? null : currentUser.getId());
@@ -110,7 +115,7 @@ public class AISuggestionService {
         }
 
         final AISuggestion before = copyOf(suggestion);
-        suggestion.transitionTo(AISuggestionStatus.REJECTED);
+        transitionSuggestion(suggestion, AISuggestionStatus.REJECTED);
         suggestion.setReviewedByUserId(currentUser == null ? null : currentUser.getId());
         suggestion.setReviewedAt(Instant.now());
         suggestion.setRejectionReason(rejectionReason);
@@ -132,12 +137,36 @@ public class AISuggestionService {
         assertNotExpired(suggestion);
 
         final AISuggestion before = copyOf(suggestion);
-        suggestion.transitionTo(AISuggestionStatus.EXECUTED);
+        transitionSuggestion(suggestion, AISuggestionStatus.EXECUTED);
         suggestion.setExecutedAt(Instant.now());
         suggestion.setExecutionResult(executionResult == null || executionResult.isBlank() ? "{}" : executionResult);
 
         final AISuggestion saved = saveWithOptimisticLockGuard(suggestion);
         aiSuggestionAuditService.recordExecute(before, saved, auditActor(currentUser), requestId);
+        return saved;
+    }
+
+
+    @Transactional
+    public AISuggestion recordFailedExecution(final Long suggestionId,
+                                              final String errorMessage,
+                                              final User currentUser,
+                                              final String requestId) {
+        assertPermission(AISuggestionPermissions.EXECUTE);
+        assertReviewerRoleAllowed(currentUser, "execute");
+        final AISuggestion suggestion = getSuggestion(suggestionId);
+        assertSuggestionScope(suggestion);
+
+        final AISuggestion before = copyOf(suggestion);
+        transitionSuggestion(suggestion, AISuggestionStatus.FAILED);
+        suggestion.setExecutedAt(Instant.now());
+        final String normalizedErrorMessage = errorMessage == null || errorMessage.isBlank()
+                ? "Execution failed"
+                : errorMessage;
+        suggestion.setExecutionResult(normalizedErrorMessage);
+
+        final AISuggestion saved = saveWithOptimisticLockGuard(suggestion);
+        aiSuggestionAuditService.recordFailedExecution(before, saved, auditActor(currentUser), requestId, normalizedErrorMessage);
         return saved;
     }
 
@@ -168,6 +197,14 @@ public class AISuggestionService {
             return aiSuggestionRepository.save(suggestion);
         } catch (OptimisticLockingFailureException exception) {
             throw new ConflictException("AI suggestion was modified by another request");
+        }
+    }
+
+    private void transitionSuggestion(final AISuggestion suggestion, final AISuggestionStatus nextStatus) {
+        try {
+            suggestion.transitionTo(nextStatus);
+        } catch (IllegalStateException exception) {
+            throw new InvalidOperationException(exception.getMessage());
         }
     }
 
@@ -217,6 +254,10 @@ public class AISuggestionService {
 
     private static String normalizeScopeType(final String scopeType) {
         return scopeType == null ? null : scopeType.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private boolean isToolCreatedSuggestion(final AISuggestion suggestion) {
+        return SOURCE_TYPE_AI_AGENT.equals(normalizeScopeType(suggestion.getSourceType()));
     }
 
     private AISuggestionAuditService.AuditActor auditActor(final User user) {

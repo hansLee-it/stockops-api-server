@@ -18,6 +18,7 @@ import com.stockops.entity.User;
 import com.stockops.entity.ai.AISuggestion;
 import com.stockops.entity.ai.AISuggestionStatus;
 import com.stockops.exception.ConflictException;
+import com.stockops.exception.InvalidOperationException;
 import com.stockops.security.CustomUserDetailsService;
 import com.stockops.security.PermissionChecker;
 import com.stockops.security.JwtTokenProvider;
@@ -287,6 +288,43 @@ class AISuggestionControllerTest {
                         .content(objectMapper.writeValueAsString(new AISuggestionExecuteRequest("{\"ok\":true}"))))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.status").value(409));
+    }
+
+    @Test
+    void executeSuggestionInvalidTransitionReturns400() throws Exception {
+        stubPermissions(true);
+        stubAuthentication();
+        when(userService.getUserByEmail("ai-admin")).thenReturn(currentUser());
+        when(aiSuggestionService.execute(anyLong(), any(), any(), anyString()))
+                .thenThrow(new InvalidOperationException("Cannot transition AI suggestion from PENDING to EXECUTED"));
+
+        mockMvc.perform(post("/api/v1/ai/suggestions/{id}/execute", 1L)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer test-token")
+                        .header("X-Request-Id", "req-execute-invalid")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new AISuggestionExecuteRequest("{}"))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
+    }
+
+    @Test
+    void recordFailedExecutionReturns200() throws Exception {
+        stubPermissions(true);
+        stubAuthentication();
+        when(userService.getUserByEmail("ai-admin")).thenReturn(currentUser());
+        when(aiSuggestionService.recordFailedExecution(anyLong(), any(), any(), anyString()))
+                .thenReturn(suggestion(1L, AISuggestionStatus.FAILED));
+
+        mockMvc.perform(post("/api/v1/ai/suggestions/{id}/execute/failed", 1L)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer test-token")
+                        .header("X-Request-Id", "req-execute-failed")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new AISuggestionExecuteRequest("inventory service unavailable"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("FAILED"))
+                .andExpect(jsonPath("$.errorMessage").value("{\"ok\":true}"));
+
+        verify(aiSuggestionService).recordFailedExecution(anyLong(), any(), any(), anyString());
     }
 
     @Test

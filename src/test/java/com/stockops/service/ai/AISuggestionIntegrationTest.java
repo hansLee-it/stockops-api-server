@@ -135,7 +135,7 @@ class AISuggestionIntegrationTest {
 
         final List<AISuggestionAudit> audits = aiSuggestionAuditRepository.findBySuggestionIdOrderByRecordedAtAsc(suggestionId);
         assertThat(audits).hasSize(1);
-        assertThat(audits.getFirst().getAction()).isEqualTo("CREATE");
+        assertThat(audits.getFirst().getAction()).isEqualTo("TOOL_CREATE");
         assertThat(audits.getFirst().getAfterStatus()).isEqualTo("PENDING");
         assertThat(audits.getFirst().getRequestId()).isEqualTo("req-tool-create");
     }
@@ -153,7 +153,7 @@ class AISuggestionIntegrationTest {
         assertThat(executed.getExecutionResult()).isEqualTo("{\"purchaseOrderId\":321}");
         assertThat(aiSuggestionAuditRepository.findBySuggestionIdOrderByRecordedAtAsc(executed.getId()))
                 .extracting(AISuggestionAudit::getAction)
-                .containsExactly("CREATE", "APPROVE", "EXECUTE");
+                .containsExactly("TOOL_CREATE", "APPROVE", "EXECUTE");
 
         final AISuggestion pendingForRejection = aiSuggestionService.create(createCommand(), manager, "req-create-reject");
         final AISuggestion rejected = aiSuggestionService.reject(pendingForRejection.getId(), "supplier lead time changed", manager, "req-reject");
@@ -162,7 +162,7 @@ class AISuggestionIntegrationTest {
         assertThat(rejected.getRejectionReason()).isEqualTo("supplier lead time changed");
         assertThat(aiSuggestionAuditRepository.findBySuggestionIdOrderByRecordedAtAsc(rejected.getId()))
                 .extracting(AISuggestionAudit::getAction)
-                .containsExactly("CREATE", "REJECT");
+                .containsExactly("TOOL_CREATE", "REJECT");
     }
 
     @Test
@@ -172,7 +172,7 @@ class AISuggestionIntegrationTest {
 
         final AISuggestion approved = aiSuggestionRepository.save(suggestion(AISuggestionStatus.APPROVED));
         assertThatThrownBy(() -> aiSuggestionService.approve(approved.getId(), manager, "req-approve-again"))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(InvalidOperationException.class)
                 .hasMessageContaining("APPROVED to APPROVED");
         assertThat(aiSuggestionRepository.findById(approved.getId()).orElseThrow().getStatus())
                 .isEqualTo(AISuggestionStatus.APPROVED);
@@ -180,7 +180,7 @@ class AISuggestionIntegrationTest {
 
         final AISuggestion pending = aiSuggestionRepository.save(suggestion(AISuggestionStatus.PENDING));
         assertThatThrownBy(() -> aiSuggestionService.execute(pending.getId(), "{}", manager, "req-execute-pending"))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(InvalidOperationException.class)
                 .hasMessageContaining("PENDING to EXECUTED");
         assertThat(aiSuggestionRepository.findById(pending.getId()).orElseThrow().getStatus())
                 .isEqualTo(AISuggestionStatus.PENDING);
@@ -202,6 +202,34 @@ class AISuggestionIntegrationTest {
         assertThat(aiSuggestionRepository.findById(expiredApproved.getId()).orElseThrow().getStatus())
                 .isEqualTo(AISuggestionStatus.APPROVED);
         assertThat(aiSuggestionAuditRepository.findBySuggestionIdOrderByRecordedAtAsc(expiredApproved.getId())).isEmpty();
+    }
+
+    @Test
+    void failedExecutionPathTransitionsApprovedSuggestionAndAuditsFailure() throws Exception {
+        stubAllPermissions(true);
+        stubAuthentication();
+        when(userService.getUserByEmail(AUTH_EMAIL)).thenReturn(user(506L, "Failure Manager", "MANAGER"));
+
+        final AISuggestion approved = aiSuggestionRepository.save(suggestion(AISuggestionStatus.APPROVED));
+
+        final MockHttpServletResponse response = exchange(
+                HttpMethod.POST,
+                "/api/v1/ai/suggestions/" + approved.getId() + "/execute/failed",
+                new AISuggestionExecuteRequest("inventory service unavailable"),
+                true,
+                "req-execute-failed");
+
+        assertThat(response.getStatus()).isEqualTo(HttpStatus.OK.value());
+        final JsonNode payload = objectMapper.readTree(response.getContentAsString());
+        assertThat(payload.path("status").asText()).isEqualTo("FAILED");
+        assertThat(payload.path("errorMessage").asText()).isEqualTo("inventory service unavailable");
+
+        final AISuggestion saved = aiSuggestionRepository.findById(approved.getId()).orElseThrow();
+        assertThat(saved.getStatus()).isEqualTo(AISuggestionStatus.FAILED);
+        assertThat(saved.getExecutionResult()).isEqualTo("inventory service unavailable");
+        assertThat(aiSuggestionAuditRepository.findBySuggestionIdOrderByRecordedAtAsc(approved.getId()))
+                .extracting(AISuggestionAudit::getAction)
+                .containsExactly("EXECUTE_FAILED");
     }
 
     @Test
@@ -270,6 +298,8 @@ class AISuggestionIntegrationTest {
                 .isEqualTo(HttpStatus.FORBIDDEN.value());
         assertThat(exchange(HttpMethod.POST, "/api/v1/ai/suggestions/1/execute", new AISuggestionExecuteRequest("{}"), true, "req-execute-denied").getStatus())
                 .isEqualTo(HttpStatus.FORBIDDEN.value());
+        assertThat(exchange(HttpMethod.POST, "/api/v1/ai/suggestions/1/execute/failed", new AISuggestionExecuteRequest("failed"), true, "req-execute-failed-denied").getStatus())
+                .isEqualTo(HttpStatus.FORBIDDEN.value());
     }
 
     @Test
@@ -297,6 +327,9 @@ class AISuggestionIntegrationTest {
                 .isInstanceOf(ForbiddenException.class)
                 .hasMessageContaining("warehouse");
         assertThatThrownBy(() -> aiSuggestionService.execute(approved.getId(), "{}", manager, "req-execute-scope"))
+                .isInstanceOf(ForbiddenException.class)
+                .hasMessageContaining("warehouse");
+        assertThatThrownBy(() -> aiSuggestionService.recordFailedExecution(approved.getId(), "failed", manager, "req-execute-failed-scope"))
                 .isInstanceOf(ForbiddenException.class)
                 .hasMessageContaining("warehouse");
         assertThat(aiSuggestionAuditRepository.findAll()).isEmpty();

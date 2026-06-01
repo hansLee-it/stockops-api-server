@@ -95,6 +95,20 @@ public class AISuggestionController {
                 aiSuggestionService.execute(id, executionResult, currentUser, requestId)));
     }
 
+
+    @PostMapping("/{id}/execute/failed")
+    @PreAuthorize("@permissionChecker.hasPermission('AI_SUGGESTION_EXECUTE')")
+    public ResponseEntity<AISuggestionResponse> recordFailedExecution(
+            @PathVariable final Long id,
+            @RequestBody(required = false) final AISuggestionExecuteRequest request,
+            final Principal principal,
+            @RequestHeader(value = "X-Request-Id", required = false) final String requestId) {
+        final User currentUser = resolveCurrentUser(principal);
+        final String errorMessage = request == null ? null : request.executionResult();
+        return ResponseEntity.ok(AISuggestionResponse.from(
+                aiSuggestionService.recordFailedExecution(id, errorMessage, currentUser, requestId)));
+    }
+
     private User resolveCurrentUser(final Principal principal) {
         return principal == null ? null : userService.getUserByEmail(principal.getName());
     }

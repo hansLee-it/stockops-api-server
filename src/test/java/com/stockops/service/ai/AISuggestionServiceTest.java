@@ -58,7 +58,7 @@ class AISuggestionServiceTest {
     }
 
     @Test
-    void createPersistsPendingSuggestionWithScopeAndAudit() {
+    void createPersistsPendingToolSuggestionWithScopeAndAudit() {
         final User creator = user(7L, "MANAGER");
         when(permissionChecker.hasPermission(AISuggestionPermissions.CREATE)).thenReturn(true);
         when(aiSuggestionRepository.save(any(AISuggestion.class))).thenAnswer(invocation -> {
@@ -73,7 +73,7 @@ class AISuggestionServiceTest {
         assertThat(saved.getCreatedByUserId()).isEqualTo(7L);
         assertThat(saved.getTargetScopeType()).isEqualTo("WAREHOUSE");
         verify(scopeGuard).assertWarehouseAccess(456L);
-        verify(aiSuggestionAuditService).recordCreate(
+        verify(aiSuggestionAuditService).recordToolCreatedSuggestion(
                 eq(saved),
                 eq(new AISuggestionAuditService.AuditActor(7L, "User 7", "MANAGER")),
                 eq("req-create"));
@@ -126,6 +126,31 @@ class AISuggestionServiceTest {
     }
 
     @Test
+    void recordFailedExecutionTransitionsApprovedSuggestionAndAuditsFailure() {
+        final User manager = user(12L, "MANAGER");
+        final AISuggestion approved = suggestion(AISuggestionStatus.APPROVED);
+        when(permissionChecker.hasPermission(AISuggestionPermissions.EXECUTE)).thenReturn(true);
+        when(aiSuggestionRepository.findById(1L)).thenReturn(Optional.of(approved));
+        when(aiSuggestionRepository.save(any(AISuggestion.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        final AISuggestion failed = aiSuggestionService.recordFailedExecution(
+                1L,
+                "inventory service unavailable",
+                manager,
+                "req-execute-failed");
+
+        assertThat(failed.getStatus()).isEqualTo(AISuggestionStatus.FAILED);
+        assertThat(failed.getExecutionResult()).isEqualTo("inventory service unavailable");
+        assertThat(failed.getExecutedAt()).isNotNull();
+        verify(aiSuggestionAuditService).recordFailedExecution(
+                any(AISuggestion.class),
+                eq(failed),
+                eq(new AISuggestionAuditService.AuditActor(12L, "User 12", "MANAGER")),
+                eq("req-execute-failed"),
+                eq("inventory service unavailable"));
+    }
+
+    @Test
     void branchManagerCannotApproveEvenWithPermission() {
         when(permissionChecker.hasPermission(AISuggestionPermissions.APPROVE)).thenReturn(true);
 
@@ -156,6 +181,18 @@ class AISuggestionServiceTest {
         assertThatThrownBy(() -> aiSuggestionService.reject(1L, " ", user(31L, "MANAGER"), "req-reject"))
                 .isInstanceOf(InvalidOperationException.class)
                 .hasMessageContaining("Rejection reason");
+    }
+
+
+    @Test
+    void invalidWorkflowTransitionThrowsInvalidOperationException() {
+        final AISuggestion pending = suggestion(AISuggestionStatus.PENDING);
+        when(permissionChecker.hasPermission(AISuggestionPermissions.EXECUTE)).thenReturn(true);
+        when(aiSuggestionRepository.findById(1L)).thenReturn(Optional.of(pending));
+
+        assertThatThrownBy(() -> aiSuggestionService.execute(1L, "{}", user(32L, "MANAGER"), "req-execute-pending"))
+                .isInstanceOf(InvalidOperationException.class)
+                .hasMessageContaining("PENDING to EXECUTED");
     }
 
     @Test
