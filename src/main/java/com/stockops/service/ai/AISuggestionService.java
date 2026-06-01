@@ -71,7 +71,7 @@ public class AISuggestionService {
     @Transactional(readOnly = true)
     public List<AISuggestion> list(final ListQuery query) {
         assertPermission(AISuggestionPermissions.READ);
-        if (query != null && (query.targetScopeType() != null || query.targetScopeId() != null)) {
+        if (query != null && query.targetScopeId() != null) {
             assertScopeAccess(query.targetScopeType(), query.targetScopeId());
         }
 
@@ -188,6 +188,14 @@ public class AISuggestionService {
                     .findByTargetScopeTypeAndTargetScopeIdOrderByIdAsc(
                             normalizeSupportedScopeType("targetScopeType", query.targetScopeType()),
                             query.targetScopeId())
+                    .stream()
+                    .filter(suggestion -> query.status() == null || suggestion.getStatus() == query.status())
+                    .toList();
+        }
+        if (query.targetScopeType() != null) {
+            return aiSuggestionRepository
+                    .findByTargetScopeTypeOrderByIdAsc(
+                            normalizeSupportedScopeType("targetScopeType", query.targetScopeType()))
                     .stream()
                     .filter(suggestion -> query.status() == null || suggestion.getStatus() == query.status())
                     .toList();

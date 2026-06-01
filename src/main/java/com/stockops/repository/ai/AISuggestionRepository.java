@@ -9,5 +9,7 @@ public interface AISuggestionRepository extends JpaRepository<AISuggestion, Long
 
     List<AISuggestion> findByStatusOrderByIdAsc(AISuggestionStatus status);
 
+    List<AISuggestion> findByTargetScopeTypeOrderByIdAsc(String targetScopeType);
+
     List<AISuggestion> findByTargetScopeTypeAndTargetScopeIdOrderByIdAsc(String targetScopeType, Long targetScopeId);
 }

@@ -27,6 +27,8 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
@@ -189,15 +191,26 @@ class AISuggestionServiceTest {
         verify(scopeGuard).assertStoreAccess(456L);
     }
 
-    @Test
-    void listRejectsPartialScopeFilterBeforeLoadingRows() {
+    @ParameterizedTest
+    @ValueSource(strings = {"ADMIN", "CENTER", "WAREHOUSE", "STORE"})
+    void listWithScopeTypeOnlyFiltersRowsWithoutRequiringScopeId(final String scopeType) {
+        final AISuggestion scopeSuggestion = suggestion(AISuggestionStatus.PENDING);
+        scopeSuggestion.setTargetScopeType(scopeType);
+        scopeSuggestion.setTargetScopeId(scopeIdFor(scopeType));
         when(permissionChecker.hasPermission(AISuggestionPermissions.READ)).thenReturn(true);
+        when(aiSuggestionRepository.findByTargetScopeTypeOrderByIdAsc(scopeType)).thenReturn(List.of(scopeSuggestion));
+        when(scopeGuard.filterByCenterWarehouseScope(any(), any(), any()))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
-        assertThatThrownBy(() -> aiSuggestionService.list(new AISuggestionService.ListQuery(null, "STORE", null)))
-                .isInstanceOf(InvalidOperationException.class)
-                .hasMessageContaining("STORE scope requires targetScopeId");
+        final List<AISuggestion> suggestions = aiSuggestionService.list(
+                new AISuggestionService.ListQuery(AISuggestionStatus.PENDING, scopeType.toLowerCase(), null));
 
-        verify(aiSuggestionRepository, never()).findAll();
+        assertThat(suggestions).containsExactly(scopeSuggestion);
+        verify(aiSuggestionRepository).findByTargetScopeTypeOrderByIdAsc(scopeType);
+        verify(scopeGuard, never()).assertAdminAccess();
+        verify(scopeGuard, never()).assertCenterAccess(any());
+        verify(scopeGuard, never()).assertWarehouseAccess(any());
+        verify(scopeGuard, never()).assertStoreAccess(any());
     }
 
     @Test
@@ -530,6 +543,16 @@ class AISuggestionServiceTest {
         suggestion.setExpiresAt(Instant.now().plusSeconds(3600));
         suggestion.setVersion(0L);
         return suggestion;
+    }
+
+    private Long scopeIdFor(final String scopeType) {
+        return switch (scopeType) {
+            case "ADMIN" -> 0L;
+            case "CENTER" -> 100L;
+            case "WAREHOUSE" -> 456L;
+            case "STORE" -> 789L;
+            default -> throw new IllegalArgumentException("Unsupported scope type: " + scopeType);
+        };
     }
 
     private User user(final Long id, final String roleName) {
