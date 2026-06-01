@@ -1,5 +1,7 @@
 package com.stockops.service.ai;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.stockops.entity.Role;
 import com.stockops.entity.User;
 import com.stockops.entity.ai.AISuggestion;
@@ -24,9 +26,15 @@ public class AISuggestionService {
 
     private static final String SCOPE_CENTER = "CENTER";
     private static final String SCOPE_WAREHOUSE = "WAREHOUSE";
-    private static final String ROLE_BRANCH_MANAGER = "BRANCH_MANAGER";
-    private static final String ROLE_SALES_STAFF = "SALES_STAFF";
+    private static final String SCOPE_ADMIN = "ADMIN";
+    private static final String SCOPE_STORE = "STORE";
+    private static final String ROLE_STORE_MANAGER = "STORE_MANAGER";
+    private static final String ROLE_STORE_STAFF = "STORE_STAFF";
+    private static final String ROLE_LEGACY_BRANCH_MANAGER = "BRANCH_MANAGER";
+    private static final String ROLE_LEGACY_SALES_STAFF = "SALES_STAFF";
     private static final String SOURCE_TYPE_AI_AGENT = "AI_AGENT";
+    private static final String EMPTY_JSON_OBJECT = "{}";
+    private static final ObjectMapper JSON_MAPPER = new ObjectMapper();
 
     private final AISuggestionRepository aiSuggestionRepository;
     private final PermissionChecker permissionChecker;
@@ -63,11 +71,12 @@ public class AISuggestionService {
     @Transactional(readOnly = true)
     public List<AISuggestion> list(final ListQuery query) {
         assertPermission(AISuggestionPermissions.READ);
-        if (query != null && query.targetScopeType() != null && query.targetScopeId() != null) {
+        if (query != null && (query.targetScopeType() != null || query.targetScopeId() != null)) {
             assertScopeAccess(query.targetScopeType(), query.targetScopeId());
         }
 
         final List<AISuggestion> suggestions = loadSuggestions(query);
+        validateLoadedSuggestionScopes(suggestions);
         return scopeGuard.filterByCenterWarehouseScope(
                 suggestions,
                 AISuggestionService::centerIdForScope,
@@ -139,7 +148,7 @@ public class AISuggestionService {
         final AISuggestion before = copyOf(suggestion);
         transitionSuggestion(suggestion, AISuggestionStatus.EXECUTED);
         suggestion.setExecutedAt(Instant.now());
-        suggestion.setExecutionResult(executionResult == null || executionResult.isBlank() ? "{}" : executionResult);
+        suggestion.setExecutionResult(normalizeJsonField("executionResult", executionResult));
 
         final AISuggestion saved = saveWithOptimisticLockGuard(suggestion);
         aiSuggestionAuditService.recordExecute(before, saved, auditActor(currentUser), requestId);
@@ -163,7 +172,7 @@ public class AISuggestionService {
         final String normalizedErrorMessage = errorMessage == null || errorMessage.isBlank()
                 ? "Execution failed"
                 : errorMessage;
-        suggestion.setExecutionResult(normalizedErrorMessage);
+        suggestion.setExecutionResult(toJsonString(normalizedErrorMessage));
 
         final AISuggestion saved = saveWithOptimisticLockGuard(suggestion);
         aiSuggestionAuditService.recordFailedExecution(before, saved, auditActor(currentUser), requestId, normalizedErrorMessage);
@@ -176,7 +185,9 @@ public class AISuggestionService {
         }
         if (query.targetScopeType() != null && query.targetScopeId() != null) {
             return aiSuggestionRepository
-                    .findByTargetScopeTypeAndTargetScopeIdOrderByIdAsc(normalizeScopeType(query.targetScopeType()), query.targetScopeId())
+                    .findByTargetScopeTypeAndTargetScopeIdOrderByIdAsc(
+                            normalizeSupportedScopeType("targetScopeType", query.targetScopeType()),
+                            query.targetScopeId())
                     .stream()
                     .filter(suggestion -> query.status() == null || suggestion.getStatus() == query.status())
                     .toList();
@@ -190,6 +201,18 @@ public class AISuggestionService {
     private AISuggestion getSuggestion(final Long suggestionId) {
         return aiSuggestionRepository.findById(suggestionId)
                 .orElseThrow(() -> new ResourceNotFoundException("AI suggestion not found: " + suggestionId));
+    }
+
+    private void validateLoadedSuggestionScopes(final List<AISuggestion> suggestions) {
+        for (AISuggestion suggestion : suggestions) {
+            normalizeSupportedScopeType("targetScopeType", suggestion.getTargetScopeType());
+            if (suggestion.getTargetScopeId() == null) {
+                throw new InvalidOperationException(suggestion.getTargetScopeType() + " scope requires targetScopeId");
+            }
+            if (suggestion.getRequestedScopeType() != null) {
+                normalizeSupportedScopeType("requestedScopeType", suggestion.getRequestedScopeType());
+            }
+        }
     }
 
     private AISuggestion saveWithOptimisticLockGuard(final AISuggestion suggestion) {
@@ -219,7 +242,14 @@ public class AISuggestionService {
     }
 
     private void assertScopeAccess(final String scopeType, final Long scopeId) {
-        final String normalizedScopeType = normalizeScopeType(scopeType);
+        final String normalizedScopeType = normalizeSupportedScopeType("targetScopeType", scopeType);
+        if (scopeId == null) {
+            throw new InvalidOperationException(normalizedScopeType + " scope requires targetScopeId");
+        }
+        if (SCOPE_ADMIN.equals(normalizedScopeType)) {
+            scopeGuard.assertAdminAccess();
+            return;
+        }
         if (SCOPE_CENTER.equals(normalizedScopeType)) {
             scopeGuard.assertCenterAccess(scopeId);
             return;
@@ -228,13 +258,19 @@ public class AISuggestionService {
             scopeGuard.assertWarehouseAccess(scopeId);
             return;
         }
-        throw new InvalidOperationException("Unsupported AI suggestion scope type: " + scopeType);
+        if (SCOPE_STORE.equals(normalizedScopeType)) {
+            scopeGuard.assertStoreAccess(scopeId);
+            return;
+        }
+        throw new InvalidOperationException("Unsupported AI suggestion targetScopeType: " + scopeType);
     }
 
     private void assertReviewerRoleAllowed(final User currentUser, final String action) {
         final String roleName = roleName(currentUser);
-        if (ROLE_BRANCH_MANAGER.equals(roleName) || ROLE_SALES_STAFF.equals(roleName)) {
-            throw new ForbiddenException("Role cannot " + action + " AI suggestions: " + roleName);
+        final String effectiveRoleName = effectiveRoleName(roleName);
+        if (ROLE_STORE_STAFF.equals(effectiveRoleName)) {
+            throw new ForbiddenException(
+                    "Role cannot " + action + " AI suggestions: " + roleName + " (effective role: " + effectiveRoleName + ")");
         }
     }
 
@@ -249,15 +285,50 @@ public class AISuggestionService {
     }
 
     private static Long warehouseIdForScope(final AISuggestion suggestion) {
-        return SCOPE_WAREHOUSE.equals(normalizeScopeType(suggestion.getTargetScopeType())) ? suggestion.getTargetScopeId() : null;
+        final String scopeType = normalizeScopeType(suggestion.getTargetScopeType());
+        return SCOPE_WAREHOUSE.equals(scopeType) || SCOPE_STORE.equals(scopeType) ? suggestion.getTargetScopeId() : null;
     }
 
     private static String normalizeScopeType(final String scopeType) {
         return scopeType == null ? null : scopeType.trim().toUpperCase(Locale.ROOT);
     }
 
+    private static String normalizeSupportedScopeType(final String fieldName, final String scopeType) {
+        final String normalizedScopeType = normalizeScopeType(scopeType);
+        if (normalizedScopeType == null || normalizedScopeType.isBlank()) {
+            throw new InvalidOperationException(fieldName + " is required");
+        }
+        if (SCOPE_ADMIN.equals(normalizedScopeType)
+                || SCOPE_CENTER.equals(normalizedScopeType)
+                || SCOPE_WAREHOUSE.equals(normalizedScopeType)
+                || SCOPE_STORE.equals(normalizedScopeType)) {
+            return normalizedScopeType;
+        }
+        throw new InvalidOperationException("Unsupported AI suggestion " + fieldName + ": " + scopeType);
+    }
+
     private boolean isToolCreatedSuggestion(final AISuggestion suggestion) {
         return SOURCE_TYPE_AI_AGENT.equals(normalizeScopeType(suggestion.getSourceType()));
+    }
+
+    private static String normalizeJsonField(final String fieldName, final String value) {
+        if (value == null || value.isBlank()) {
+            return EMPTY_JSON_OBJECT;
+        }
+        try {
+            JSON_MAPPER.readTree(value);
+            return value;
+        } catch (JsonProcessingException exception) {
+            throw new InvalidOperationException(fieldName + " must contain valid JSON");
+        }
+    }
+
+    private static String toJsonString(final String value) {
+        try {
+            return JSON_MAPPER.writeValueAsString(value);
+        } catch (JsonProcessingException exception) {
+            throw new InvalidOperationException("executionResult must contain valid JSON");
+        }
     }
 
     private AISuggestionAuditService.AuditActor auditActor(final User user) {
@@ -270,6 +341,16 @@ public class AISuggestionService {
     private String roleName(final User user) {
         final Role role = user == null ? null : user.getRole();
         return role == null || role.getName() == null ? null : role.getName().trim().toUpperCase(Locale.ROOT);
+    }
+
+    private static String effectiveRoleName(final String roleName) {
+        if (ROLE_LEGACY_BRANCH_MANAGER.equals(roleName)) {
+            return ROLE_STORE_MANAGER;
+        }
+        if (ROLE_LEGACY_SALES_STAFF.equals(roleName)) {
+            return ROLE_STORE_STAFF;
+        }
+        return roleName;
     }
 
     private AISuggestion copyOf(final AISuggestion source) {
@@ -355,9 +436,9 @@ public class AISuggestionService {
             suggestion.setRecommendedAction(recommendedAction);
             suggestion.setTargetType(targetType);
             suggestion.setTargetId(targetId);
-            suggestion.setTargetScopeType(normalizeScopeType(targetScopeType));
+            suggestion.setTargetScopeType(normalizeSupportedScopeType("targetScopeType", targetScopeType));
             suggestion.setTargetScopeId(targetScopeId);
-            suggestion.setPayloadJson(payloadJson == null || payloadJson.isBlank() ? "{}" : payloadJson);
+            suggestion.setPayloadJson(normalizeJsonField("payloadJson", payloadJson));
             suggestion.setConfidenceScore(confidenceScore);
             suggestion.setSource(source);
             suggestion.setSourceType(sourceType);
@@ -366,11 +447,13 @@ public class AISuggestionService {
             suggestion.setForecastSourceId(forecastSourceId);
             suggestion.setForecastModelVersion(forecastModelVersion);
             suggestion.setForecastGeneratedAt(forecastGeneratedAt);
-            suggestion.setForecastSourcePayloadJson(forecastSourcePayloadJson);
+            suggestion.setForecastSourcePayloadJson(normalizeJsonField("forecastSourcePayloadJson", forecastSourcePayloadJson));
             suggestion.setVisibleToApp(visibleToApp);
             suggestion.setApprovalMode(approvalMode);
             suggestion.setRequestedOnBehalfUserId(requestedOnBehalfUserId);
-            suggestion.setRequestedScopeType(requestedScopeType == null ? null : normalizeScopeType(requestedScopeType));
+            suggestion.setRequestedScopeType(requestedScopeType == null
+                    ? null
+                    : normalizeSupportedScopeType("requestedScopeType", requestedScopeType));
             suggestion.setRequestedScopeId(requestedScopeId);
             suggestion.setExpiresAt(expiresAt);
             return suggestion;
