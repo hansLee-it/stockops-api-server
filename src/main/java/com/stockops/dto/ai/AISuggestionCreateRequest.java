@@ -34,6 +34,8 @@ public record AISuggestionCreateRequest(
         Instant expiresAt
 ) {
 
+    private static final String EMPTY_JSON_OBJECT = "{}";
+
     public AISuggestionService.CreateCommand toCommand() {
         return new AISuggestionService.CreateCommand(
                 type,
@@ -46,7 +48,7 @@ public record AISuggestionCreateRequest(
                 targetId,
                 targetScopeType,
                 targetScopeId,
-                payloadJson,
+                defaultBlankJson(payloadJson),
                 confidenceScore,
                 source,
                 sourceType,
@@ -55,7 +57,7 @@ public record AISuggestionCreateRequest(
                 forecastSourceId,
                 forecastModelVersion,
                 forecastGeneratedAt,
-                forecastSourcePayloadJson,
+                defaultBlankJson(forecastSourcePayloadJson),
                 visibleToApp,
                 approvalMode,
                 requestedOnBehalfUserId,
@@ -63,5 +65,9 @@ public record AISuggestionCreateRequest(
                 requestedScopeId,
                 expiresAt
         );
+    }
+
+    private static String defaultBlankJson(final String value) {
+        return value == null || value.isBlank() ? EMPTY_JSON_OBJECT : value;
     }
 }

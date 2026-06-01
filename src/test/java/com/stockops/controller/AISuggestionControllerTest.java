@@ -153,6 +153,36 @@ class AISuggestionControllerTest {
                 Instant.parse("2026-06-01T10:00:00Z"));
     }
 
+    private AISuggestionCreateRequest reviewPayloadCreateRequest(final String payloadJson) {
+        return new AISuggestionCreateRequest(
+                "INVENTORY_REPLENISHMENT",
+                "HIGH",
+                "Codex QA create debug",
+                "QA test suggestion",
+                "Debug creation",
+                "No business write",
+                "PRODUCT",
+                1L,
+                "CENTER",
+                1L,
+                payloadJson,
+                0.87,
+                "QA",
+                "USER_REQUEST",
+                "admin-web",
+                null,
+                null,
+                null,
+                null,
+                null,
+                "ADMIN_WEB",
+                "MANUAL",
+                null,
+                "CENTER",
+                1L,
+                null);
+    }
+
     private void stubAuthentication() {
         when(jwtTokenProvider.validateToken("test-token")).thenReturn(true);
         when(jwtTokenProvider.extractEmail("test-token")).thenReturn("ai-admin");
@@ -207,6 +237,40 @@ class AISuggestionControllerTest {
                 .andExpect(jsonPath("$.allowedActions[0]").value("APPROVE"));
 
         verify(aiSuggestionService).create(any(), any(), any());
+    }
+
+    @Test
+    void createSuggestionAcceptsReviewPayload() throws Exception {
+        stubPermissions(true);
+        stubAuthentication();
+        when(userService.getUserByEmail("ai-admin")).thenReturn(currentUser());
+        when(aiSuggestionService.create(any(), any(), any())).thenReturn(suggestion(1L, AISuggestionStatus.PENDING));
+
+        mockMvc.perform(post("/api/v1/ai/suggestions")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer test-token")
+                        .header("X-Request-Id", "req-review-payload")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(reviewPayloadCreateRequest("{\"qa\":true}"))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("PENDING"));
+
+        verify(aiSuggestionService).create(any(), any(), any());
+    }
+
+    @Test
+    void createSuggestionWithMalformedPayloadJsonReturns400() throws Exception {
+        stubPermissions(true);
+        stubAuthentication();
+        when(userService.getUserByEmail("ai-admin")).thenReturn(currentUser());
+        when(aiSuggestionService.create(any(), any(), any()))
+                .thenThrow(new InvalidOperationException("payloadJson must contain valid JSON"));
+
+        mockMvc.perform(post("/api/v1/ai/suggestions")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer test-token")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(reviewPayloadCreateRequest("{\"qa\":"))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
     }
 
     @Test

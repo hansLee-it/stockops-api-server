@@ -56,8 +56,9 @@ public class AISuggestionController {
             final Principal principal,
             @RequestHeader(value = "X-Request-Id", required = false) final String requestId) {
         final User currentUser = resolveCurrentUser(principal);
+        final AISuggestionService.CreateCommand command = request.toCommand();
         return ResponseEntity.status(201)
-                .body(AISuggestionResponse.from(aiSuggestionService.create(request.toCommand(), currentUser, requestId)));
+                .body(AISuggestionResponse.from(aiSuggestionService.create(command, currentUser, requestId)));
     }
 
     @PostMapping("/{id}/approve")
