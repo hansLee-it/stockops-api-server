@@ -6,6 +6,7 @@ import com.stockops.dto.UpdateUserRequest;
 import com.stockops.dto.UserDTO;
 import com.stockops.entity.Role;
 import com.stockops.entity.User;
+import com.stockops.exception.ForbiddenException;
 import com.stockops.exception.ResourceNotFoundException;
 import com.stockops.repository.RoleRepository;
 import com.stockops.repository.UserRepository;
@@ -28,6 +29,7 @@ import java.util.List;
 public class UserService {
 
     private static final String DEFAULT_ROLE = "USER";
+    private static final String ADMIN_ROLE = "ADMIN";
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
@@ -107,7 +109,13 @@ public class UserService {
      */
     @Transactional
     public UserDTO updateUser(final Long id, final UpdateUserRequest request) {
+        return updateUser(id, request, null);
+    }
+
+    @Transactional
+    public UserDTO updateUser(final Long id, final UpdateUserRequest request, final Long currentUserId) {
         final User user = findUserEntityById(id);
+        rejectSelfAdminDemotion(user, request, currentUserId);
 
         if (request.name() != null && !request.name().isBlank()) {
             user.setName(request.name());
@@ -131,9 +139,13 @@ public class UserService {
      */
     @Transactional
     public void deleteUser(final Long id) {
-        if (!userRepository.existsById(id)) {
-            throw new ResourceNotFoundException("User not found: " + id);
-        }
+        deleteUser(id, null);
+    }
+
+    @Transactional
+    public void deleteUser(final Long id, final Long currentUserId) {
+        final User user = findUserEntityById(id);
+        rejectSelfAdminDeletion(user, currentUserId);
 
         userRepository.deleteById(id);
     }
@@ -159,6 +171,29 @@ public class UserService {
         final String roleName = (requestedRole == null || requestedRole.isBlank()) ? DEFAULT_ROLE : requestedRole;
         return roleRepository.findByName(roleName)
                 .orElseThrow(() -> new ResourceNotFoundException("Role not found: " + roleName));
+    }
+
+    private void rejectSelfAdminDemotion(final User user, final UpdateUserRequest request, final Long currentUserId) {
+        if (!isCurrentAdminUser(user, currentUserId) || request.role() == null || request.role().isBlank()) {
+            return;
+        }
+
+        if (!ADMIN_ROLE.equals(request.role())) {
+            throw new ForbiddenException("Current administrator cannot remove their own ADMIN role");
+        }
+    }
+
+    private void rejectSelfAdminDeletion(final User user, final Long currentUserId) {
+        if (isCurrentAdminUser(user, currentUserId)) {
+            throw new ForbiddenException("Current administrator cannot delete their own ADMIN account");
+        }
+    }
+
+    private boolean isCurrentAdminUser(final User user, final Long currentUserId) {
+        return currentUserId != null
+                && currentUserId.equals(user.getId())
+                && user.getRole() != null
+                && ADMIN_ROLE.equals(user.getRole().getName());
     }
 
     private UserDTO toDto(final User user) {
