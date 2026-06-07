@@ -192,7 +192,8 @@ public class NotificationDispatcher {
         for (WebhookEndpointConfig endpoint : endpoints) {
             try {
                 webhookService.send(providerType, endpoint.getWebhookUrl(), payload);
-                log.info("[DISPATCH] Webhook sent via {} to {}", providerType, endpoint.getWebhookUrl());
+                log.info("[DISPATCH] Webhook sent via {} to {}",
+                        providerType, maskWebhookUrl(endpoint.getWebhookUrl()));
             } catch (Exception e) {
                 log.error("[DISPATCH] Failed to send webhook via {}: {}", providerType, e.getMessage(), e);
             }
@@ -214,6 +215,15 @@ public class NotificationDispatcher {
             case "WARNING" -> WebhookPayload.Severity.WARNING;
             default -> WebhookPayload.Severity.INFO;
         };
+    }
+
+    private String maskWebhookUrl(final String webhookUrl) {
+        if (webhookUrl == null || webhookUrl.isBlank()) {
+            return "(blank)";
+        }
+
+        String maskedUrl = webhookUrl.replaceFirst("^(https?://[^/]+).*$", "$1/••••••••••••••••");
+        return maskedUrl.equals(webhookUrl) ? "••••••••••••••••" : maskedUrl;
     }
 
     private static final Logger log = LoggerFactory.getLogger(NotificationDispatcher.class);

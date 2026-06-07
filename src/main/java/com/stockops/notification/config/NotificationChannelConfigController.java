@@ -28,7 +28,7 @@ public class NotificationChannelConfigController {
     @GetMapping
     @PreAuthorize("@permissionChecker.hasPermission('CENTER_READ')")
     public List<NotificationChannelConfigDTO> listConfigs(
-            @RequestParam Long centerId,
+            @RequestParam(required = false) Long centerId,
             @RequestParam(required = false) Long warehouseId,
             @RequestParam(required = false) String alertType) {
 

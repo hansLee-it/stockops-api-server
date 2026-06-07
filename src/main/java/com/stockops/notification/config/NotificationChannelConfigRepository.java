@@ -16,6 +16,13 @@ import java.util.Optional;
 public interface NotificationChannelConfigRepository extends JpaRepository<NotificationChannelConfig, Long> {
 
     /**
+     * Finds all active configs.
+     *
+     * @return list of active channel configs
+     */
+    List<NotificationChannelConfig> findByActiveTrue();
+
+    /**
      * Finds all active configs for a given center.
      *
      * @param centerId center identifier

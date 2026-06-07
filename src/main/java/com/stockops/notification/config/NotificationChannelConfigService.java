@@ -35,6 +35,9 @@ public class NotificationChannelConfigService {
 
     @Transactional(readOnly = true)
     public List<NotificationChannelConfig> findAllByCenterId(Long centerId) {
+        if (centerId == null) {
+            return configRepository.findByActiveTrue();
+        }
         return configRepository.findByCenterIdAndActiveTrue(centerId);
     }
 
