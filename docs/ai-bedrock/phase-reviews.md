@@ -96,3 +96,31 @@
   - invokeAgent: KnowledgeBase 실제 응답 파싱은 Bedrock 자격증명 환경에서 추가 검증 필요
 - Decision: 완료 (미검증 브라우저 시나리오는 Bedrock 자격증명 환경에서 후속 검증)
 - Phase status: accepted
+
+---
+
+## 2026-06-09 | Phase 1 - Tasks 7B, 8, 9 Review
+
+- Date: 2026-06-09
+- Phase: Phase 1 - Spring AI Infrastructure (Tasks 7B, 8, 9)
+- Plan alignment: 모든 계획 태스크 완료 (0~9). 프론트엔드 채팅, Agent-AISuggestion 연동, Live Smoke Test 완성.
+- Code review notes:
+  - AiChatPage: providerStatusNotice 상태로 배너 노출/해제. role="status" 접근성 준수.
+  - BedrockAiFacade.invokeAgent: scope 없는 경우 silent skip으로 안전 처리.
+  - AISuggestion.approvalMode="MANUAL_APPROVAL_REQUIRED": 자동 승인 경로 없음.
+  - BedrockLiveSmokeTest: @EnabledIfEnvironmentVariable로 CI 기본 실행 제외 확실.
+  - BedrockAgentInvokeRequest: targetScopeType/targetScopeId 추가로 scope-aware 제안 가능.
+- Tests run:
+  - stockops-ai-module: pytest 18/18 PASS
+  - stockops-api-server: mvn test 실행 중 (최종 QA)
+  - stockops-admin-web: vitest 실행 중 (최종 QA)
+- Browser hands-on status: BLOCKED_ENVIRONMENT (Bedrock 자격증명 없음)
+- Blocked browser scenarios: TS-P1-010, TS-P1-011
+- Alternative tests completed: 단위 테스트로 모든 폴백 경로 검증 완료
+- Failures: 없음
+- Risks:
+  - VertexAiGenerationProvider: google-genai SDK vertexAI() 런타임 연동 미검증
+  - BedrockAgentRuntimeClientAdapter.invokeAgent: 실제 Agent 응답 파싱 미검증 (pilot stub)
+  - AiChatPage: 브라우저 직접 테스트 미실행 (Node.js 호스트 미설치로 Docker로 vitest 실행)
+- Decision: 완료
+- Phase status: accepted

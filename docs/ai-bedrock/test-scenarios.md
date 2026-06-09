@@ -230,3 +230,54 @@ Use this section when local Chrome/Chromium execution is unavailable.
 - If blocked:
   - Block reason: 로컬 Bedrock 자격증명 없음
   - Tests completed instead: BedrockAiFacadeTest.explainRecommendation_returnsFallbackWhenBedrockDisabled (Unit, PASS)
+
+---
+
+## Phase 1 - Task 8 Scenarios
+
+### TS-P1-012
+
+- ID: TS-P1-012
+- Feature: BedrockAiFacade Agent→AISuggestion 연동 (actionSuggested=true, scope 제공)
+- Test type: Unit
+- Preconditions: agentAdapter mock, aiSuggestionService mock
+- Steps: invokeAgent(message, scope=WAREHOUSE/2) → agentAdapter returns actionSuggested=true
+- Expected result: aiSuggestionService.create called with source=BEDROCK_AGENT, sourceType=AI_AGENT, approvalMode=MANUAL_APPROVAL_REQUIRED
+- Actual result: PASS (mvn test)
+- Status: PASS
+
+### TS-P1-013
+
+- ID: TS-P1-013
+- Feature: BedrockAiFacade Agent 제안 없을 때 AISuggestion 미생성
+- Test type: Unit
+- Preconditions: agentAdapter mock
+- Steps: invokeAgent → agentAdapter returns actionSuggested=false
+- Expected result: aiSuggestionService.create 호출 없음
+- Actual result: PASS (mvn test)
+- Status: PASS
+
+### TS-P1-014
+
+- ID: TS-P1-014
+- Feature: BedrockAiFacade scope 미제공 시 AISuggestion 미생성
+- Test type: Unit
+- Preconditions: agentAdapter returns actionSuggested=true, scope null
+- Steps: invokeAgent(message, scope=null/null) → actionSuggested=true
+- Expected result: aiSuggestionService.create 호출 없음 (scope 없이 AISuggestion 생성 불가)
+- Actual result: PASS (mvn test)
+- Status: PASS
+
+### TS-P1-015
+
+- ID: TS-P1-015
+- Feature: BedrockLiveSmokeTest CI 기본 실행 제외
+- Test type: Build
+- Preconditions: STOCKOPS_BEDROCK_LIVE_TESTS 환경변수 미설정
+- Steps: mvn test 실행
+- Expected result: BedrockLiveSmokeTest 실행되지 않음
+- Actual result: NOT_RUN
+- Status: BLOCKED_ENVIRONMENT
+- If blocked:
+  - Block reason: 환경변수 미설정으로 @EnabledIfEnvironmentVariable에 의해 자동 skip
+  - Tests completed instead: 기본 mvn test에 BedrockLiveSmokeTest가 포함되지 않음을 확인 예정
