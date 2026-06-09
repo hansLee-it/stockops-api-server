@@ -1,5 +1,6 @@
 package com.stockops.config;
 
+import com.stockops.logging.CrudRequestLoggingFilter;
 import com.stockops.security.JwtAuthenticationFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -46,7 +47,8 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(final HttpSecurity http,
                                            final JwtAuthenticationFilter jwtAuthenticationFilter,
-                                           final Optional<RateLimitFilter> rateLimitFilter) throws Exception {
+                                           final Optional<RateLimitFilter> rateLimitFilter,
+                                           final CrudRequestLoggingFilter crudRequestLoggingFilter) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
                 .formLogin(form -> form.disable())
@@ -78,7 +80,10 @@ public class SecurityConfig {
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
-        rateLimitFilter.ifPresent(filter -> http.addFilterAfter(filter, JwtAuthenticationFilter.class));
+        // CRUD logging runs after JWT (so the security context is populated) but before rate limiting
+        // (so rate-limited requests are logged with their 429 status).
+        http.addFilterAfter(crudRequestLoggingFilter, JwtAuthenticationFilter.class);
+        rateLimitFilter.ifPresent(filter -> http.addFilterAfter(filter, CrudRequestLoggingFilter.class));
 
         return http.build();
     }

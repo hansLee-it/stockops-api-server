@@ -17,6 +17,12 @@ spring:
 server:
   port: 8080
 
+logging:
+  level:
+    # CRUD request/response logging — READ (GET) logs at DEBUG, hidden in prod.
+    # Override per-profile: local/dev use DEBUG so read operations are visible.
+    com.stockops.logging: INFO
+
 management:
   endpoints:
     web:
@@ -109,6 +115,10 @@ spring:
     host: localhost
     port: 2525
 
+logging:
+  level:
+    com.stockops.logging: DEBUG   # show READ (GET) logs in local
+
 stockops:
   redis:
     enabled: false
@@ -125,6 +135,10 @@ spring:
     username: ${STOCKOPS_DATASOURCE_USERNAME:stockops}
     password: ${STOCKOPS_DATASOURCE_PASSWORD:stockops}
     driver-class-name: org.postgresql.Driver
+
+logging:
+  level:
+    com.stockops.logging: DEBUG   # show READ (GET) logs in dev/docker
 
 ---
 spring:
