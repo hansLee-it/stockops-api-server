@@ -178,3 +178,22 @@
 - Blockers: 없음
 - Verification: 일반 mvn test 실행 시 BedrockLiveSmokeTest 제외 확인 (환경변수 미설정)
 - Next step: 최종 QA 및 전체 테스트 스위트 실행
+
+---
+
+## 2026-06-09 | 기존 테스트 실패 수정 (Bugfix)
+
+- Date: 2026-06-09
+- Phase: Bugfix (Phase 1 완료 후)
+- Summary: Phase 1 AI 작업과 무관한 기존 테스트 실패 2건 수정. 257/257 PASS 달성.
+- Files changed:
+  - src/main/java/com/stockops/service/ai/AISuggestionService.java — recordFailedExecution: toJsonString() 제거, plain string 직접 저장
+  - src/test/java/com/stockops/service/AuditLogServiceTest.java — Mock stub 교정: findAll(Sort) → findAll(Pageable), findById → findAllById
+  - src/test/java/com/stockops/service/ai/AISuggestionServiceTest.java — executionResult 기대값 교정: JSON 인코딩된 문자열 → plain string
+- Decisions:
+  - AISuggestionIntegrationTest line 225/229이 진짜 스펙: executionResult는 plain string 저장이 맞음.
+  - AISuggestionServiceTest는 기존 잘못된 구현을 테스트하고 있었음 → 함께 교정.
+  - AuditLogService는 이미 findAllById 배치 조회를 사용 중이었으나 테스트가 findById를 mocking하고 있어 PotentialStubbingProblem 발생.
+- Blockers: 없음
+- Verification: mvn test 257/257 PASS (Skipped: BedrockLiveSmokeTest 환경변수 미설정)
+- Next step: 원격 저장소 push (사용자 확인 필요)
