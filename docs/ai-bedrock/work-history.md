@@ -118,3 +118,63 @@
 - Blockers: 없음
 - Verification: mvn -DskipTests compile 성공. 테스트 22/22 PASS (BedrockPromptBuilderTest 3, AiProviderFacadeTest 4, BedrockAiFacadeTest 2, AiChatControllerTest 2, + Task1 기존 11 PASS)
 - Next step: Task 7B (프론트엔드 Chat 폴백 배너), Task 8 (Agent→AISuggestion 연동), Task 9 (Bedrock Live Smoke Test)
+
+---
+
+## 2026-06-09 | Phase 1 - Task 7B (Frontend Chat Fallback Banner)
+
+- Date: 2026-06-09
+- Phase: Phase 1 - Spring AI Infrastructure (Task 7B)
+- Summary: React 채팅 페이지 + AI 공급자 폴백 배너 완성. stockops-admin-web에 AiChatPage, API 클라이언트, 타입 정의 추가.
+- Files changed (stockops-admin-web):
+  - src/types/aiChat.ts (신규 - AiChatResponse, AiChatRequest, ChatMessage 타입)
+  - src/api/aiChat.ts (신규 - sendChatMessage API 클라이언트)
+  - src/pages/AiChatPage.tsx (신규 - 채팅 UI + 폴백 배너, role="status")
+  - src/pages/AiChatPage.test.tsx (신규 - 4 tests)
+  - src/App.tsx (ai/chat 라우트 추가)
+- Decisions:
+  - providerStatusNotice 상태: serviceNotice || fallbackNotice 우선순위로 배너 노출
+  - Bedrock 복구 시 (fallbackUsed=false, notice 없음) → 배너 자동 해제
+  - scrollIntoView에 optional chaining 사용 → jsdom 테스트 환경 안전
+  - banner에 role="status" → 접근성, 테스트 쿼리 용이
+  - Node.js 미호스트 → Docker node:20-alpine으로 vitest 실행
+- Blockers: 없음
+- Verification: vitest 4/4 PASS (AiChatPage.test.tsx). 기존 248 테스트 모두 유지.
+- Next step: Task 8 (Agent→AISuggestion 연동)
+
+---
+
+## 2026-06-09 | Phase 1 - Task 8 (Agent→AISuggestion 연동)
+
+- Date: 2026-06-09
+- Phase: Phase 1 - Spring AI Infrastructure (Task 8)
+- Summary: Bedrock Agent 제안을 AISuggestion 승인 흐름에 연동. BedrockAiFacade.invokeAgent가 actionSuggested=true 시 AISuggestion.PENDING 생성.
+- Files changed:
+  - src/main/java/com/stockops/ai/bedrock/dto/BedrockAgentInvokeRequest.java (targetScopeType, targetScopeId 필드 추가)
+  - src/main/java/com/stockops/ai/bedrock/BedrockAiFacade.java (invokeAgent AISuggestion 생성 로직 추가)
+  - src/test/java/com/stockops/ai/bedrock/BedrockAiFacadeTest.java (3 테스트 추가)
+- Decisions:
+  - scope 미제공 시 AISuggestion 생성 생략 (silent skip) → 스코프 없는 호출은 오류 없이 통과
+  - AISuggestion create 실패 시 warn 로그만 출력 → agent 응답 자체는 항상 반환
+  - currentUser=null 전달 → AI_AGENT 소스로 tool-created 경로 사용
+  - approvalMode="MANUAL_APPROVAL_REQUIRED" → 자동 승인 없음
+- Blockers: 없음
+- Verification: mvn test 14/14 PASS (BedrockAiFacadeTest 포함)
+- Next step: Task 9 (Bedrock Live Smoke Test)
+
+---
+
+## 2026-06-09 | Phase 1 - Task 9 (Bedrock Live Smoke Test)
+
+- Date: 2026-06-09
+- Phase: Phase 1 - Spring AI Infrastructure (Task 9)
+- Summary: BedrockLiveSmokeTest 생성 (기본 비활성화). README에 Bedrock 환경변수 및 라이브 테스트 실행 방법 문서화.
+- Files changed:
+  - src/test/java/com/stockops/ai/bedrock/BedrockLiveSmokeTest.java (신규)
+  - README.md (AI 공급자 환경변수 표, Bedrock Live Smoke Tests 섹션 추가)
+- Decisions:
+  - @EnabledIfEnvironmentVariable(named = "STOCKOPS_BEDROCK_LIVE_TESTS", matches = "true") → CI 기본 실행 제외
+  - @Tag("bedrock-live") + mvn -Dgroups=bedrock-live test → 선택적 실행
+- Blockers: 없음
+- Verification: 일반 mvn test 실행 시 BedrockLiveSmokeTest 제외 확인 (환경변수 미설정)
+- Next step: 최종 QA 및 전체 테스트 스위트 실행

@@ -82,6 +82,35 @@ Flyway migrations are in `src/main/resources/db/migration/`.
 | `DB_PASSWORD` | Database password | (required) |
 | `JWT_SECRET` | JWT signing secret | (required) |
 
+## AI Provider Configuration
+
+`stockops.ai.bedrock.enabled` and `stockops.ai.vertex.enabled` default to `false`.
+Set them to `true` in your deployment environment and provide the required credentials.
+
+| Variable | Description |
+|----------|-------------|
+| `STOCKOPS_BEDROCK_ENABLED` | Set `true` to enable Amazon Bedrock |
+| `STOCKOPS_BEDROCK_REGION` | AWS region (default: `ap-northeast-2`) |
+| `STOCKOPS_BEDROCK_MODEL_ID` | Bedrock model or inference profile ARN |
+| `STOCKOPS_VERTEX_ENABLED` | Set `true` to enable GCP Vertex AI fallback |
+| `STOCKOPS_VERTEX_PROJECT_ID` | GCP project ID |
+| `STOCKOPS_VERTEX_CREDENTIALS_JSON` | GCP service account JSON (base64 or raw) |
+| `STOCKOPS_AI_SERVICE_API_KEY` | API key for stockops-ai-module Prophet service |
+
+### Bedrock Live Smoke Tests
+
+To run live integration tests against real Bedrock infrastructure:
+
+```bash
+STOCKOPS_BEDROCK_ENABLED=true \
+STOCKOPS_BEDROCK_LIVE_TESTS=true \
+STOCKOPS_BEDROCK_REGION=ap-northeast-2 \
+STOCKOPS_BEDROCK_MODEL_ID=<model-id-or-inference-profile> \
+mvn -Dgroups=bedrock-live test
+```
+
+These tests are disabled by default and do not run in CI unless `STOCKOPS_BEDROCK_LIVE_TESTS=true`.
+
 ## Related Repositories
 
 - [stockops-web](https://github.com/your-org/stockops-web) — React frontend
