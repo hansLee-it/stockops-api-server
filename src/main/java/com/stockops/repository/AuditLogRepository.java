@@ -50,6 +50,6 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, Long>, JpaSp
      * @param pageable pagination and sort request
      * @return recent audit logs ordered by recency
      */
-    @Query("select a from AuditLog a order by a.performedAt desc")
+    @Query("select a from AuditLog a where a.entityType <> 'SensorReading' order by a.performedAt desc")
     List<AuditLog> findRecentAuditLogs(Pageable pageable);
 }

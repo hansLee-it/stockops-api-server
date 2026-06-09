@@ -7,6 +7,7 @@ import com.stockops.repository.AuditLogRepository;
 import com.stockops.repository.UserRepository;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -17,6 +18,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * Provides audit history queries for administrative review.
@@ -57,10 +61,7 @@ public class AuditLogService {
             return List.of();
         }
 
-        return auditLogRepository.findRecentAuditLogs(PageRequest.of(0, limit))
-                .stream()
-                .map(this::toDto)
-                .toList();
+        return toDtoList(auditLogRepository.findRecentAuditLogs(PageRequest.of(0, limit)));
     }
 
     /**
@@ -119,10 +120,11 @@ public class AuditLogService {
                 ? pageable
                 : PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(),
                         Sort.by(Sort.Direction.DESC, "performedAt", "id"));
-        return auditLogRepository.findAll(
-                        auditLogSpecification(entityType, entityId, userId, start, end),
-                        effectivePageable)
-                .map(this::toDto);
+        final Page<AuditLog> page = auditLogRepository.findAll(
+                auditLogSpecification(entityType, entityId, userId, start, end),
+                effectivePageable);
+        final List<AuditLogDTO> dtos = toDtoList(page.getContent());
+        return new PageImpl<>(dtos, effectivePageable, page.getTotalElements());
     }
 
     private Specification<AuditLog> auditLogSpecification(final String entityType,
@@ -151,8 +153,30 @@ public class AuditLogService {
         };
     }
 
-    private AuditLogDTO toDto(final AuditLog auditLog) {
-        final User performer = auditLog.getPerformedBy() == null ? null : userRepository.findById(auditLog.getPerformedBy()).orElse(null);
+    /**
+     * Converts a list of audit logs to DTOs using a single batched user lookup,
+     * eliminating the N+1 query pattern that would result from per-log lookups.
+     *
+     * @param logs audit log entities to convert
+     * @return converted DTOs
+     */
+    private List<AuditLogDTO> toDtoList(final List<AuditLog> logs) {
+        final List<Long> performerIds = logs.stream()
+                .map(AuditLog::getPerformedBy)
+                .filter(id -> id != null)
+                .distinct()
+                .toList();
+        final Map<Long, User> userCache = performerIds.isEmpty()
+                ? Map.of()
+                : userRepository.findAllById(performerIds).stream()
+                        .collect(Collectors.toMap(User::getId, Function.identity()));
+        return logs.stream()
+                .map(log -> toDtoWithCache(log, userCache))
+                .toList();
+    }
+
+    private AuditLogDTO toDtoWithCache(final AuditLog auditLog, final Map<Long, User> userCache) {
+        final User performer = auditLog.getPerformedBy() == null ? null : userCache.get(auditLog.getPerformedBy());
         return new AuditLogDTO(
                 auditLog.getId(),
                 auditLog.getEntityType(),

@@ -5,6 +5,10 @@ import com.stockops.entity.Notice;
 import com.stockops.entity.NoticeType;
 import com.stockops.exception.ResourceNotFoundException;
 import com.stockops.repository.NoticeRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
@@ -56,17 +60,21 @@ public class NoticeService {
     }
 
     @Transactional(readOnly = true)
-    public List<Notice> getAllNotices(final NoticeType type, final Boolean active) {
+    public Page<Notice> getAllNotices(final NoticeType type, final Boolean active, final Pageable pageable) {
+        final Pageable effectivePageable = pageable.getSort().isSorted()
+                ? pageable
+                : PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(),
+                        Sort.by(Sort.Direction.DESC, "createdAt"));
         if (type != null && active != null) {
-            return noticeRepository.findByTypeAndActiveOrderByCreatedAtDesc(type, active);
+            return noticeRepository.findByTypeAndActive(type, active, effectivePageable);
         }
         if (type != null) {
-            return noticeRepository.findByTypeOrderByCreatedAtDesc(type);
+            return noticeRepository.findByType(type, effectivePageable);
         }
         if (active != null) {
-            return noticeRepository.findByActiveOrderByCreatedAtDesc(active);
+            return noticeRepository.findByActive(active, effectivePageable);
         }
-        return noticeRepository.findAllByOrderByCreatedAtDesc();
+        return noticeRepository.findAll(effectivePageable);
     }
 
     public NoticeService(final NoticeRepository noticeRepository) {

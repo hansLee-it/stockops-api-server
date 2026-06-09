@@ -10,6 +10,8 @@ import java.util.List;
 public interface NoticeRepository extends JpaRepository<Notice, Long> {
     List<Notice> findByActiveTrueOrderByCreatedAtDesc();
     Page<Notice> findByType(NoticeType type, Pageable pageable);
+    Page<Notice> findByActive(Boolean active, Pageable pageable);
+    Page<Notice> findByTypeAndActive(NoticeType type, Boolean active, Pageable pageable);
     List<Notice> findByActiveTrueAndTypeOrderByCreatedAtDesc(NoticeType type);
     List<Notice> findAllByOrderByCreatedAtDesc();
     List<Notice> findByActiveOrderByCreatedAtDesc(Boolean active);
