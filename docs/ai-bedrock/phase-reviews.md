@@ -112,12 +112,14 @@
   - BedrockAgentInvokeRequest: targetScopeType/targetScopeId 추가로 scope-aware 제안 가능.
 - Tests run:
   - stockops-ai-module: pytest 18/18 PASS
-  - stockops-api-server: mvn test 실행 중 (최종 QA)
-  - stockops-admin-web: vitest 실행 중 (최종 QA)
+  - stockops-api-server: mvn test 255/257 PASS (2개 기존 실패 존재 — 아래 참조)
+  - stockops-admin-web: vitest 252/252 PASS (30 test files)
 - Browser hands-on status: BLOCKED_ENVIRONMENT (Bedrock 자격증명 없음)
 - Blocked browser scenarios: TS-P1-010, TS-P1-011
 - Alternative tests completed: 단위 테스트로 모든 폴백 경로 검증 완료
-- Failures: 없음
+- Failures:
+  - AISuggestionIntegrationTest.failedExecutionPathTransitionsApprovedSuggestionAndAuditsFailure:225 — 기존 실패 (내 커밋과 무관, 테스트 파일 미수정 확인). errorMessage 직렬화 불일치.
+  - AuditLogServiceTest.searchAuditLogsSupportsUnfilteredRequests — 기존 실패 (내 커밋과 무관). Mockito PotentialStubbingProblem.
 - Risks:
   - VertexAiGenerationProvider: google-genai SDK vertexAI() 런타임 연동 미검증
   - BedrockAgentRuntimeClientAdapter.invokeAgent: 실제 Agent 응답 파싱 미검증 (pilot stub)
