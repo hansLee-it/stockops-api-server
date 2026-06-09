@@ -15,11 +15,13 @@ import com.stockops.ai.provider.AiGenerationResponse;
 import com.stockops.ai.provider.AiProviderFacade;
 import com.stockops.dto.AIRecommendationDTO;
 import com.stockops.service.ai.AIRecommendationService;
+import com.stockops.service.ai.AISuggestionService;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -37,17 +39,20 @@ public class BedrockAiFacade {
     private final BedrockAiProperties properties;
     private final BedrockAgentRuntimeClientAdapter agentAdapter;
     private final AIRecommendationService recommendationService;
+    private final AISuggestionService aiSuggestionService;
 
     public BedrockAiFacade(final AiProviderFacade providerFacade,
                            final BedrockPromptBuilder promptBuilder,
                            final BedrockAiProperties properties,
                            final BedrockAgentRuntimeClientAdapter agentAdapter,
-                           final AIRecommendationService recommendationService) {
+                           final AIRecommendationService recommendationService,
+                           final AISuggestionService aiSuggestionService) {
         this.providerFacade = providerFacade;
         this.promptBuilder = promptBuilder;
         this.properties = properties;
         this.agentAdapter = agentAdapter;
         this.recommendationService = recommendationService;
+        this.aiSuggestionService = aiSuggestionService;
     }
 
     public BedrockRecommendationExplanationResponse explainRecommendation(final AIRecommendationDTO recommendation) {
@@ -108,7 +113,61 @@ public class BedrockAiFacade {
     }
 
     public BedrockAgentInvokeResponse invokeAgent(final BedrockAgentInvokeRequest request) {
-        return agentAdapter.invokeAgent(request);
+        final BedrockAgentInvokeResponse response = agentAdapter.invokeAgent(request);
+        if (response.actionSuggested()
+                && request.targetScopeType() != null && !request.targetScopeType().isBlank()
+                && request.targetScopeId() != null) {
+            try {
+                aiSuggestionService.create(buildAgentSuggestionCommand(request, response), null,
+                        UUID.randomUUID().toString());
+            } catch (final RuntimeException e) {
+                log.warn("Failed to create AISuggestion from agent response: {}", e.getMessage());
+            }
+        }
+        return response;
+    }
+
+    private AISuggestionService.CreateCommand buildAgentSuggestionCommand(
+            final BedrockAgentInvokeRequest request, final BedrockAgentInvokeResponse response) {
+        final String title = response.answer() != null && response.answer().length() > 80
+                ? response.answer().substring(0, 80) + "..."
+                : (response.answer() != null ? response.answer() : "Bedrock Agent 제안");
+        final Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("sessionId", response.sessionId());
+        payload.put("answer", response.answer());
+        String payloadJson;
+        try {
+            payloadJson = JSON.writeValueAsString(payload);
+        } catch (final JsonProcessingException e) {
+            payloadJson = "{}";
+        }
+        return new AISuggestionService.CreateCommand(
+                "AGENT_SUGGESTION",
+                "MEDIUM",
+                title,
+                response.answer(),
+                "Bedrock Agent 제안",
+                response.answer(),
+                null,
+                null,
+                request.targetScopeType(),
+                request.targetScopeId(),
+                payloadJson,
+                null,
+                "BEDROCK_AGENT",
+                "AI_AGENT",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "MANUAL_APPROVAL_REQUIRED",
+                null,
+                null,
+                null,
+                null);
     }
 
     private BedrockRecommendationExplanationResponse fallbackExplanation(
