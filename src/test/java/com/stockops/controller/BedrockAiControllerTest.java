@@ -1,6 +1,7 @@
 package com.stockops.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.stockops.ai.bedrock.AiRagRateLimiter;
 import com.stockops.ai.bedrock.BedrockAiFacade;
 import com.stockops.ai.bedrock.dto.BedrockAgentInvokeRequest;
 import com.stockops.ai.bedrock.dto.BedrockAgentInvokeResponse;
@@ -28,13 +29,14 @@ class BedrockAiControllerTest {
 
     @Mock AIRecommendationService recommendationService;
     @Mock BedrockAiFacade bedrockAiFacade;
+    @Mock AiRagRateLimiter ragRateLimiter;
     MockMvc mockMvc;
     final ObjectMapper objectMapper = new ObjectMapper();
 
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders.standaloneSetup(
-                new BedrockAiController(recommendationService, bedrockAiFacade)).build();
+                new BedrockAiController(recommendationService, bedrockAiFacade, ragRateLimiter)).build();
     }
 
     @Test

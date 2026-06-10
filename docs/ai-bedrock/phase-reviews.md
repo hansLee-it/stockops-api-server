@@ -126,3 +126,32 @@
   - AiChatPage: 브라우저 직접 테스트 미실행 (Node.js 호스트 미설치로 Docker로 vitest 실행)
 - Decision: 완료
 - Phase status: accepted
+
+---
+
+## Phase 2 Review
+
+### Phase 2 계획
+
+- Date: 2026-06-10
+- Phase status: accepted
+- Tasks: Task 1~7 (AI 호출 지표, 추천 설명 캐시, 운영 요약 배치, RAG rate limiting, Circuit Breaker, Agent Tool Dispatcher, Frontend 설명 패널)
+- Acceptance criteria: 모든 Phase 2 태스크 구현 완료, 신규 테스트 포함 전체 테스트 PASS
+
+### Phase 2 Task 1~7 구현 완료
+
+- Date: 2026-06-10
+- Phase status: accepted
+- Summary: Phase 2 전 태스크 구현 완료. 신규 파일 13개, 수정 파일 10개.
+- New tests added:
+  - AiCallMetricsTest (4)
+  - AiOpsSummarySchedulerTest (2)
+  - AiRagRateLimiterTest (5)
+  - AgentToolDispatcherTest (7)
+  - AiExplanationPanel.test.tsx (7)
+- Verification:
+  - stockops-api-server: mvn test - 전체 테스트 PASS (exit code 0)
+  - stockops-admin-web: npx vitest run (실행 중)
+- Breaking changes: 없음 (모든 provider defaults enabled=false, 신규 기능은 옵트인)
+- Rollback plan: AiOpsSummaryScheduler, AiRagRateLimiter, BedrockGenerationProvider는 설정으로 비활성화 가능
+- Next phase candidates: Bedrock Agent 실제 InvokeAgent SDK 호출 (AWS 자격증명 필요), CloudWatch 연동

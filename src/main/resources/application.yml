@@ -29,10 +29,12 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,metrics,prometheus
   health:
     redis:
       enabled: ${STOCKOPS_REDIS_ENABLED:true}
+    circuitbreakers:
+      enabled: true
   endpoint:
     health:
       show-details: never
@@ -42,6 +44,22 @@ springdoc:
     path: /v3/api-docs
   swagger-ui:
     path: /swagger-ui.html
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      bedrock:
+        register-health-indicator: true
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        slow-call-rate-threshold: 80
+        slow-call-duration-threshold: 15s
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
+        ignore-exceptions:
+          - com.stockops.exception.RateLimitExceededException
 
 jwt:
   secret: ${JWT_SECRET}
@@ -116,6 +134,13 @@ stockops:
       read-timeout: 20s
       max-output-tokens: 1200
       temperature: 0.2
+      ops-summary-schedule:
+        enabled: ${STOCKOPS_AI_OPS_SUMMARY_SCHEDULE_ENABLED:false}
+        cron: ${STOCKOPS_AI_OPS_SUMMARY_CRON:0 0 8 * * ?}
+        zone: Asia/Seoul
+    rag:
+      rate-limit:
+        requests-per-minute: ${STOCKOPS_AI_RAG_RATE_LIMIT:10}
     vertex:
       enabled: ${STOCKOPS_VERTEX_AI_ENABLED:false}
       project-id: ${STOCKOPS_VERTEX_AI_PROJECT_ID:}

@@ -4,7 +4,10 @@ import com.stockops.ai.provider.AiGenerationProvider;
 import com.stockops.ai.provider.AiGenerationRequest;
 import com.stockops.ai.provider.AiGenerationResponse;
 import com.stockops.ai.provider.AiServiceStatus;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeClient;
@@ -17,6 +20,8 @@ import software.amazon.awssdk.services.bedrockruntime.model.SystemContentBlock;
 
 @Component
 public class BedrockGenerationProvider implements AiGenerationProvider {
+
+    private static final Logger log = LoggerFactory.getLogger(BedrockGenerationProvider.class);
 
     private final BedrockAiProperties properties;
 
@@ -34,7 +39,14 @@ public class BedrockGenerationProvider implements AiGenerationProvider {
         return properties.isEnabled();
     }
 
+    /**
+     * Generates a response via the Bedrock Converse API.
+     * Protected by a Resilience4j circuit breaker named "bedrock".
+     * When the circuit is OPEN the fallback rethrows so {@code AiProviderFacade}
+     * can attempt the Vertex AI fallback path.
+     */
     @Override
+    @CircuitBreaker(name = "bedrock", fallbackMethod = "circuitBreakerFallback")
     public AiGenerationResponse generate(final AiGenerationRequest generationRequest) {
         if (!properties.isEnabled()) {
             throw new IllegalStateException("Bedrock provider is disabled");
@@ -71,5 +83,21 @@ public class BedrockGenerationProvider implements AiGenerationProvider {
                     "",
                     "");
         }
+    }
+
+    /**
+     * Circuit breaker fallback — invoked when the "bedrock" circuit is OPEN
+     * or when the call raises an exception after the sliding window threshold.
+     * Rethrows as a RuntimeException so {@link com.stockops.ai.provider.AiProviderFacade}
+     * can delegate to the Vertex AI fallback provider.
+     *
+     * @param request original generation request
+     * @param cause   the exception that opened (or was recorded by) the circuit breaker
+     */
+    @SuppressWarnings("unused")
+    public AiGenerationResponse circuitBreakerFallback(
+            final AiGenerationRequest request, final Exception cause) {
+        log.warn("[Bedrock] Circuit breaker intercepted — cause: {}", cause.getMessage());
+        throw new RuntimeException("Bedrock circuit breaker open: " + cause.getMessage(), cause);
     }
 }

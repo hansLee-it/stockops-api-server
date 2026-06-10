@@ -1,5 +1,6 @@
 package com.stockops.controller;
 
+import com.stockops.ai.bedrock.AiRagRateLimiter;
 import com.stockops.ai.bedrock.BedrockAiFacade;
 import com.stockops.ai.bedrock.dto.BedrockAgentInvokeRequest;
 import com.stockops.ai.bedrock.dto.BedrockAgentInvokeResponse;
@@ -13,6 +14,7 @@ import java.time.LocalDate;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -27,11 +29,14 @@ public class BedrockAiController {
 
     private final AIRecommendationService recommendationService;
     private final BedrockAiFacade bedrockAiFacade;
+    private final AiRagRateLimiter ragRateLimiter;
 
     public BedrockAiController(final AIRecommendationService recommendationService,
-                               final BedrockAiFacade bedrockAiFacade) {
+                               final BedrockAiFacade bedrockAiFacade,
+                               final AiRagRateLimiter ragRateLimiter) {
         this.recommendationService = recommendationService;
         this.bedrockAiFacade = bedrockAiFacade;
+        this.ragRateLimiter = ragRateLimiter;
     }
 
     @PostMapping("/recommendations/{recommendationId}/explain")
@@ -54,7 +59,13 @@ public class BedrockAiController {
     @PostMapping("/rag/query")
     @PreAuthorize("@permissionChecker.hasPermission('AI_RECOMMENDATION_READ')")
     public ResponseEntity<BedrockRagQueryResponse> queryKnowledgeBase(
-            @Valid @RequestBody final BedrockRagQueryRequest request) {
+            @Valid @RequestBody final BedrockRagQueryRequest request,
+            final Authentication authentication) {
+        // @PreAuthorize guarantees authentication is non-null in production;
+        // null-check prevents NPE in standalone MockMvc tests without a security context.
+        if (authentication != null) {
+            ragRateLimiter.checkRagLimit(authentication.getName());
+        }
         return ResponseEntity.ok(bedrockAiFacade.queryKnowledgeBase(request));
     }
 

@@ -60,6 +60,8 @@ public class RedisConfig {
      *   <li>inventory — 120s (inventory status is read-heavy, mutation-evicted)</li>
      *   <li>center::inventory — 120s (center aggregation is derived from inventory)</li>
      *   <li>ai::recommendations — 300s (recommendations are regenerated daily)</li>
+     *   <li>ai::recommendation-explanation — 1h (LLM explanations are stable; evicted on approval)</li>
+     *   <li>ai::ops-summary — 24h (daily batch pre-warms this cache each morning)</li>
      *   <li>default — 30m (fallback for any unlisted cache)</li>
      * </ul>
      *
@@ -80,6 +82,8 @@ public class RedisConfig {
         RedisCacheConfiguration inventoryConfig = defaultConfig.entryTtl(Duration.ofSeconds(120));
         RedisCacheConfiguration centerConfig = defaultConfig.entryTtl(Duration.ofSeconds(120));
         RedisCacheConfiguration aiConfig = defaultConfig.entryTtl(Duration.ofSeconds(300));
+        RedisCacheConfiguration aiExplanationConfig = defaultConfig.entryTtl(Duration.ofHours(1));
+        RedisCacheConfiguration aiOpsSummaryConfig = defaultConfig.entryTtl(Duration.ofHours(24));
 
         return RedisCacheManager.builder(connectionFactory)
                 .cacheDefaults(defaultConfig)
@@ -87,6 +91,8 @@ public class RedisConfig {
                 .withCacheConfiguration("inventory", inventoryConfig)
                 .withCacheConfiguration("center::inventory", centerConfig)
                 .withCacheConfiguration("ai::recommendations", aiConfig)
+                .withCacheConfiguration("ai::recommendation-explanation", aiExplanationConfig)
+                .withCacheConfiguration("ai::ops-summary", aiOpsSummaryConfig)
                 .build();
     }
 

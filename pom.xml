@@ -25,6 +25,7 @@
         <jacoco.version>0.8.14</jacoco.version>
         <aws.sdk.version>2.44.13</aws.sdk.version>
         <google.genai.version>1.5.0</google.genai.version>
+        <resilience4j.version>2.2.0</resilience4j.version>
     </properties>
 
     <dependencies>
@@ -134,6 +135,23 @@
             <groupId>com.bucket4j</groupId>
             <artifactId>bucket4j_jdk17-lettuce</artifactId>
             <version>8.14.0</version>
+        </dependency>
+
+        <!-- Resilience4j circuit breaker for Bedrock provider (Phase 2) -->
+        <dependency>
+            <groupId>io.github.resilience4j</groupId>
+            <artifactId>resilience4j-spring-boot3</artifactId>
+            <version>${resilience4j.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.github.resilience4j</groupId>
+            <artifactId>resilience4j-micrometer</artifactId>
+            <version>${resilience4j.version}</version>
+        </dependency>
+        <!-- Needed by resilience4j-spring-boot3 for AOP-based @CircuitBreaker -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-aop</artifactId>
         </dependency>
 
         <dependency>

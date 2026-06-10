@@ -89,6 +89,18 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * Handles AI rate limit violations.
+     *
+     * @param ex rate limit exceeded exception
+     * @return 429 error response with retry guidance
+     */
+    @ExceptionHandler(RateLimitExceededException.class)
+    public ResponseEntity<ErrorResponse> handleRateLimitExceeded(final RateLimitExceededException ex) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .body(new ErrorResponse(429, ex.getMessage()));
+    }
+
+    /**
      * Handles downstream Sensimul integration failures.
      *
      * @param ex Sensimul integration exception

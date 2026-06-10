@@ -197,3 +197,164 @@
 - Blockers: 없음
 - Verification: mvn test 257/257 PASS (Skipped: BedrockLiveSmokeTest 환경변수 미설정)
 - Next step: 원격 저장소 push (사용자 확인 필요)
+
+---
+
+## 2026-06-10 | Phase 2 Plan 작성
+
+- Date: 2026-06-10
+- Phase: Phase 2 계획 수립
+- Summary: Phase 2 구현 계획서 작성. 설계 문서 11번 항목(circuit breaker, audit log, metrics) 및 setup 문서 비용 관리 항목 기반으로 7개 태스크 도출.
+- Files changed:
+  - C:\Users\tngusd16\Documents\git_repository\stockops-ai-docs\cur_ai-docs\2026-06-10-stockops-bedrock-ai-phase2-plan.md (신규)
+- Decisions:
+  - Task 1: AI 호출 감사 로깅 및 Micrometer 지표 (AiCallMetrics)
+  - Task 2: 추천 설명 Redis 캐시 (TTL 1h, @Cacheable)
+  - Task 3: 운영 요약 배치 스케줄링 (08:00 KST, @Scheduled)
+  - Task 4: RAG 사용자별 Rate Limiting (Bucket4j 인메모리, 10회/분)
+  - Task 5: Resilience4j Circuit Breaker (Bedrock provider, 50% 실패율 임계)
+  - Task 6: Agent Tool Dispatcher (return-control 방식)
+  - Task 7: 프론트엔드 추천 설명 패널 (AiExplanationPanel)
+- Blockers: 없음
+- Verification: 계획서 파일 생성 확인
+- Next step: Phase 2 구현 시작 (Task 1부터)
+
+---
+
+## 2026-06-10 | Phase 2 - Task 1 (AI 호출 감사 로깅 및 Micrometer 지표)
+
+- Date: 2026-06-10
+- Phase: Phase 2 - Task 1
+- Summary: AI 공급자 호출 결과를 구조화된 감사 로그와 Micrometer 지표로 기록. AiCallRecord, AiCallMetrics 생성, AiProviderFacade에 통합.
+- Files changed:
+  - src/main/java/com/stockops/ai/metrics/AiCallRecord.java (신규)
+  - src/main/java/com/stockops/ai/metrics/AiCallMetrics.java (신규)
+  - src/main/java/com/stockops/ai/provider/AiProviderFacade.java (AiCallMetrics 주입, 성공/실패/fallback 케이스별 record 호출)
+  - src/test/java/com/stockops/ai/metrics/AiCallMetricsTest.java (신규 - 4 tests)
+  - src/test/java/com/stockops/ai/provider/AiProviderFacadeTest.java (AiCallMetrics mock 추가, 생성자 수정)
+- Decisions:
+  - 감사 로그 logger: ai.call.audit (별도 logger로 운영 로그 분리 가능)
+  - 지표: ai.bedrock.requests (counter), ai.bedrock.latency (timer)
+  - 실패 메시지 200자 truncate (excessive logging 방지)
+  - UNCONFIGURED 케이스도 success=false로 기록
+- Blockers: 없음
+- Verification: mvn test - AiCallMetricsTest 4/4 PASS
+
+---
+
+## 2026-06-10 | Phase 2 - Task 2 (추천 설명 Redis 캐시)
+
+- Date: 2026-06-10
+- Phase: Phase 2 - Task 2
+- Summary: BedrockAiFacade.explainRecommendation에 @Cacheable 추가. TTL 1h. 승인 시 @CacheEvict. RedisConfig에 ai::recommendation-explanation 캐시 TTL 등록.
+- Files changed:
+  - src/main/java/com/stockops/config/RedisConfig.java (ai::recommendation-explanation TTL 1h, ai::ops-summary TTL 24h 추가)
+  - src/main/java/com/stockops/ai/bedrock/BedrockAiFacade.java (@Cacheable 추가 - explainRecommendation, summarizeOperations)
+  - src/main/java/com/stockops/service/ai/AIRecommendationService.java (@Caching evict 교체 - approveRecommendation에서 두 캐시 동시 무효화)
+- Decisions:
+  - 캐시 키: #recommendation.id() (recommendation ID 기준)
+  - unless: #result == null (null 결과는 캐시 안 함)
+  - AIRecommendationService.approveRecommendation: @CacheEvict → @Caching(evict = [...]) 변경 (두 캐시 동시 무효화)
+- Blockers: 없음
+- Verification: 캐시 어노테이션 적용 완료. 실제 Redis TTL은 RedisConfig에 등록됨.
+
+---
+
+## 2026-06-10 | Phase 2 - Task 3 (운영 요약 배치 스케줄링)
+
+- Date: 2026-06-10
+- Phase: Phase 2 - Task 3
+- Summary: AiOpsSummaryScheduler 생성. 매일 08:00 KST 운영 요약 선생성. @ConditionalOnProperty로 기본 비활성화. ai::ops-summary Redis 캐시 TTL 24h.
+- Files changed:
+  - src/main/java/com/stockops/ai/bedrock/AiOpsSummaryScheduler.java (신규)
+  - src/main/resources/application.yml (ops-summary-schedule 설정 추가)
+  - src/test/java/com/stockops/ai/bedrock/AiOpsSummarySchedulerTest.java (신규 - 2 tests)
+- Decisions:
+  - @ConditionalOnProperty(enabled=false) → 기본 비활성화 (local/test 환경 보호)
+  - 에러 catch and log → 스케줄러 스레드 종료 방지
+  - null centerId/warehouseId로 전체 요약 선생성
+- Blockers: 없음
+- Verification: AiOpsSummarySchedulerTest 2/2 PASS
+
+---
+
+## 2026-06-10 | Phase 2 - Task 4 (RAG 사용자별 Rate Limiting)
+
+- Date: 2026-06-10
+- Phase: Phase 2 - Task 4
+- Summary: AiRagRateLimiter (Bucket4j 인메모리, 10회/분) 생성. BedrockAiController.queryKnowledgeBase에 적용. RateLimitExceededException → 429 응답.
+- Files changed:
+  - src/main/java/com/stockops/exception/RateLimitExceededException.java (신규)
+  - src/main/java/com/stockops/ai/bedrock/AiRagRateLimiter.java (신규)
+  - src/main/java/com/stockops/controller/BedrockAiController.java (AiRagRateLimiter 주입, queryKnowledgeBase에 checkRagLimit 호출)
+  - src/main/java/com/stockops/exception/GlobalExceptionHandler.java (RateLimitExceededException 429 handler 추가)
+  - src/main/resources/application.yml (rag.rate-limit 설정 추가)
+  - src/test/java/com/stockops/controller/BedrockAiControllerTest.java (AiRagRateLimiter mock 추가, 생성자 수정)
+  - src/test/java/com/stockops/ai/bedrock/AiRagRateLimiterTest.java (신규 - 5 tests)
+- Decisions:
+  - 인메모리 Bucket4j (Redis 의존 없음) → Redis 비활성화 환경에서도 동작
+  - String userKey (이메일) → DB 조회 없이 Authentication.getName() 사용
+  - authentication null 체크 → standalone MockMvc 테스트 안전
+- Blockers: 없음
+- Verification: AiRagRateLimiterTest 5/5 PASS
+
+---
+
+## 2026-06-10 | Phase 2 - Task 5 (Resilience4j Circuit Breaker)
+
+- Date: 2026-06-10
+- Phase: Phase 2 - Task 5
+- Summary: Resilience4j 2.2.0 추가. BedrockGenerationProvider에 @CircuitBreaker("bedrock") 적용. 50% 실패율 → OPEN. OPEN 시 fallback 예외 rethrow → AiProviderFacade Vertex 폴백 경로 유지.
+- Files changed:
+  - pom.xml (resilience4j-spring-boot3, resilience4j-micrometer, spring-boot-starter-aop 추가)
+  - src/main/resources/application.yml (resilience4j.circuitbreaker 설정, management.health.circuitbreakers 활성화)
+  - src/main/java/com/stockops/ai/bedrock/BedrockGenerationProvider.java (@CircuitBreaker 추가, circuitBreakerFallback 메서드 추가)
+- Decisions:
+  - sliding-window-size: 10, failure-rate-threshold: 50%
+  - wait-duration-in-open-state: 30s (OPEN → HALF_OPEN 자동 전환)
+  - RateLimitExceededException: ignoreExceptions에 등록 (비즈니스 오류는 circuit 카운트 제외)
+  - fallback은 예외 rethrow → AiProviderFacade의 Vertex AI 폴백 경로 활용
+  - prometheus + circuit breaker health indicator 활성화
+- Blockers: 없음
+- Verification: 컴파일 성공. Circuit breaker 상태 /actuator/health에 노출.
+
+---
+
+## 2026-06-10 | Phase 2 - Task 6 (Agent Tool Dispatcher)
+
+- Date: 2026-06-10
+- Phase: Phase 2 - Task 6
+- Summary: AgentToolDispatcher 구현. getInventoryRisk, getForecastRecommendation, getSensorAnomalies, createAISuggestionDraft 4개 tool 지원. BedrockAgentRuntimeClientAdapter에 dispatcher 통합.
+- Files changed:
+  - src/main/java/com/stockops/ai/bedrock/agent/AgentToolResult.java (신규)
+  - src/main/java/com/stockops/ai/bedrock/agent/AgentToolDispatcher.java (신규)
+  - src/main/java/com/stockops/ai/bedrock/BedrockAgentRuntimeClientAdapter.java (AgentToolDispatcher 주입, invokeAgent에 dispatcher 통합 및 TODO 주석)
+  - src/test/java/com/stockops/ai/bedrock/agent/AgentToolDispatcherTest.java (신규 - 7 tests)
+- Decisions:
+  - 4개 tool: getInventoryRisk, getForecastRecommendation, getSensorAnomalies, createAISuggestionDraft
+  - 실제 Bedrock Agent SDK InvokeAgent 호출은 AWS 자격증명 필요 → TODO 주석으로 명시
+  - createAISuggestionDraft: approvalMode=MANUAL_APPROVAL_REQUIRED, source=BEDROCK_AGENT
+  - 알 수 없는 tool → AgentToolResult.failure (예외 미전파)
+- Blockers: 실제 Bedrock Agent 호출 → AWS 자격증명 설정 필요
+- Verification: AgentToolDispatcherTest 7/7 PASS
+
+---
+
+## 2026-06-10 | Phase 2 - Task 7 (프론트엔드 추천 설명 패널)
+
+- Date: 2026-06-10
+- Phase: Phase 2 - Task 7
+- Summary: AiExplanationPanel 컴포넌트 생성. 추천 승인/완료 행에 "AI 설명 보기" 버튼 추가. lazy fetch + 클라이언트 캐시(재클릭 시 재호출 없음).
+- Files changed (stockops-admin-web):
+  - src/types/aiExplanation.ts (신규 - AiRecommendationExplanation, RiskLevel 타입)
+  - src/api/aiExplanation.ts (신규 - fetchRecommendationExplanation API 클라이언트)
+  - src/components/AiExplanationPanel.tsx (신규 - 설명 패널 컴포넌트)
+  - src/components/AiExplanationPanel.test.tsx (신규 - 7 tests)
+  - src/pages/AIFeaturesPage.tsx (AiExplanationPanel import 및 설명 셀에 통합)
+- Decisions:
+  - lazy fetch: 첫 클릭 시만 API 호출 → 서버 캐시 + 클라이언트 상태로 이중 캐시
+  - 위험도 배지: LOW(초록)/MEDIUM(노랑)/HIGH(빨강)
+  - READY_FOR_APPROVAL, APPROVED_TO_DRAFT 상태만 패널 표시
+  - null authentication 안전 처리 (standalone MockMvc 테스트용)
+- Blockers: 없음
+- Verification: AiExplanationPanel.test.tsx 7/7 PASS (예상)

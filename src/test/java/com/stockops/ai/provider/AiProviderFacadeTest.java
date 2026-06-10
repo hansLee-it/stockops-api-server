@@ -3,6 +3,7 @@ package com.stockops.ai.provider;
 import com.stockops.ai.bedrock.BedrockGenerationProvider;
 import com.stockops.ai.gcp.VertexAiGenerationProvider;
 import com.stockops.ai.gcp.VertexAiProperties;
+import com.stockops.ai.metrics.AiCallMetrics;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -18,12 +19,13 @@ class AiProviderFacadeTest {
     @Mock BedrockGenerationProvider bedrockProvider;
     @Mock VertexAiGenerationProvider vertexProvider;
     @Mock VertexAiProperties vertexProperties;
+    @Mock AiCallMetrics aiCallMetrics;
 
     AiProviderFacade facade;
 
     @BeforeEach
     void setUp() {
-        facade = new AiProviderFacade(bedrockProvider, vertexProvider, vertexProperties);
+        facade = new AiProviderFacade(bedrockProvider, vertexProvider, vertexProperties, aiCallMetrics);
     }
 
     @Test

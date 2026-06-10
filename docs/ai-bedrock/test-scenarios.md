@@ -281,3 +281,108 @@ Use this section when local Chrome/Chromium execution is unavailable.
 - If blocked:
   - Block reason: 환경변수 미설정으로 @EnabledIfEnvironmentVariable에 의해 자동 skip
   - Tests completed instead: 기본 mvn test에 BedrockLiveSmokeTest가 포함되지 않음을 확인 예정
+
+---
+
+## Phase 2 Test Scenarios
+
+### TS-P2-001: AiCallMetrics — 성공 호출 지표 등록
+
+- ID: TS-P2-001
+- Feature: AI 호출 감사 로깅 및 Micrometer 지표 (Task 1)
+- Test type: Unit
+- Preconditions: SimpleMeterRegistry 사용
+- Steps: AiCallMetrics.record(success=true)
+- Expected result: ai.bedrock.requests counter +1, ai.bedrock.latency timer 기록
+- Status: PASS
+- Evidence: AiCallMetricsTest.record_successfulBedrockCall_incrementsCounterAndRecordsTimer
+
+### TS-P2-002: AiCallMetrics — fallback 호출 태그 확인
+
+- ID: TS-P2-002
+- Feature: AI 호출 감사 로깅 및 Micrometer 지표 (Task 1)
+- Test type: Unit
+- Steps: AiCallMetrics.record(fallbackUsed=true)
+- Expected result: fallback=true 태그 포함 counter 증가
+- Status: PASS
+- Evidence: AiCallMetricsTest.record_fallbackVertexCall_tagsFallbackTrue
+
+### TS-P2-003: AiRagRateLimiter — 한도 초과 시 RateLimitExceededException
+
+- ID: TS-P2-003
+- Feature: RAG 사용자별 Rate Limiting (Task 4)
+- Test type: Unit
+- Steps: 동일 userKey로 limit+1회 호출
+- Expected result: limit+1번째 호출에서 RateLimitExceededException
+- Status: PASS
+- Evidence: AiRagRateLimiterTest.checkRagLimit_exceededLimit_throwsRateLimitExceededException
+
+### TS-P2-004: AiRagRateLimiter — 사용자 독립 버킷
+
+- ID: TS-P2-004
+- Feature: RAG 사용자별 Rate Limiting (Task 4)
+- Test type: Unit
+- Steps: user1 한도 소진 후 user2 호출
+- Expected result: user2는 정상 처리
+- Status: PASS
+- Evidence: AiRagRateLimiterTest.checkRagLimit_differentUsers_haveIndependentBuckets
+
+### TS-P2-005: AiOpsSummaryScheduler — 배치 정상 실행
+
+- ID: TS-P2-005
+- Feature: 운영 요약 배치 스케줄링 (Task 3)
+- Test type: Unit
+- Steps: scheduler.generateDailyOpsSummaries() 호출
+- Expected result: bedrockAiFacade.summarizeOperations(today, null, null) 1회 호출
+- Status: PASS
+- Evidence: AiOpsSummarySchedulerTest.generateDailyOpsSummaries_callsSummarizeOperationsForToday
+
+### TS-P2-006: AiOpsSummaryScheduler — 예외 시 스레드 유지
+
+- ID: TS-P2-006
+- Feature: 운영 요약 배치 스케줄링 (Task 3)
+- Test type: Unit
+- Steps: summarizeOperations 예외 발생 시 generateDailyOpsSummaries 호출
+- Expected result: 예외 미전파 (assertDoesNotThrow)
+- Status: PASS
+- Evidence: AiOpsSummarySchedulerTest.generateDailyOpsSummaries_whenSummarizeFails_doesNotThrow
+
+### TS-P2-007: AgentToolDispatcher — getInventoryRisk (productId 없음)
+
+- ID: TS-P2-007
+- Feature: Agent Tool Dispatcher (Task 6)
+- Test type: Unit
+- Steps: dispatch("getInventoryRisk", "{}")
+- Expected result: success=true, getAllInventory() 호출
+- Status: PASS
+- Evidence: AgentToolDispatcherTest.dispatch_getInventoryRisk_withoutProductId_callsGetAllInventory
+
+### TS-P2-008: AgentToolDispatcher — 알 수 없는 tool
+
+- ID: TS-P2-008
+- Feature: Agent Tool Dispatcher (Task 6)
+- Test type: Unit
+- Steps: dispatch("nonExistentTool", "{}")
+- Expected result: success=false, errorMessage 포함
+- Status: PASS
+- Evidence: AgentToolDispatcherTest.dispatch_unknownTool_returnsFailure
+
+### TS-P2-009: AiExplanationPanel — 설명 요청 및 렌더링 (Frontend)
+
+- ID: TS-P2-009
+- Feature: 추천 설명 패널 (Task 7)
+- Test type: Unit (vitest)
+- Steps: "AI 설명 보기" 버튼 클릭
+- Expected result: dialog 렌더링, summary 텍스트 표시
+- Status: PASS
+- Evidence: AiExplanationPanel.test.tsx — shows explanation summary after successful fetch
+
+### TS-P2-010: AiExplanationPanel — 재클릭 시 API 재호출 없음 (Frontend)
+
+- ID: TS-P2-010
+- Feature: 추천 설명 패널 (Task 7)
+- Test type: Unit (vitest)
+- Steps: 버튼 2회 클릭 (닫기 후 재열기)
+- Expected result: fetchRecommendationExplanation 1회만 호출
+- Status: PASS
+- Evidence: AiExplanationPanel.test.tsx — does not re-fetch if explanation is already loaded

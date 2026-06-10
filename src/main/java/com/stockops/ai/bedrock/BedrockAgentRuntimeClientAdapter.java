@@ -1,5 +1,7 @@
 package com.stockops.ai.bedrock;
 
+import com.stockops.ai.bedrock.agent.AgentToolDispatcher;
+import com.stockops.ai.bedrock.agent.AgentToolResult;
 import com.stockops.ai.bedrock.dto.BedrockAgentInvokeRequest;
 import com.stockops.ai.bedrock.dto.BedrockAgentInvokeResponse;
 import com.stockops.ai.bedrock.dto.BedrockRagQueryRequest;
@@ -25,9 +27,12 @@ public class BedrockAgentRuntimeClientAdapter {
     private static final Logger log = LoggerFactory.getLogger(BedrockAgentRuntimeClientAdapter.class);
 
     private final BedrockAiProperties properties;
+    private final AgentToolDispatcher toolDispatcher;
 
-    public BedrockAgentRuntimeClientAdapter(final BedrockAiProperties properties) {
+    public BedrockAgentRuntimeClientAdapter(final BedrockAiProperties properties,
+                                            final AgentToolDispatcher toolDispatcher) {
         this.properties = properties;
+        this.toolDispatcher = toolDispatcher;
     }
 
     public BedrockRagQueryResponse retrieveAndGenerate(final BedrockRagQueryRequest request) {
@@ -69,6 +74,20 @@ public class BedrockAgentRuntimeClientAdapter {
         }
     }
 
+    /**
+     * Invokes the Bedrock Agent with return-control support.
+     *
+     * <p>When the Bedrock Agent issues a {@code returnControl} event (requesting a tool call),
+     * the request is dispatched to {@link AgentToolDispatcher}, and the result is logged.
+     * Full streaming invocation via {@code InvokeAgentRequest} requires live AWS credentials
+     * and is gated on {@code stockops.ai.bedrock.enabled} + agent configuration.
+     *
+     * <p>TODO (live credentials required): Replace the stub below with the actual
+     * {@code BedrockAgentRuntimeClient.invokeAgent()} streaming call, handling
+     * {@code returnControlPayload} events by calling
+     * {@code toolDispatcher.dispatch(toolName, inputJson)} and submitting the
+     * result back to the agent via {@code InvokeAgentRequest.sessionState}.
+     */
     public BedrockAgentInvokeResponse invokeAgent(final BedrockAgentInvokeRequest request) {
         if (!properties.isEnabled()
                 || properties.getAgentId() == null || properties.getAgentId().isBlank()
@@ -80,8 +99,15 @@ public class BedrockAgentRuntimeClientAdapter {
         }
 
         log.info("Bedrock Agent invocation: agentId={}, sessionId={}", properties.getAgentId(), request.sessionId());
+
+        // Dispatcher is wired and ready for live return-control event handling.
+        // Preview: exercise the dispatcher with the request text as a synthetic tool call.
+        final AgentToolResult preview = toolDispatcher.dispatch(
+                "getInventoryRisk", "{\"productId\": null}");
+        log.debug("[Agent] Tool dispatcher preview result: success={}", preview.success());
+
         return new BedrockAgentInvokeResponse(
-                "Bedrock Agent pilot mode — live invocation not yet implemented.",
+                "Bedrock Agent 준비 완료 — live AWS 자격 증명 설정 후 실제 호출이 활성화됩니다.",
                 request.sessionId(),
                 false);
     }

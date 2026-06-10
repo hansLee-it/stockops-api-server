@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -55,6 +56,11 @@ public class BedrockAiFacade {
         this.aiSuggestionService = aiSuggestionService;
     }
 
+    @Cacheable(
+            value = "ai::recommendation-explanation",
+            key = "#recommendation.id()",
+            condition = "#recommendation != null && #recommendation.id() != null",
+            unless = "#result == null")
     public BedrockRecommendationExplanationResponse explainRecommendation(final AIRecommendationDTO recommendation) {
         if (!properties.isEnabled()) {
             return fallbackExplanation(recommendation, "Bedrock is disabled.");
@@ -79,6 +85,11 @@ public class BedrockAiFacade {
                 Instant.now());
     }
 
+    @Cacheable(
+            value = "ai::ops-summary",
+            key = "#businessDate.toString() + '-' + (#centerId ?: 'all') + '-' + (#warehouseId ?: 'all')",
+            condition = "#businessDate != null",
+            unless = "#result == null")
     public BedrockOpsSummaryResponse summarizeOperations(final LocalDate businessDate,
                                                          final Long centerId,
                                                          final Long warehouseId) {

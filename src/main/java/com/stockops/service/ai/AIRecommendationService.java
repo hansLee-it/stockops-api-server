@@ -39,6 +39,7 @@ import java.util.Set;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -236,7 +237,10 @@ public class AIRecommendationService {
      * @return approved recommendation payload including the linked draft purchase order
      */
     @Transactional
-    @CacheEvict(value = "ai::recommendations", allEntries = true)
+    @Caching(evict = {
+            @CacheEvict(value = "ai::recommendations", allEntries = true),
+            @CacheEvict(value = "ai::recommendation-explanation", key = "#recommendationId")
+    })
     public AIRecommendationDTO approveRecommendation(final Long recommendationId, final User currentUser) {
         final AIRecommendation recommendation = recommendationRepository.findById(recommendationId)
                 .orElseThrow(() -> new ResourceNotFoundException("AI recommendation not found: " + recommendationId));
