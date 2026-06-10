@@ -36,6 +36,17 @@ class BedrockPromptBuilderTest {
     }
 
     @Test
+    void buildRecommendationExplanationPrompt_sanitizesBackslash() {
+        // §7: prompt builder prevents JSON injection via backslash escape
+        final AIRecommendationDTO dto = sampleDto(3L, "상품\\악성입력", "v1");
+
+        final String prompt = builder.buildRecommendationExplanationPrompt(dto);
+
+        assertThat(prompt).doesNotContain("상품\\악성입력");
+        assertThat(prompt).contains("상품\\\\악성입력");
+    }
+
+    @Test
     void buildOpsSummaryPrompt_containsFactsJson() {
         final String facts = "{\"businessDate\":\"2025-06-09\",\"recommendations\":[]}";
 
