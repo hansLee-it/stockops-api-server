@@ -4,6 +4,7 @@ import com.stockops.entity.Product;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -40,4 +41,26 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
      * @return list of products in the specified categories
      */
     List<Product> findByCategoryIdInAndDeletedFalse(List<Long> categoryIds);
+
+    /**
+     * Counts active products whose total available inventory (quantity - reservedQuantity)
+     * falls below their safety stock threshold.
+     *
+     * <p>A product with no inventory rows at all counts as available=0, which is the most
+     * critical case: zero stock vs. a non-zero safety target. The {@code @SQLRestriction}
+     * on {@link Product} automatically excludes soft-deleted products.
+     *
+     * @return number of active products below safety stock
+     */
+    @Query("""
+            SELECT COUNT(p.id)
+            FROM Product p
+            WHERE p.safetyStockQuantity > 0
+              AND (
+                SELECT COALESCE(SUM(COALESCE(i.quantity, 0) - COALESCE(i.reservedQuantity, 0)), 0)
+                FROM Inventory i
+                WHERE i.productId = p.id
+              ) < p.safetyStockQuantity
+            """)
+    long countProductsBelowSafetyStock();
 }

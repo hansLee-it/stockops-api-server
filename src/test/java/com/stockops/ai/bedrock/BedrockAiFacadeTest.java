@@ -8,6 +8,7 @@ import com.stockops.ai.provider.AiServiceStatus;
 import com.stockops.dto.AIRecommendationDTO;
 import com.stockops.entity.ai.AIRecommendationStatus;
 import com.stockops.repository.ExpiryAlertRepository;
+import com.stockops.repository.ProductRepository;
 import com.stockops.repository.PurchaseOrderShipmentRepository;
 import com.stockops.service.EnvironmentQueryService;
 import com.stockops.service.ai.AIRecommendationService;
@@ -41,6 +42,7 @@ class BedrockAiFacadeTest {
     @Mock EnvironmentQueryService environmentQueryService;
     @Mock ExpiryAlertRepository expiryAlertRepository;
     @Mock PurchaseOrderShipmentRepository shipmentRepository;
+    @Mock ProductRepository productRepository;
 
     BedrockAiFacade facade;
 
@@ -48,7 +50,7 @@ class BedrockAiFacadeTest {
     void setUp() {
         facade = new BedrockAiFacade(providerFacade, promptBuilder, properties, agentAdapter,
                 recommendationService, aiSuggestionService, environmentQueryService,
-                expiryAlertRepository, shipmentRepository);
+                expiryAlertRepository, shipmentRepository, productRepository);
     }
 
     @Test
@@ -138,6 +140,7 @@ class BedrockAiFacadeTest {
         when(environmentQueryService.getAlerts(7)).thenReturn(java.util.List.of());
         when(expiryAlertRepository.countByAlertLevelAndAcknowledgedFalse(any())).thenReturn(0L);
         when(shipmentRepository.findByEtaDateBeforeAndDeliveredAtIsNull(any())).thenReturn(java.util.List.of());
+        when(productRepository.countProductsBelowSafetyStock()).thenReturn(0L);
         when(promptBuilder.buildOpsSummaryPrompt(any())).thenReturn("prompt");
         final String bedrockJson = """
                 {"summary":"운영 위험 높음","urgentItems":["재고 부족"],
@@ -157,6 +160,7 @@ class BedrockAiFacadeTest {
         assertThat(response.sourceCounts()).containsEntry("recommendations", 0);
         assertThat(response.sourceCounts()).containsEntry("sensorAlerts", 0);
         assertThat(response.sourceCounts()).containsEntry("overdueShipments", 0);
+        assertThat(response.sourceCounts()).containsEntry("inventoryBelowSafetyStock", 0);
         assertThat(response.confidenceCaveat()).contains("데이터가 부족");
     }
 

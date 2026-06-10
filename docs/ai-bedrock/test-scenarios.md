@@ -653,6 +653,103 @@ Use this section when local Chrome/Chromium execution is unavailable.
 
 ---
 
+## Phase 5 테스트 시나리오
+
+### TS-P5-REPO-001: 재고 없는 상품 → 집계
+
+- ID: TS-P5-REPO-001
+- Feature: ProductRepository.countProductsBelowSafetyStock()
+- Test type: DataJpaTest (H2 in-memory)
+- 대상: safetyStock=10, 재고 행 없음 → COALESCE(SUM..., 0) = 0 < 10
+- 기대: countProductsBelowSafetyStock() == 1 (가장 중요한 재고 소진 케이스)
+- 자동화: ProductRepositoryTest.countProductsBelowSafetyStock_noInventoryRows_isCounted
+- 상태: PASS
+
+### TS-P5-REPO-002: available < safety → 집계
+
+- ID: TS-P5-REPO-002
+- Feature: ProductRepository.countProductsBelowSafetyStock()
+- Test type: DataJpaTest
+- 대상: safetyStock=10, qty=5, reserved=0 → available=5 < 10
+- 기대: countProductsBelowSafetyStock() == 1
+- 자동화: ProductRepositoryTest.countProductsBelowSafetyStock_availableBelowSafety_isCounted
+- 상태: PASS
+
+### TS-P5-REPO-003: available ≥ safety → 미집계
+
+- ID: TS-P5-REPO-003
+- Feature: ProductRepository.countProductsBelowSafetyStock()
+- Test type: DataJpaTest
+- 대상: safetyStock=10, qty=15, reserved=0 → available=15 ≥ 10
+- 기대: countProductsBelowSafetyStock() == 0
+- 자동화: ProductRepositoryTest.countProductsBelowSafetyStock_availableMeetsSafety_isNotCounted
+- 상태: PASS
+
+### TS-P5-REPO-004: safetyStockQuantity=0 → 미집계
+
+- ID: TS-P5-REPO-004
+- Feature: ProductRepository.countProductsBelowSafetyStock()
+- Test type: DataJpaTest
+- 대상: WHERE p.safetyStockQuantity > 0 에 의해 제외
+- 기대: countProductsBelowSafetyStock() == 0
+- 자동화: ProductRepositoryTest.countProductsBelowSafetyStock_safetyStockZero_isExcluded
+- 상태: PASS
+
+### TS-P5-REPO-005: 삭제된 상품 → 미집계
+
+- ID: TS-P5-REPO-005
+- Feature: ProductRepository.countProductsBelowSafetyStock() + @SQLRestriction
+- Test type: DataJpaTest
+- 대상: deleted=true 상품은 @SQLRestriction("deleted = false")에 의해 자동 제외
+- 기대: countProductsBelowSafetyStock() == 0
+- 자동화: ProductRepositoryTest.countProductsBelowSafetyStock_deletedProduct_isExcluded
+- 상태: PASS
+
+### TS-P5-REPO-006: reserved 수량 공제 → 집계
+
+- ID: TS-P5-REPO-006
+- Feature: ProductRepository.countProductsBelowSafetyStock()
+- Test type: DataJpaTest
+- 대상: safetyStock=10, qty=12, reserved=5 → available=7 < 10
+- 기대: countProductsBelowSafetyStock() == 1
+- 자동화: ProductRepositoryTest.countProductsBelowSafetyStock_reservedReducesAvailable_isCounted
+- 상태: PASS
+
+### TS-P5-REPO-007: 혼합 시나리오 — 2건만 집계
+
+- ID: TS-P5-REPO-007
+- Feature: ProductRepository.countProductsBelowSafetyStock()
+- Test type: DataJpaTest
+- 대상: 재고 없음(1건) + available 부족(1건) + available 충족(1건) + 삭제됨(1건) + safetyStock=0(1건)
+- 기대: countProductsBelowSafetyStock() == 2
+- 자동화: ProductRepositoryTest.countProductsBelowSafetyStock_mixedProducts_countsOnlyBelowThreshold
+- 상태: PASS
+
+### TS-P5-001: OpsFacts — inventoryBelowSafetyStock 포함 확인
+
+- ID: TS-P5-001
+- Feature: Phase 5 - ops facts enrichment (inventoryBelowSafetyStock)
+- Test type: Unit
+- 대상: BedrockAiFacade.buildOpsFacts() → OpsFacts.toSourceCounts()
+- 전제: productRepository.countProductsBelowSafetyStock() 반환 0L, 나머지 데이터도 빈 값
+- 실행: summarizeOperations(date, centerId, warehouseId)
+- 기대: response.sourceCounts()["inventoryBelowSafetyStock"] == 0
+- 자동화: BedrockAiFacadeTest.summarizeOperations_parsesJsonFieldsFromBedrockResponse (unit)
+- 상태: PASS
+
+### TS-P5-002: OpsFacts — productRepository 오류 시 graceful degradation
+
+- ID: TS-P5-002
+- Feature: Phase 5 - ops facts enrichment (fault tolerance)
+- Test type: Unit (코드 검토)
+- 대상: BedrockAiFacade.buildOpsFacts() — productRepository 예외 처리
+- 전제: productRepository.countProductsBelowSafetyStock() 호출 시 RuntimeException 발생
+- 기대: log.warn 출력, inventoryBelowSafetyStockCount=0으로 폴백, 요약 생성 계속 진행
+- 자동화: 없음 (코드 검토로 검증)
+- 상태: NOT_RUN
+
+---
+
 ## TS-P2-018: Bedrock 운영 요약 JSON 파싱
 
 - ID: TS-P2-018

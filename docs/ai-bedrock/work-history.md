@@ -557,6 +557,49 @@
 
 ---
 
+## 2026-06-10 | Phase 5 - Task 1 (inventoryBelowSafetyStock 보강)
+
+- Date: 2026-06-10
+- Phase: Phase 5 - Task 1
+- Summary: 이전 세션에서 "blocked: InventoryDTO lacks safetyStockQuantity"로 표시된 `inventoryBelowSafetyStock` 기능이 실제로는 구현 가능한 것을 확인. `Product.safetyStockQuantity` 필드는 Entity에 존재하며, `Inventory` 테이블과의 JPQL 상관 서브쿼리로 직접 집계 가능. `ProductRepository`에 신규 `@Query` 메서드 추가, `BedrockAiFacade` 생성자 9-arg → 10-arg, `OpsFacts` record 6→7 필드 확장, `buildConfidenceCaveat()` 메시지에 "안전재고 미달 N건" 포함. `@DataJpaTest` 7개 케이스로 JPQL 쿼리 실 DB(H2) 검증. 프론트엔드 `AiOpsSummarySourceCounts` 인터페이스 + `SOURCE_LABELS`에 `inventoryBelowSafetyStock` 추가.
+- Files changed:
+  - src/main/java/com/stockops/repository/ProductRepository.java — `countProductsBelowSafetyStock()` @Query 추가 (JPQL 상관 서브쿼리)
+  - src/main/java/com/stockops/ai/bedrock/BedrockAiFacade.java
+    - import `ProductRepository` 추가
+    - 생성자에 `ProductRepository productRepository` 파라미터 추가 (10번째)
+    - `buildOpsFacts()`: `productRepository.countProductsBelowSafetyStock()` 호출 추가 (fault-tolerant try/catch)
+    - facts 맵에 `"inventoryBelowSafetyStock"` 항목 추가
+    - `OpsFacts` record: `inventoryBelowSafetyStockCount` 필드 추가 (7번째)
+    - `OpsFacts.toSourceCounts()`: `"inventoryBelowSafetyStock"` 키 추가
+    - `OpsFacts.buildConfidenceCaveat()`: total에 inventoryBelowSafetyStockCount 포함, 메시지에 "안전재고 미달 %d건" 추가
+  - src/test/java/com/stockops/ai/bedrock/BedrockAiFacadeTest.java
+    - `@Mock ProductRepository productRepository` 추가
+    - `setUp()`: 10-arg BedrockAiFacade 생성자 사용
+    - `summarizeOperations_parsesJsonFieldsFromBedrockResponse`: `productRepository.countProductsBelowSafetyStock()` stub 추가, `sourceCounts["inventoryBelowSafetyStock"]` 어설션 추가
+  - src/test/java/com/stockops/repository/ProductRepositoryTest.java (신규 — 7 @DataJpaTest)
+    - TS-P5-REPO-001: 재고 없는 상품 → 집계 (available=0 < safety)
+    - TS-P5-REPO-002: available < safety → 집계
+    - TS-P5-REPO-003: available ≥ safety → 미집계
+    - TS-P5-REPO-004: safetyStockQuantity=0 → 미집계
+    - TS-P5-REPO-005: 삭제된 상품 → 미집계 (@SQLRestriction)
+    - TS-P5-REPO-006: reserved 수량으로 available 감소 → 집계
+    - TS-P5-REPO-007: 혼합 시나리오 → 2건만 집계
+  - src/types/aiOpsSummary.ts — `AiOpsSummarySourceCounts`에 `inventoryBelowSafetyStock: number` 추가
+  - src/components/AiOpsSummaryPanel.tsx — `SOURCE_LABELS`에 `inventoryBelowSafetyStock: '안전재고 미달'` 추가
+- Decisions:
+  - `ProductRepository`에 직접 JPQL 추가 (`InventoryQueryService` 우회) — ScopeGuard 의존 없이 집계 가능, `BedrockAiFacade`의 기존 직접 Repository 주입 패턴과 일치
+  - 재고 없는 상품(inventory rows 없음)은 available=0으로 처리 → 가장 중요한 재고 소진 케이스
+  - JPQL: `@SQLRestriction("deleted = false")` 자동 적용 → WHERE p.deleted=false 별도 불필요
+  - 전역 집계(scope 없음) — sensorAlerts/expiryCount와 동일하게 전역 기준으로 일관성 유지
+  - 데이터 로드 실패 시 log.warn + count=0 graceful degradation
+  - `buildConfidenceCaveat()` 임계값 5건 유지 (7개 소스 합산이므로 더 쉽게 달성)
+  - `@DataJpaTest` 선택: Mockito로는 JPQL 문법 오류·의미 오류를 잡을 수 없음 — 실 H2에서 Hibernate가 파싱·실행
+- Blockers: 없음 (이전 세션 "blocked" 상태는 DTO 계층 참조 오류로 인한 잘못된 판단이었음)
+- Verification: mvn test exit 0 (전체 빌드 통과) — 신규 7개 @DataJpaTest PASS 포함
+- Next step: git commit, stockops-ai-docs Phase 5 계획 문서 작성
+
+---
+
 ## 2026-06-10 | 테스트 보완 — 컨트롤러 + 프롬프트 빌더
 
 - Date: 2026-06-10

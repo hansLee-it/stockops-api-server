@@ -257,3 +257,35 @@
 - Breaking changes: 없음 (신규 컴포넌트 추가만)
 - Constraints verified: 추천 알고리즘/상태 전이 무변경, 신규 API 클라이언트는 기존 `api` 인스턴스 사용
 - Remaining Phase 4 candidates: inventoryBelowSafetyStock (blocked), Bedrock Agent InvokeAgent SDK (AWS 자격증명 필요), Streaming chat UI
+
+---
+
+## Phase 5 Task 1 — inventoryBelowSafetyStock 보강
+
+- Date: 2026-06-10
+- Phase: Phase 5 (Task 1)
+- Phase status: accepted
+- Summary:
+  - `ProductRepository.countProductsBelowSafetyStock()` JPQL @Query 추가
+  - `BedrockAiFacade` 생성자 9-arg → 10-arg (ProductRepository 추가)
+  - `OpsFacts` record 6→7 필드 (`inventoryBelowSafetyStockCount` 추가)
+  - `OpsFacts.toSourceCounts()`에 `"inventoryBelowSafetyStock"` 키 추가
+  - `OpsFacts.buildConfidenceCaveat()` 메시지에 "안전재고 미달 %d건" 포함
+  - `BedrockAiFacadeTest` 업데이트: productRepository mock, 10-arg 생성자, inventoryBelowSafetyStock 어설션
+  - `ProductRepositoryTest` 신규 작성 (@DataJpaTest — 7 cases, H2 in-memory)
+  - `AiOpsSummarySourceCounts` TypeScript 인터페이스에 `inventoryBelowSafetyStock: number` 추가
+  - `AiOpsSummaryPanel.tsx` `SOURCE_LABELS`에 `'inventoryBelowSafetyStock': '안전재고 미달'` 추가
+- Root cause (이전 "blocked"):
+  - 이전 세션에서 "blocked: InventoryDTO lacks safetyStockQuantity"로 기록했으나, JPQL 쿼리는 DTO 계층을 우회하여 `Product` entity(`@SQLRestriction("deleted = false")` 적용)와 `Inventory` entity를 직접 조인할 수 있음을 이번 세션에서 확인
+  - `Product.safetyStockQuantity` 필드는 Entity에 line 52에 정상 존재
+- Design decision:
+  - `ProductRepository` 직접 주입 (`InventoryQueryService` 아님) — ScopeGuard 의존 없이 전역 집계, 기존 직접 Repository 주입 패턴과 일관성
+  - 재고 없는 상품(inventory rows 없음)은 available=0 → 가장 위험한 재고 소진 케이스로 집계
+  - 전역 집계(scope 없음) — sensorAlerts/expiryCount/overdueShipments와 동일 정책
+  - `@DataJpaTest` 채택: Mockito stub으로는 JPQL 문법/의미 오류 검증 불가, H2에서 실제 Hibernate 파싱 검증 필요
+- New tests added:
+  - ProductRepositoryTest.java (신규 — 7 @DataJpaTest)
+  - BedrockAiFacadeTest.summarizeOperations_parsesJsonFieldsFromBedrockResponse: `sourceCounts["inventoryBelowSafetyStock"]` 어설션 추가
+- Breaking changes: 없음 (sourceCounts에 새 키 추가만, 기존 필드 변경 없음)
+- Constraints verified: AIRecommendationService 예측 알고리즘 무변경, AISuggestion 상태 전이 무변경, 신규 엔드포인트 없음
+- Remaining Phase 5 candidates: Bedrock Agent InvokeAgent SDK (AWS 자격증명 필요), Streaming chat UI (§12 out of scope)
