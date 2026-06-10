@@ -610,6 +610,49 @@ Use this section when local Chrome/Chromium execution is unavailable.
 
 ---
 
+## TS-CTRL-001: 컨트롤러 — explainRecommendation 200 응답
+
+- ID: TS-CTRL-001
+- Feature: BedrockAiController (§9 컨트롤러 테스트)
+- Test type: Unit (standalone MockMvc)
+- 대상: POST /api/v1/ai/bedrock/recommendations/1/explain
+- 기대: recommendationId, summary, riskLevel, reasons, modelId 포함 200 응답
+- 자동화: BedrockAiControllerTest.explainRecommendation_returns200WithExplanationFields
+- 상태: PASS
+
+## TS-CTRL-002: 컨트롤러 — opsSummary sourceCounts/confidenceCaveat 직렬화
+
+- ID: TS-CTRL-002
+- Feature: BedrockAiController (§5.4, §9)
+- Test type: Unit (standalone MockMvc)
+- 대상: GET /api/v1/ai/bedrock/ops-summary
+- 기대: sourceCounts["recommendations"], sourceCounts["overdueShipments"], confidenceCaveat 포함 200 응답
+- 자동화: BedrockAiControllerTest.opsSummary_returns200WithSourceCountsAndConfidenceCaveat
+- 상태: PASS
+
+## TS-CTRL-003: 컨트롤러 — RAG rate-limiter null-guard
+
+- ID: TS-CTRL-003
+- Feature: BedrockAiController (§6.3 rate limiting)
+- Test type: Unit (standalone MockMvc)
+- 대상: POST /api/v1/ai/bedrock/rag/query — null Authentication 시 rate-limiter 미호출
+- 기대: checkRagLimit() 미호출, 200 응답 (standalone MockMvc에는 Authentication 없음)
+- 자동화: BedrockAiControllerTest.queryKnowledgeBase_invokesRateLimiterWhenAuthenticationIsNull
+- 상태: PASS
+
+## TS-SEC-001: 프롬프트 빌더 백슬래시 sanitization (§7)
+
+- ID: TS-SEC-001
+- Feature: BedrockPromptBuilder (§7 보안)
+- Test type: Unit
+- 대상: BedrockPromptBuilder.sanitize() — 백슬래시 이스케이프
+- 전제: productName에 백슬래시 포함
+- 기대: 프롬프트에 이스케이프된 백슬래시 포함, 원본 미포함
+- 자동화: BedrockPromptBuilderTest.buildRecommendationExplanationPrompt_sanitizesBackslash
+- 상태: PASS
+
+---
+
 ## TS-P2-018: Bedrock 운영 요약 JSON 파싱
 
 - ID: TS-P2-018

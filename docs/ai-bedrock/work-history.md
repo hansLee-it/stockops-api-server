@@ -553,4 +553,27 @@
   - confidenceCaveat: 기본 접힘, "신뢰도 안내" 버튼 클릭 시 펼침
   - 위험도 배지: AiExplanationPanel과 동일한 RISK_STYLES 공유
 - Blockers: 없음
-- Verification: vitest run 진행 중
+- Verification: vitest run — 269/269 PASS (32 test files)
+
+---
+
+## 2026-06-10 | 테스트 보완 — 컨트롤러 + 프롬프트 빌더
+
+- Date: 2026-06-10
+- Phase: 테스트 품질 보완
+- Summary: ①설계 문서 §9 컨트롤러 테스트 전략 반영 — BedrockAiControllerTest에 explainRecommendation, opsSummary, rate-limiter null-guard 추가. ②설계 문서 §7 보안 요구사항 반영 — BedrockPromptBuilderTest에 백슬래시 sanitization 테스트 추가.
+- Files changed:
+  - src/test/java/com/stockops/controller/BedrockAiControllerTest.java
+    - explainRecommendation_returns200WithExplanationFields (신규)
+    - opsSummary_returns200WithSourceCountsAndConfidenceCaveat (신규 — sourceCounts, confidenceCaveat 어설션 포함)
+    - queryKnowledgeBase_invokesRateLimiterWhenAuthenticationIsNull (신규 — null-guard 검증)
+    - 총 2→5 테스트
+  - src/test/java/com/stockops/ai/bedrock/BedrockPromptBuilderTest.java
+    - buildRecommendationExplanationPrompt_sanitizesBackslash (신규 — JSON 주입 방지 §7)
+    - 총 3→4 테스트
+- Decisions:
+  - 컨트롤러 테스트: standalone MockMvc 사용 (Security context 없음) — @PreAuthorize 효과는 Spring Security integration test에서 별도 검증 가능
+  - opsSummary 테스트: sourceCounts와 confidenceCaveat 필드 직렬화 검증
+  - rate-limiter null-guard: null authentication에서 checkRagLimit 미호출 확인
+- Blockers: 없음
+- Verification: BedrockPromptBuilderTest 4/4 PASS, BedrockAiControllerTest 5/5 PASS
