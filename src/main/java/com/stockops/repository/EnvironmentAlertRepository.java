@@ -3,6 +3,7 @@ package com.stockops.repository;
 import com.stockops.entity.EnvironmentAlert;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -48,4 +49,21 @@ public interface EnvironmentAlertRepository extends JpaRepository<EnvironmentAle
     @Transactional
     @Query("DELETE FROM EnvironmentAlert a WHERE a.createdAt < :cutoff")
     int deleteByCreatedAtBefore(@Param("cutoff") Instant cutoff);
+
+    /**
+     * Returns the current active (unresolved, unacknowledged) alert for a sensor, if any.
+     * A sensor has at most one active alert at a time.
+     *
+     * @param sensorDeviceId sensor device id
+     * @return the active alert when present
+     */
+    Optional<EnvironmentAlert> findFirstBySensorDeviceIdAndResolvedAtIsNullAndAcknowledgedFalseOrderByCreatedAtDesc(
+            Long sensorDeviceId);
+
+    /**
+     * Returns all currently active (unresolved, unacknowledged) alerts.
+     *
+     * @return active alerts
+     */
+    List<EnvironmentAlert> findByResolvedAtIsNullAndAcknowledgedFalse();
 }

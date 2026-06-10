@@ -1,29 +1,33 @@
 package com.stockops.environment.ingestion;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.stockops.entity.AlertSeverity;
+import com.stockops.entity.EnvironmentAlert;
 import com.stockops.entity.SensorDevice;
-import com.stockops.entity.SensorReading;
-import com.stockops.environment.WebSocketEnvironmentPublisher;
+import com.stockops.environment.EnvironmentAlertNotifier;
+import com.stockops.repository.EnvironmentAlertRepository;
 import com.stockops.repository.SensorDeviceRepository;
-import com.stockops.repository.SensorReadingRepository;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
+import java.util.Locale;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 /**
- * Processes live Sensimul telemetry into history and latest-state projections.
+ * Processes live Sensimul telemetry into environment alert EVENTS.
+ *
+ * <p>Raw sensor measurements are no longer persisted in bulk — real-time values are viewed
+ * client-side (admin-web subscribes to MQTT directly). The API only records threshold events:
+ * a {@code WARNING}/{@code CRITICAL} status opens (or escalates) an active alert for the sensor,
+ * and a normal status auto-resolves it. An alert stays active until the sensor normalizes or an
+ * administrator acknowledges it, which is what drives the dashboard normal/warning/danger view.
  *
  * @author StockOps Team
  * @since 1.0
- * @see SensorReadingRepository
- * @see SensorLatestProjectionRepository
+ * @see EnvironmentAlertRepository
  */
 @Service
 public class TelemetryIngestionService {
@@ -31,35 +35,27 @@ public class TelemetryIngestionService {
     private static final Logger LOGGER = LoggerFactory.getLogger(TelemetryIngestionService.class);
 
     private final SensorDeviceRepository sensorDeviceRepository;
-    private final SensorReadingRepository sensorReadingRepository;
-    private final SensorLatestProjectionRepository sensorLatestProjectionRepository;
-    private final WebSocketEnvironmentPublisher webSocketEnvironmentPublisher;
-    private final ObjectMapper objectMapper;
+    private final EnvironmentAlertRepository environmentAlertRepository;
+    private final EnvironmentAlertNotifier environmentAlertNotifier;
 
     /**
      * Creates the telemetry ingestion service.
      *
      * @param sensorDeviceRepository sensor device repository
-     * @param sensorReadingRepository sensor reading repository
-     * @param sensorLatestProjectionRepository latest projection repository
-     * @param webSocketEnvironmentPublisher WebSocket publisher
-     * @param objectMapper jackson object mapper
+     * @param environmentAlertRepository environment alert (event) repository
+     * @param environmentAlertNotifier best-effort alert notifier (webhook/email)
      */
     public TelemetryIngestionService(
             final SensorDeviceRepository sensorDeviceRepository,
-            final SensorReadingRepository sensorReadingRepository,
-            final SensorLatestProjectionRepository sensorLatestProjectionRepository,
-            final WebSocketEnvironmentPublisher webSocketEnvironmentPublisher,
-            final ObjectMapper objectMapper) {
+            final EnvironmentAlertRepository environmentAlertRepository,
+            final EnvironmentAlertNotifier environmentAlertNotifier) {
         this.sensorDeviceRepository = sensorDeviceRepository;
-        this.sensorReadingRepository = sensorReadingRepository;
-        this.sensorLatestProjectionRepository = sensorLatestProjectionRepository;
-        this.webSocketEnvironmentPublisher = webSocketEnvironmentPublisher;
-        this.objectMapper = objectMapper;
+        this.environmentAlertRepository = environmentAlertRepository;
+        this.environmentAlertNotifier = environmentAlertNotifier;
     }
 
     /**
-     * Ingests a single telemetry payload.
+     * Ingests a single telemetry payload, recording only state-change events.
      * Invalid or unmapped payloads are logged and skipped without failing the subscriber.
      *
      * @param payload live sensor payload
@@ -85,105 +81,97 @@ public class TelemetryIngestionService {
         }
 
         final SensorDevice device = sensorDevice.get();
-        final SensorReading reading = new SensorReading();
-        reading.setSensorDeviceId(device.getId());
-        reading.setValue(payload.value());
-        reading.setValueKind(payload.valueKind());
-        reading.setUnit(resolveUnit(payload.unit(), device.getUnit()));
-        reading.setStatus(payload.status());
-        reading.setRecordedAt(recordedAt);
-        reading.setSequenceId(payload.sequenceId());
-        reading.setRawPayload(serializePayload(payload));
-        sensorReadingRepository.save(reading);
-        webSocketEnvironmentPublisher.publishSensorReading(reading, device);
-
-        if (isSequenceStale(device.getId(), payload.sequenceId())) {
-            LOGGER.debug(
-                    "Stored out-of-order reading without updating latest projection for sensorDeviceId={}, sequenceId={}",
-                    device.getId(),
-                    payload.sequenceId());
-            return;
+        final AlertSeverity severity = severityFor(payload.status());
+        if (severity == null) {
+            resolveActiveAlert(device, recordedAt);
+        } else {
+            openOrEscalateAlert(device, severity, payload);
         }
-
-        upsertLatestProjection(device.getId(), reading);
     }
 
     /**
-     * Returns the latest stored reading for a sensor device.
+     * Opens a new active alert for a sensor, or escalates the severity of the existing one.
      *
-     * @param sensorDeviceId sensor device id
-     * @return latest reading when available
+     * @param device sensor device
+     * @param severity event severity derived from the reported status
+     * @param payload live payload
      */
-    @Transactional(readOnly = true)
-    public Optional<SensorReading> getLatestReading(final Long sensorDeviceId) {
-        return sensorLatestProjectionRepository.findBySensorDeviceId(sensorDeviceId)
-                .flatMap(projection -> {
-                    if (projection.getSequenceId() != null) {
-                        return sensorReadingRepository.findTopBySensorDeviceIdAndSequenceIdOrderByRecordedAtDesc(
-                                sensorDeviceId, projection.getSequenceId());
-                    }
-                    return sensorReadingRepository.findTopBySensorDeviceIdOrderByRecordedAtDesc(sensorDeviceId);
-                })
-                .or(() -> sensorReadingRepository.findTopBySensorDeviceIdOrderBySequenceIdDescRecordedAtDesc(sensorDeviceId));
+    private void openOrEscalateAlert(final SensorDevice device, final AlertSeverity severity,
+                                     final SensimulPayload payload) {
+        final Optional<EnvironmentAlert> active = environmentAlertRepository
+                .findFirstBySensorDeviceIdAndResolvedAtIsNullAndAcknowledgedFalseOrderByCreatedAtDesc(device.getId());
+        final String message = buildMessage(device, payload);
+
+        if (active.isPresent()) {
+            final EnvironmentAlert alert = active.get();
+            if (alert.getSeverity() != severity) {
+                alert.setSeverity(severity);
+                alert.setMessage(message);
+                final EnvironmentAlert escalated = environmentAlertRepository.save(alert);
+                LOGGER.debug("Updated active alert severity for sensorDeviceId={} to {}", device.getId(), severity);
+                environmentAlertNotifier.notifyAlertOpened(escalated, device);
+            }
+            return;
+        }
+
+        final EnvironmentAlert alert = new EnvironmentAlert();
+        alert.setSensorDeviceId(device.getId());
+        alert.setAlertType(resolveAlertType(payload));
+        alert.setSeverity(severity);
+        alert.setMessage(message);
+        alert.setAcknowledged(false);
+        final EnvironmentAlert opened = environmentAlertRepository.save(alert);
+        LOGGER.debug("Opened {} alert for sensorDeviceId={}", severity, device.getId());
+        environmentAlertNotifier.notifyAlertOpened(opened, device);
     }
 
     /**
-     * Checks whether a sequence id is older than the current latest projection.
+     * Auto-resolves the sensor's active alert when a normal reading arrives.
      *
-     * @param sensorDeviceId sensor device id
-     * @param sequenceId incoming sequence id
-     * @return true when the sequence is stale
+     * @param device sensor device
+     * @param resolvedAt resolution timestamp
      */
-    @Transactional(readOnly = true)
-    public boolean isSequenceStale(final Long sensorDeviceId, final long sequenceId) {
-        return sensorLatestProjectionRepository.findBySensorDeviceId(sensorDeviceId)
-                .map(SensorLatestProjection::getSequenceId)
-                .filter(currentSequenceId -> currentSequenceId != null && sequenceId < currentSequenceId)
-                .isPresent();
+    private void resolveActiveAlert(final SensorDevice device, final Instant resolvedAt) {
+        environmentAlertRepository
+                .findFirstBySensorDeviceIdAndResolvedAtIsNullAndAcknowledgedFalseOrderByCreatedAtDesc(device.getId())
+                .ifPresent(alert -> {
+                    alert.setResolvedAt(resolvedAt);
+                    environmentAlertRepository.save(alert);
+                    LOGGER.debug("Auto-resolved active alert for sensorDeviceId={}", device.getId());
+                });
     }
 
-    private void upsertLatestProjection(final Long sensorDeviceId, final SensorReading reading) {
-        final Instant updatedAt = Instant.now();
-        final int updatedRows = sensorLatestProjectionRepository.updateIfNewer(
-                sensorDeviceId,
-                reading.getValue(),
-                reading.getValueKind(),
-                reading.getUnit(),
-                reading.getStatus(),
-                reading.getRecordedAt(),
-                reading.getSequenceId(),
-                updatedAt);
-        if (updatedRows > 0) {
-            return;
+    /**
+     * Maps a reported sensor status to an alert severity, or {@code null} when the status is normal.
+     *
+     * @param status reported status string
+     * @return mapped severity, or {@code null} for normal/unknown states
+     */
+    private AlertSeverity severityFor(final String status) {
+        if (status == null) {
+            return null;
         }
+        return switch (status.trim().toUpperCase(Locale.ROOT)) {
+            case "CRITICAL", "DANGER" -> AlertSeverity.CRITICAL;
+            case "WARNING", "WARN" -> AlertSeverity.WARNING;
+            default -> null;
+        };
+    }
 
-        if (sensorLatestProjectionRepository.findBySensorDeviceId(sensorDeviceId).isPresent()) {
-            return;
+    private String resolveAlertType(final SensimulPayload payload) {
+        if (StringUtils.hasText(payload.valueKind())) {
+            return payload.valueKind();
         }
+        return StringUtils.hasText(payload.sensorType()) ? payload.sensorType() : "SENSOR";
+    }
 
-        final SensorLatestProjection projection = new SensorLatestProjection();
-        projection.setSensorDeviceId(sensorDeviceId);
-        projection.setValue(reading.getValue());
-        projection.setValueKind(reading.getValueKind());
-        projection.setUnit(reading.getUnit());
-        projection.setStatus(reading.getStatus());
-        projection.setRecordedAt(reading.getRecordedAt());
-        projection.setSequenceId(reading.getSequenceId());
-        projection.setUpdatedAt(updatedAt);
-
-        try {
-            sensorLatestProjectionRepository.save(projection);
-        } catch (DataIntegrityViolationException exception) {
-            sensorLatestProjectionRepository.updateIfNewer(
-                    sensorDeviceId,
-                    reading.getValue(),
-                    reading.getValueKind(),
-                    reading.getUnit(),
-                    reading.getStatus(),
-                    reading.getRecordedAt(),
-                    reading.getSequenceId(),
-                    updatedAt);
-        }
+    private String buildMessage(final SensorDevice device, final SensimulPayload payload) {
+        final String unit = StringUtils.hasText(payload.unit()) ? payload.unit() : device.getUnit();
+        return String.format(Locale.ROOT, "%s: %s%s (%s)",
+                device.getName(),
+                payload.value(),
+                StringUtils.hasText(unit) ? unit : "",
+                payload.status());
     }
 
     private boolean isPayloadValid(final SensimulPayload payload) {
@@ -199,10 +187,7 @@ public class TelemetryIngestionService {
         if (!StringUtils.hasText(payload.status())) {
             return false;
         }
-        if (!StringUtils.hasText(payload.timestamp())) {
-            return false;
-        }
-        return true;
+        return StringUtils.hasText(payload.timestamp());
     }
 
     private Instant parseRecordedAt(final String timestamp) {
@@ -211,17 +196,5 @@ public class TelemetryIngestionService {
         } catch (DateTimeParseException exception) {
             return null;
         }
-    }
-
-    private String serializePayload(final SensimulPayload payload) {
-        try {
-            return objectMapper.writeValueAsString(payload);
-        } catch (JsonProcessingException exception) {
-            throw new IllegalStateException("Failed to serialize raw telemetry payload", exception);
-        }
-    }
-
-    private String resolveUnit(final String payloadUnit, final String defaultUnit) {
-        return StringUtils.hasText(payloadUnit) ? payloadUnit : defaultUnit;
     }
 }

@@ -47,6 +47,12 @@ public class EnvironmentAlert extends BaseEntity {
     @Column(name = "acknowledged_by")
     private String acknowledgedBy;
 
+    @Column(name = "resolved_at")
+    private Instant resolvedAt;
+
+    @Column(name = "acknowledgement_note", length = 1000)
+    private String acknowledgementNote;
+
     public EnvironmentAlert() {
     }
 
@@ -104,6 +110,22 @@ public class EnvironmentAlert extends BaseEntity {
 
     public void setAcknowledgedAt(final Instant acknowledgedAt) {
         this.acknowledgedAt = acknowledgedAt;
+    }
+
+    public Instant getResolvedAt() {
+        return this.resolvedAt;
+    }
+
+    public void setResolvedAt(final Instant resolvedAt) {
+        this.resolvedAt = resolvedAt;
+    }
+
+    public String getAcknowledgementNote() {
+        return this.acknowledgementNote;
+    }
+
+    public void setAcknowledgementNote(final String acknowledgementNote) {
+        this.acknowledgementNote = acknowledgementNote;
     }
 
     public String getAcknowledgedBy() {
