@@ -382,3 +382,21 @@
   - ai.bedrock.tokens 카운터: direction=input/output 태그로 분리
 - Blockers: 없음
 - Verification: mvn test — 전체 테스트 PASS (진행 중)
+
+---
+
+## 2026-06-10 | Phase 2 - Task 6b (getPurchaseOrderDelaySummary 추가)
+
+- Date: 2026-06-10
+- Phase: Phase 2 보완 — AgentToolDispatcher 누락 Tool 추가
+- Summary: 설계 문서에 명시된 5개 Agent 허용 도구 중 getPurchaseOrderDelaySummary가 Phase 2 Task 6 구현에서 누락된 것을 발견하고 보완. PurchaseOrderShipmentRepository에 findByEtaDateBeforeAndDeliveredAtIsNull 쿼리 추가. AgentToolDispatcher에 핸들러 추가.
+- Files changed:
+  - src/main/java/com/stockops/repository/PurchaseOrderShipmentRepository.java (findByEtaDateBeforeAndDeliveredAtIsNull 추가)
+  - src/main/java/com/stockops/ai/bedrock/agent/AgentToolDispatcher.java (getPurchaseOrderDelaySummary 핸들러 추가, PurchaseOrderShipmentRepository 주입, @Transactional(readOnly=true) 추가)
+  - src/test/java/com/stockops/ai/bedrock/agent/AgentToolDispatcherTest.java (PurchaseOrderShipmentRepository mock 추가, 7→9 tests)
+- Decisions:
+  - PurchaseOrderShipmentRepository를 서비스가 아닌 저장소로 직접 주입 — PurchaseOrderService 생성자가 이미 크고 delay 집계 메서드 추가 시 scope guard 충돌 가능
+  - AgentToolDispatcher.dispatch에 @Transactional(readOnly=true) 추가 — shipment.getPurchaseOrder() lazy load 보호
+  - daysOverdue = today.toEpochDay() - etaDate.toEpochDay()
+- Blockers: 없음
+- Verification: mvn test — 전체 테스트 PASS (진행 중)

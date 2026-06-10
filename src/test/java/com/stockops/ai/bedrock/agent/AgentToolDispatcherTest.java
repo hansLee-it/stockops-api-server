@@ -8,10 +8,13 @@ import static org.mockito.Mockito.when;
 
 import com.stockops.dto.AIRecommendationDTO;
 import com.stockops.dto.InventoryDTO;
+import com.stockops.entity.PurchaseOrderShipment;
+import com.stockops.repository.PurchaseOrderShipmentRepository;
 import com.stockops.service.EnvironmentQueryService;
 import com.stockops.service.InventoryQueryService;
 import com.stockops.service.ai.AIRecommendationService;
 import com.stockops.service.ai.AISuggestionService;
+import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -30,6 +33,8 @@ class AgentToolDispatcherTest {
     private EnvironmentQueryService environmentQueryService;
     @Mock
     private AISuggestionService aiSuggestionService;
+    @Mock
+    private PurchaseOrderShipmentRepository shipmentRepository;
 
     private AgentToolDispatcher dispatcher;
 
@@ -39,7 +44,8 @@ class AgentToolDispatcherTest {
                 inventoryQueryService,
                 recommendationService,
                 environmentQueryService,
-                aiSuggestionService);
+                aiSuggestionService,
+                shipmentRepository);
     }
 
     @Test
@@ -83,6 +89,34 @@ class AgentToolDispatcherTest {
 
         assertThat(result.success()).isTrue();
         verify(environmentQueryService).getAlerts(7);
+    }
+
+    @Test
+    void dispatch_getPurchaseOrderDelaySummary_emptyList_returnsEmptyJson() {
+        when(shipmentRepository.findByEtaDateBeforeAndDeliveredAtIsNull(
+                org.mockito.ArgumentMatchers.any(LocalDate.class))).thenReturn(List.of());
+
+        final AgentToolResult result = dispatcher.dispatch("getPurchaseOrderDelaySummary", "{}");
+
+        assertThat(result.success()).isTrue();
+        assertThat(result.resultJson()).isEqualTo("[]");
+    }
+
+    @Test
+    void dispatch_getPurchaseOrderDelaySummary_withOverdueShipment_includesDaysOverdue() {
+        final PurchaseOrderShipment shipment = new PurchaseOrderShipment();
+        shipment.setShipmentNumber("SHP-001");
+        shipment.setCarrier("FedEx");
+        shipment.setEtaDate(LocalDate.now().minusDays(3));
+
+        when(shipmentRepository.findByEtaDateBeforeAndDeliveredAtIsNull(
+                org.mockito.ArgumentMatchers.any(LocalDate.class))).thenReturn(List.of(shipment));
+
+        final AgentToolResult result = dispatcher.dispatch("getPurchaseOrderDelaySummary", "{}");
+
+        assertThat(result.success()).isTrue();
+        assertThat(result.resultJson()).contains("\"daysOverdue\":3");
+        assertThat(result.resultJson()).contains("SHP-001");
     }
 
     @Test

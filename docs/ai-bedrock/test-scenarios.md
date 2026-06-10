@@ -406,3 +406,23 @@ Use this section when local Chrome/Chromium execution is unavailable.
 - 실행: aiCallMetrics.record(record)
 - 기대: ai.bedrock.tokens 카운터 미등록
 - 자동화: AiCallMetricsTest.record_nullTokenCounts_doesNotRegisterTokenCounter (unit)
+
+---
+
+## TS-P2-013: getPurchaseOrderDelaySummary — 빈 목록
+
+- ID: TS-P2-013
+- 대상: AgentToolDispatcher.dispatch("getPurchaseOrderDelaySummary", ...)
+- 전제: 연체 출하 없음
+- 실행: dispatcher.dispatch("getPurchaseOrderDelaySummary", "{}")
+- 기대: success=true, resultJson="[]"
+- 자동화: AgentToolDispatcherTest.dispatch_getPurchaseOrderDelaySummary_emptyList_returnsEmptyJson (unit)
+
+## TS-P2-014: getPurchaseOrderDelaySummary — 연체 출하 포함
+
+- ID: TS-P2-014
+- 대상: AgentToolDispatcher.dispatch("getPurchaseOrderDelaySummary", ...)
+- 전제: etaDate=오늘-3일인 출하 1건
+- 실행: dispatcher.dispatch("getPurchaseOrderDelaySummary", "{}")
+- 기대: success=true, resultJson에 daysOverdue=3, SHP-001 포함
+- 자동화: AgentToolDispatcherTest.dispatch_getPurchaseOrderDelaySummary_withOverdueShipment_includesDaysOverdue (unit)
