@@ -505,3 +505,52 @@
   - InventoryQueryService: 개별 재고 레코드는 너무 많고 safetyStock 필드 없음 — 향후 Phase 3에서 집계 API 추가 후 포함 검토
 - Blockers: 없음
 - Verification: mvn test — 전체 테스트 PASS (진행 중)
+
+---
+
+## 2026-06-10 | Phase 4 - Task 1 (ops facts — overdueShipmentCount)
+
+- Date: 2026-06-10
+- Phase: Phase 4 - Task 1
+- Summary: `buildOpsFacts()`에 지연 PO(과거 ETA, 미배송) 건수 추가. `PurchaseOrderShipmentRepository.findByEtaDateBeforeAndDeliveredAtIsNull(businessDate)`는 이미 AgentToolDispatcher에서 사용 중이었으므로 저장소 재사용. `BedrockAiFacade` 생성자 8-arg → 9-arg. `OpsFacts` record에 `overdueShipmentCount` 추가. `toSourceCounts()`에 `"overdueShipments"` 키 추가. `buildConfidenceCaveat()` 메시지에 "지연 PO N건" 포함.
+- Files changed:
+  - src/main/java/com/stockops/ai/bedrock/BedrockAiFacade.java
+    - import PurchaseOrderShipmentRepository 추가
+    - 생성자에 `PurchaseOrderShipmentRepository shipmentRepository` 파라미터 추가 (9번째)
+    - `buildOpsFacts()`: `shipmentRepository.findByEtaDateBeforeAndDeliveredAtIsNull(businessDate).size()` 호출 추가 (fault-tolerant try/catch)
+    - facts 맵에 `"overdueShipments"` 항목 추가
+    - `OpsFacts` record: `overdueShipmentCount` 필드 추가 (6번째)
+    - `OpsFacts.toSourceCounts()`: `"overdueShipments"` 키 추가
+    - `OpsFacts.buildConfidenceCaveat()`: total에 overdueShipmentCount 포함, 메시지에 "지연 PO %d건" 추가
+  - src/test/java/com/stockops/ai/bedrock/BedrockAiFacadeTest.java
+    - `@Mock PurchaseOrderShipmentRepository shipmentRepository` 추가
+    - `setUp()`: 9-arg BedrockAiFacade 생성자 사용
+    - `summarizeOperations_parsesJsonFieldsFromBedrockResponse`: `shipmentRepository.findByEtaDateBeforeAndDeliveredAtIsNull(any())` stub 추가, `sourceCounts.overdueShipments=0` 어설션 추가
+- Decisions:
+  - `PurchaseOrderShipmentRepository` 직접 주입 (`PurchaseOrderService` 아님) — AgentToolDispatcher와 동일한 패턴, PurchaseOrderService 생성자 비대화 방지
+  - 데이터 로드 실패 시 log.warn + count=0으로 graceful degradation
+  - `buildConfidenceCaveat()` 임계값은 그대로 5건 (overdueShipmentCount 포함 시 total이 더 쉽게 달성됨)
+- Blockers: 없음
+- Verification: mvn test — BedrockAiFacadeTest 9/9 PASS, AiOpsSummarySchedulerTest 2/2 PASS (전체 빌드 진행 중)
+
+---
+
+## 2026-06-10 | Phase 4 - Task 2 (프론트엔드 AiOpsSummaryPanel)
+
+- Date: 2026-06-10
+- Phase: Phase 4 - Task 2
+- Summary: `AiOpsSummaryPanel` 컴포넌트 생성. 오늘 날짜/필터 기준 운영 요약 lazy fetch + 표시. sourceCounts 칩, confidenceCaveat 접기/펼치기 구현.
+- Files changed (stockops-admin-web):
+  - src/types/aiOpsSummary.ts (신규 — AiOpsSummaryResponse, AiOpsSummarySourceCounts 타입)
+  - src/api/aiOpsSummary.ts (신규 — fetchOpsSummary API 클라이언트)
+  - src/components/AiOpsSummaryPanel.tsx (신규 — 운영 요약 패널 컴포넌트)
+  - src/components/AiOpsSummaryPanel.test.tsx (신규 — 8 vitest 테스트)
+  - src/pages/AIFeaturesPage.tsx (AiOpsSummaryPanel import 및 필터 아래 배치)
+- Decisions:
+  - lazy fetch: 첫 클릭 시만 API 호출 → AiExplanationPanel과 동일 패턴
+  - businessDate: `new Date().toISOString().slice(0, 10)` — 렌더 시점 오늘 날짜
+  - sourceCounts: 키-값 → 한국어 레이블 칩 (`SOURCE_LABELS` 맵으로 변환)
+  - confidenceCaveat: 기본 접힘, "신뢰도 안내" 버튼 클릭 시 펼침
+  - 위험도 배지: AiExplanationPanel과 동일한 RISK_STYLES 공유
+- Blockers: 없음
+- Verification: vitest run 진행 중

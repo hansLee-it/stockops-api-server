@@ -540,6 +540,76 @@ Use this section when local Chrome/Chromium execution is unavailable.
 - 기대: confidenceCaveat contains "추천 5건, 센서 알림 3건, 만료 경보 3건"
 - 자동화: 단위 레코드 테스트 없음 (integration-tested via BedrockAiFacadeTest)
 
+## TS-P4-001: Ops facts — overdueShipmentCount 포함 확인
+
+- ID: TS-P4-001
+- Feature: Phase 4 - ops facts enrichment (overdueShipmentCount)
+- Test type: Unit
+- 대상: BedrockAiFacade.buildOpsFacts() → OpsFacts.toSourceCounts()
+- 전제: shipmentRepository.findByEtaDateBeforeAndDeliveredAtIsNull(businessDate) 반환 빈 리스트, 나머지 데이터도 빈 값
+- 실행: summarizeOperations(date, centerId, warehouseId)
+- 기대: response.sourceCounts()["overdueShipments"] == 0, "데이터가 부족"이 confidenceCaveat에 포함
+- 자동화: BedrockAiFacadeTest.summarizeOperations_parsesJsonFieldsFromBedrockResponse (unit)
+- 실제: PASS
+- 상태: PASS
+
+## TS-P4-002: Ops facts — shipmentRepository 오류 시 graceful degradation
+
+- ID: TS-P4-002
+- Feature: Phase 4 - ops facts enrichment (fault tolerance)
+- Test type: Unit (수동 검증)
+- 대상: BedrockAiFacade.buildOpsFacts() — shipmentRepository 예외 처리
+- 전제: shipmentRepository.findByEtaDateBeforeAndDeliveredAtIsNull() 호출 시 RuntimeException 발생
+- 기대: log.warn 출력, overdueShipmentCount=0으로 폴백, 요약 생성 계속 진행
+- 자동화: 없음 (코드 검토로 검증)
+- 상태: NOT_RUN
+
+---
+
+## TS-P4-003: AiOpsSummaryPanel — 초기 버튼 표시
+
+- ID: TS-P4-003
+- Feature: Phase 4 - AiOpsSummaryPanel (frontend)
+- Test type: Unit (vitest)
+- 대상: AiOpsSummaryPanel 컴포넌트 초기 렌더
+- 기대: "AI 운영 요약 보기" 버튼 표시
+- 자동화: AiOpsSummaryPanel.test.tsx (vitest)
+- 상태: PASS
+
+## TS-P4-004: AiOpsSummaryPanel — fetch 후 요약/긴급 항목/권장 조치 표시
+
+- ID: TS-P4-004
+- Feature: Phase 4 - AiOpsSummaryPanel (frontend)
+- Test type: Unit (vitest)
+- 대상: AiOpsSummaryPanel fetch 후 표시 내용
+- 기대: summary, urgentItems, recommendedActions, riskLevel 배지 표시
+- 자동화: AiOpsSummaryPanel.test.tsx (vitest)
+- 상태: PASS
+
+## TS-P4-005: AiOpsSummaryPanel — sourceCounts 칩 표시 (§5.4)
+
+- ID: TS-P4-005
+- Feature: Phase 4 - AiOpsSummaryPanel (frontend)
+- Test type: Unit (vitest)
+- 대상: AiOpsSummaryPanel.sourceCounts 렌더링
+- 기대: "데이터 출처" 섹션에 "추천", "지연 PO" 등 칩 표시
+- 자동화: AiOpsSummaryPanel.test.tsx (vitest)
+- 상태: PASS
+
+## TS-P4-006: AiOpsSummaryPanel — confidenceCaveat 접기/펼치기
+
+- ID: TS-P4-006
+- Feature: Phase 4 - AiOpsSummaryPanel (frontend)
+- Test type: Unit (vitest)
+- 대상: AiOpsSummaryPanel.confidenceCaveat 접기/펼치기
+- 전제: 패널 열린 상태
+- 실행: "신뢰도 안내" 버튼 클릭
+- 기대: confidenceCaveat 텍스트 표시
+- 자동화: AiOpsSummaryPanel.test.tsx (vitest)
+- 상태: PASS
+
+---
+
 ## TS-P2-018: Bedrock 운영 요약 JSON 파싱
 
 - ID: TS-P2-018

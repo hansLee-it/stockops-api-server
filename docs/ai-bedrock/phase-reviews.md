@@ -219,3 +219,41 @@
 - Breaking changes: 없음 (기존 API 클라이언트는 신규 필드 무시 가능)
 - Constraints verified: AIRecommendationService 예측 알고리즘 무변경, AISuggestion 상태 전이 무변경
 - Remaining Phase 3 candidates: overdueShipmentCount in ops facts (deferred), inventoryBelowSafetyStock (blocked)
+
+---
+
+## Phase 4 Task 1 — Ops Facts overdueShipmentCount 보강
+
+- Date: 2026-06-10
+- Phase: Phase 4 (Task 1)
+- Phase status: accepted
+- Summary:
+  - `PurchaseOrderShipmentRepository.findByEtaDateBeforeAndDeliveredAtIsNull(businessDate)` 호출을 `buildOpsFacts()`에 통합
+  - `BedrockAiFacade` 생성자 8-arg → 9-arg (PurchaseOrderShipmentRepository 추가)
+  - `OpsFacts` record에 `overdueShipmentCount` 필드 추가 (6번째)
+  - `OpsFacts.toSourceCounts()`에 `"overdueShipments"` 키 추가
+  - `OpsFacts.buildConfidenceCaveat()` 메시지에 "지연 PO N건" 포함
+  - `BedrockAiFacadeTest` 업데이트: shipmentRepository mock, 9-arg 생성자, overdueShipments 어설션
+- New tests added:
+  - BedrockAiFacadeTest.summarizeOperations_parsesJsonFieldsFromBedrockResponse: `sourceCounts["overdueShipments"]` 어설션 추가
+- Breaking changes: 없음 (sourceCounts에 새 키 추가만, 기존 필드 변경 없음)
+- Constraints verified: AIRecommendationService 예측 알고리즘 무변경, AISuggestion 상태 전이 무변경
+- Remaining Phase 4 candidates: inventoryBelowSafetyStock (blocked — InventoryDTO safetyStockQuantity 없음), Bedrock Agent InvokeAgent SDK, Streaming chat UI, frontend ops summary page
+
+---
+
+## Phase 4 Task 2 — 프론트엔드 AiOpsSummaryPanel
+
+- Date: 2026-06-10
+- Phase: Phase 4 (Task 2)
+- Phase status: accepted
+- Summary:
+  - `AiOpsSummaryPanel` 컴포넌트 생성 (lazy fetch, sourceCounts 칩, confidenceCaveat 접기/펼치기)
+  - `src/types/aiOpsSummary.ts`, `src/api/aiOpsSummary.ts` 신규 작성
+  - `AIFeaturesPage`에 통합 (필터 아래, 추천 카드 위)
+  - `AiOpsSummaryPanel.test.tsx` 8 테스트 작성
+- New tests added:
+  - AiOpsSummaryPanel.test.tsx (8 vitest tests)
+- Breaking changes: 없음 (신규 컴포넌트 추가만)
+- Constraints verified: 추천 알고리즘/상태 전이 무변경, 신규 API 클라이언트는 기존 `api` 인스턴스 사용
+- Remaining Phase 4 candidates: inventoryBelowSafetyStock (blocked), Bedrock Agent InvokeAgent SDK (AWS 자격증명 필요), Streaming chat UI

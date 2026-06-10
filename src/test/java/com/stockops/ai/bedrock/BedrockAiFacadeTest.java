@@ -8,6 +8,7 @@ import com.stockops.ai.provider.AiServiceStatus;
 import com.stockops.dto.AIRecommendationDTO;
 import com.stockops.entity.ai.AIRecommendationStatus;
 import com.stockops.repository.ExpiryAlertRepository;
+import com.stockops.repository.PurchaseOrderShipmentRepository;
 import com.stockops.service.EnvironmentQueryService;
 import com.stockops.service.ai.AIRecommendationService;
 import com.stockops.service.ai.AISuggestionService;
@@ -39,13 +40,15 @@ class BedrockAiFacadeTest {
     @Mock AISuggestionService aiSuggestionService;
     @Mock EnvironmentQueryService environmentQueryService;
     @Mock ExpiryAlertRepository expiryAlertRepository;
+    @Mock PurchaseOrderShipmentRepository shipmentRepository;
 
     BedrockAiFacade facade;
 
     @BeforeEach
     void setUp() {
         facade = new BedrockAiFacade(providerFacade, promptBuilder, properties, agentAdapter,
-                recommendationService, aiSuggestionService, environmentQueryService, expiryAlertRepository);
+                recommendationService, aiSuggestionService, environmentQueryService,
+                expiryAlertRepository, shipmentRepository);
     }
 
     @Test
@@ -134,6 +137,7 @@ class BedrockAiFacadeTest {
         when(recommendationService.listRecommendations(any(), any(), any(), any())).thenReturn(java.util.List.of());
         when(environmentQueryService.getAlerts(7)).thenReturn(java.util.List.of());
         when(expiryAlertRepository.countByAlertLevelAndAcknowledgedFalse(any())).thenReturn(0L);
+        when(shipmentRepository.findByEtaDateBeforeAndDeliveredAtIsNull(any())).thenReturn(java.util.List.of());
         when(promptBuilder.buildOpsSummaryPrompt(any())).thenReturn("prompt");
         final String bedrockJson = """
                 {"summary":"운영 위험 높음","urgentItems":["재고 부족"],
@@ -152,6 +156,7 @@ class BedrockAiFacadeTest {
         // §5.4 출력 스펙: sourceCounts와 confidenceCaveat는 입력 데이터에서 결정론적으로 계산됨
         assertThat(response.sourceCounts()).containsEntry("recommendations", 0);
         assertThat(response.sourceCounts()).containsEntry("sensorAlerts", 0);
+        assertThat(response.sourceCounts()).containsEntry("overdueShipments", 0);
         assertThat(response.confidenceCaveat()).contains("데이터가 부족");
     }
 

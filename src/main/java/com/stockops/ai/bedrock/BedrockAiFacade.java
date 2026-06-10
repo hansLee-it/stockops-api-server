@@ -16,6 +16,7 @@ import com.stockops.ai.provider.AiGenerationResponse;
 import com.stockops.ai.provider.AiProviderFacade;
 import com.stockops.dto.AIRecommendationDTO;
 import com.stockops.repository.ExpiryAlertRepository;
+import com.stockops.repository.PurchaseOrderShipmentRepository;
 import com.stockops.service.EnvironmentQueryService;
 import com.stockops.service.ai.AIRecommendationService;
 import com.stockops.service.ai.AISuggestionService;
@@ -46,6 +47,7 @@ public class BedrockAiFacade {
     private final AISuggestionService aiSuggestionService;
     private final EnvironmentQueryService environmentQueryService;
     private final ExpiryAlertRepository expiryAlertRepository;
+    private final PurchaseOrderShipmentRepository shipmentRepository;
 
     public BedrockAiFacade(final AiProviderFacade providerFacade,
                            final BedrockPromptBuilder promptBuilder,
@@ -54,7 +56,8 @@ public class BedrockAiFacade {
                            final AIRecommendationService recommendationService,
                            final AISuggestionService aiSuggestionService,
                            final EnvironmentQueryService environmentQueryService,
-                           final ExpiryAlertRepository expiryAlertRepository) {
+                           final ExpiryAlertRepository expiryAlertRepository,
+                           final PurchaseOrderShipmentRepository shipmentRepository) {
         this.providerFacade = providerFacade;
         this.promptBuilder = promptBuilder;
         this.properties = properties;
@@ -63,6 +66,7 @@ public class BedrockAiFacade {
         this.aiSuggestionService = aiSuggestionService;
         this.environmentQueryService = environmentQueryService;
         this.expiryAlertRepository = expiryAlertRepository;
+        this.shipmentRepository = shipmentRepository;
     }
 
     @Cacheable(
@@ -344,6 +348,15 @@ public class BedrockAiFacade {
             log.warn("[OPS_FACTS] Could not load expiry alert counts: {}", e.getMessage());
         }
 
+        // Overdue purchase order shipments (past ETA, not yet delivered)
+        int overdueShipmentCount = 0;
+        try {
+            overdueShipmentCount = shipmentRepository
+                    .findByEtaDateBeforeAndDeliveredAtIsNull(businessDate).size();
+        } catch (final RuntimeException e) {
+            log.warn("[OPS_FACTS] Could not load overdue shipment count: {}", e.getMessage());
+        }
+
         final int recCount = (int) Math.min(recommendations.size(), 20);
         final int alertCount = (int) Math.min(sensorAlerts.size(), 10);
 
@@ -366,6 +379,7 @@ public class BedrockAiFacade {
         facts.put("expiryRisk", Map.of(
                 "critical", criticalExpiryCount,
                 "warning", warningExpiryCount));
+        facts.put("overdueShipments", overdueShipmentCount);
 
         String factsJson;
         try {
@@ -375,7 +389,7 @@ public class BedrockAiFacade {
             factsJson = "{}";
         }
         return new OpsFacts(factsJson, recCount, alertCount,
-                (int) criticalExpiryCount, (int) warningExpiryCount);
+                (int) criticalExpiryCount, (int) warningExpiryCount, overdueShipmentCount);
     }
 
     /**
@@ -388,27 +402,29 @@ public class BedrockAiFacade {
             int recommendationCount,
             int sensorAlertCount,
             int criticalExpiryCount,
-            int warningExpiryCount) {
+            int warningExpiryCount,
+            int overdueShipmentCount) {
 
         Map<String, Integer> toSourceCounts() {
             return Map.of(
                     "recommendations", recommendationCount,
                     "sensorAlerts", sensorAlertCount,
                     "criticalExpiry", criticalExpiryCount,
-                    "warningExpiry", warningExpiryCount);
+                    "warningExpiry", warningExpiryCount,
+                    "overdueShipments", overdueShipmentCount);
         }
 
         String buildConfidenceCaveat() {
             final int total = recommendationCount + sensorAlertCount
-                    + criticalExpiryCount + warningExpiryCount;
+                    + criticalExpiryCount + warningExpiryCount + overdueShipmentCount;
             if (total < 5) {
                 return "분석 가능한 데이터가 부족합니다. 더 많은 데이터가 확보되면 요약의 신뢰도가 높아집니다.";
             }
             return String.format(
-                    "추천 %d건, 센서 알림 %d건, 만료 경보 %d건을 기반으로 생성되었습니다. " +
+                    "추천 %d건, 센서 알림 %d건, 만료 경보 %d건, 지연 PO %d건을 기반으로 생성되었습니다. " +
                     "실제 운영 결정 전 추가 검토를 권장합니다.",
                     recommendationCount, sensorAlertCount,
-                    criticalExpiryCount + warningExpiryCount);
+                    criticalExpiryCount + warningExpiryCount, overdueShipmentCount);
         }
     }
 }
