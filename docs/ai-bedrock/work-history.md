@@ -358,3 +358,27 @@
   - null authentication 안전 처리 (standalone MockMvc 테스트용)
 - Blockers: 없음
 - Verification: AiExplanationPanel.test.tsx 7/7 PASS (예상)
+
+---
+
+## 2026-06-10 | Phase 2 - Task 2b (토큰 사용량 추적)
+
+- Date: 2026-06-10
+- Phase: Phase 2 보완 — 토큰 사용량 추적
+- Summary: Phase 2 계획에 명시된 inputTokens/outputTokens 필드가 구현에서 누락된 것을 발견하고 보완. AiCallRecord, AiGenerationResponse에 토큰 필드 추가. Bedrock Converse API의 response.usage()에서 실제 토큰 수 추출. AiCallMetrics에 ai.bedrock.tokens 카운터 추가.
+- Files changed:
+  - src/main/java/com/stockops/ai/metrics/AiCallRecord.java (inputTokens, outputTokens Integer 필드 추가)
+  - src/main/java/com/stockops/ai/metrics/AiCallMetrics.java (ai.bedrock.tokens 카운터, 감사 로그에 토큰 수 추가)
+  - src/main/java/com/stockops/ai/provider/AiGenerationResponse.java (inputTokens, outputTokens Integer 필드 추가)
+  - src/main/java/com/stockops/ai/bedrock/BedrockGenerationProvider.java (response.usage()에서 inputTokens, outputTokens 추출)
+  - src/main/java/com/stockops/ai/gcp/VertexAiGenerationProvider.java (null, null 전달 — GCP SDK 토큰 메타데이터는 Phase 3에서 추가)
+  - src/main/java/com/stockops/ai/provider/AiProviderFacade.java (성공 케이스에 response 토큰 전달, 실패 케이스에 null 전달)
+  - src/test/java/com/stockops/ai/metrics/AiCallMetricsTest.java (토큰 카운터 어설션 추가, null 토큰 케이스 테스트 추가 — 5→6 tests)
+  - src/test/java/com/stockops/controller/AiChatControllerTest.java (AiGenerationResponse 생성자 업데이트)
+- Decisions:
+  - Bedrock Converse API는 TokenUsage로 inputTokens/outputTokens 제공 → 직접 추출
+  - Vertex AI GCP SDK는 usageMetadata가 있지만 nullable이고 파싱 복잡 → 현재는 null
+  - 토큰 null 시 카운터 미등록 (0으로 등록하지 않음 — 실제 토큰 데이터만 추적)
+  - ai.bedrock.tokens 카운터: direction=input/output 태그로 분리
+- Blockers: 없음
+- Verification: mvn test — 전체 테스트 PASS (진행 중)

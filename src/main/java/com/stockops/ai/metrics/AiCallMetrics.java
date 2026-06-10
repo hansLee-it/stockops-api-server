@@ -9,10 +9,12 @@ import org.springframework.stereotype.Component;
 /**
  * Records AI provider call metrics as structured audit logs and Micrometer counters/timers.
  *
- * <p>Emits three metric families:
+ * <p>Emits four metric families:
  * <ul>
  *   <li>{@code ai.bedrock.requests} — counter tagged by provider, useCase, success, fallback</li>
  *   <li>{@code ai.bedrock.latency} — timer tagged by provider, useCase</li>
+ *   <li>{@code ai.bedrock.tokens} — counter tagged by provider, useCase, direction (input/output);
+ *       only incremented when token counts are available in the provider response</li>
  *   <li>Structured log line via logger {@code ai.call.audit}</li>
  * </ul>
  *
@@ -37,7 +39,7 @@ public class AiCallMetrics {
      */
     public void record(final AiCallRecord record) {
         AI_CALL_LOG.info(
-                "AI_CALL requestId={} provider={} modelId={} useCase={} success={} fallback={} latencyMs={} failureReason={}",
+                "AI_CALL requestId={} provider={} modelId={} useCase={} success={} fallback={} latencyMs={} inputTokens={} outputTokens={} failureReason={}",
                 record.requestId(),
                 record.provider(),
                 record.modelId(),
@@ -45,6 +47,8 @@ public class AiCallMetrics {
                 record.success(),
                 record.fallbackUsed(),
                 record.latencyMs(),
+                record.inputTokens(),
+                record.outputTokens(),
                 record.failureReason());
 
         meterRegistry.counter(
@@ -60,5 +64,22 @@ public class AiCallMetrics {
                         "provider", record.provider(),
                         "useCase", record.useCase())
                 .record(Duration.ofMillis(record.latencyMs()));
+
+        if (record.inputTokens() != null) {
+            meterRegistry.counter(
+                            "ai.bedrock.tokens",
+                            "provider", record.provider(),
+                            "useCase", record.useCase(),
+                            "direction", "input")
+                    .increment(record.inputTokens());
+        }
+        if (record.outputTokens() != null) {
+            meterRegistry.counter(
+                            "ai.bedrock.tokens",
+                            "provider", record.provider(),
+                            "useCase", record.useCase(),
+                            "direction", "output")
+                    .increment(record.outputTokens());
+        }
     }
 }

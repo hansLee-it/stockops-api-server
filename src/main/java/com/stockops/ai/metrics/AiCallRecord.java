@@ -14,6 +14,8 @@ import java.time.Instant;
  * @param fallbackUsed  true if the primary provider failed and vertex fallback was used
  * @param failureReason short failure description or null on success
  * @param latencyMs     wall-clock milliseconds from facade entry to return/throw
+ * @param inputTokens   number of input tokens consumed, or null if unavailable
+ * @param outputTokens  number of output tokens generated, or null if unavailable
  * @param calledAt      UTC timestamp of the call
  * @author StockOps Team
  * @since 2.0
@@ -27,5 +29,7 @@ public record AiCallRecord(
         boolean fallbackUsed,
         String failureReason,
         long latencyMs,
+        Integer inputTokens,
+        Integer outputTokens,
         Instant calledAt) {
 }

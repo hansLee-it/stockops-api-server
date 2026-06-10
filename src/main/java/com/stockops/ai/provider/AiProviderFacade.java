@@ -36,7 +36,7 @@ public class AiProviderFacade {
             aiCallMetrics.record(new AiCallRecord(
                     requestId, "none", "", request.useCase(),
                     false, false, "UNCONFIGURED",
-                    System.currentTimeMillis() - start, Instant.now()));
+                    System.currentTimeMillis() - start, null, null, Instant.now()));
             return noConfiguredProvider(request);
         }
 
@@ -46,7 +46,7 @@ public class AiProviderFacade {
                 aiCallMetrics.record(new AiCallRecord(
                         requestId, response.provider(), response.modelId(), request.useCase(),
                         true, false, null,
-                        System.currentTimeMillis() - start, Instant.now()));
+                        System.currentTimeMillis() - start, response.inputTokens(), response.outputTokens(), Instant.now()));
                 return response;
             }
             throw new IllegalStateException("Bedrock provider is disabled");
@@ -55,14 +55,14 @@ public class AiProviderFacade {
                 aiCallMetrics.record(new AiCallRecord(
                         requestId, "bedrock", "", request.useCase(),
                         false, false, "UNAUTHENTICATED",
-                        System.currentTimeMillis() - start, Instant.now()));
+                        System.currentTimeMillis() - start, null, null, Instant.now()));
                 return unauthenticated(request);
             }
             if (!vertexProvider.isEnabled()) {
                 aiCallMetrics.record(new AiCallRecord(
                         requestId, "bedrock", "", request.useCase(),
                         false, false, truncate(bedrockFailure.getMessage()),
-                        System.currentTimeMillis() - start, Instant.now()));
+                        System.currentTimeMillis() - start, null, null, Instant.now()));
                 throw bedrockFailure;
             }
             try {
@@ -70,20 +70,20 @@ public class AiProviderFacade {
                 aiCallMetrics.record(new AiCallRecord(
                         requestId, response.provider(), response.modelId(), request.useCase(),
                         true, true, null,
-                        System.currentTimeMillis() - start, Instant.now()));
+                        System.currentTimeMillis() - start, response.inputTokens(), response.outputTokens(), Instant.now()));
                 return response;
             } catch (final RuntimeException vertexFailure) {
                 if (isAuthenticationFailure(vertexFailure)) {
                     aiCallMetrics.record(new AiCallRecord(
                             requestId, "vertex", "", request.useCase(),
                             false, true, "UNAUTHENTICATED",
-                            System.currentTimeMillis() - start, Instant.now()));
+                            System.currentTimeMillis() - start, null, null, Instant.now()));
                     return unauthenticated(request);
                 }
                 aiCallMetrics.record(new AiCallRecord(
                         requestId, "vertex", "", request.useCase(),
                         false, true, truncate(vertexFailure.getMessage()),
-                        System.currentTimeMillis() - start, Instant.now()));
+                        System.currentTimeMillis() - start, null, null, Instant.now()));
                 throw vertexFailure;
             }
         }
@@ -105,7 +105,9 @@ public class AiProviderFacade {
                 false,
                 "AI_SERVICE_UNCONFIGURED",
                 "",
-                request.chatVisible() ? vertexProperties.getNoServiceNotice() : "");
+                request.chatVisible() ? vertexProperties.getNoServiceNotice() : "",
+                null,
+                null);
     }
 
     private AiGenerationResponse unauthenticated(final AiGenerationRequest request) {
@@ -117,7 +119,9 @@ public class AiProviderFacade {
                 false,
                 "AI_SERVICE_UNAUTHENTICATED",
                 "",
-                request.chatVisible() ? vertexProperties.getUnauthenticatedNotice() : "");
+                request.chatVisible() ? vertexProperties.getUnauthenticatedNotice() : "",
+                null,
+                null);
     }
 
     private boolean isAuthenticationFailure(final RuntimeException failure) {

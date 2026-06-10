@@ -46,6 +46,8 @@ class AiChatControllerTest {
                 true,
                 "Bedrock unavailable",
                 "Bedrock 연결 실패로 Vertex AI로 전환되었습니다.",
+                null,
+                null,
                 null);
         when(providerFacade.generate(any())).thenReturn(generation);
 
@@ -64,7 +66,7 @@ class AiChatControllerTest {
     @Test
     void sendMessage_passesChatVisibleTrueToProvider() throws Exception {
         when(providerFacade.generate(any())).thenReturn(new AiGenerationResponse(
-                "ok", "bedrock", "model", AiServiceStatus.AVAILABLE, false, null, null, null));
+                "ok", "bedrock", "model", AiServiceStatus.AVAILABLE, false, null, null, null, null, null));
         final ArgumentCaptor<AiGenerationRequest> captor = ArgumentCaptor.forClass(AiGenerationRequest.class);
 
         mockMvc.perform(post("/api/v1/ai/chat/messages")

@@ -17,6 +17,7 @@ import software.amazon.awssdk.services.bedrockruntime.model.ConverseRequest;
 import software.amazon.awssdk.services.bedrockruntime.model.ConverseResponse;
 import software.amazon.awssdk.services.bedrockruntime.model.Message;
 import software.amazon.awssdk.services.bedrockruntime.model.SystemContentBlock;
+import software.amazon.awssdk.services.bedrockruntime.model.TokenUsage;
 
 @Component
 public class BedrockGenerationProvider implements AiGenerationProvider {
@@ -73,6 +74,7 @@ public class BedrockGenerationProvider implements AiGenerationProvider {
                     || response.output().message().content().isEmpty()) {
                 throw new IllegalStateException("Bedrock response was empty");
             }
+            final TokenUsage usage = response.usage();
             return new AiGenerationResponse(
                     response.output().message().content().get(0).text(),
                     providerId(),
@@ -81,7 +83,9 @@ public class BedrockGenerationProvider implements AiGenerationProvider {
                     false,
                     "",
                     "",
-                    "");
+                    "",
+                    usage != null ? usage.inputTokens() : null,
+                    usage != null ? usage.outputTokens() : null);
         }
     }
 

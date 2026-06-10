@@ -44,7 +44,9 @@ public class VertexAiGenerationProvider implements AiGenerationProvider {
                 true,
                 "BEDROCK_PROVIDER_UNAVAILABLE",
                 notice,
-                "");
+                "",
+                null,
+                null);
     }
 
     private String callVertexAi(final AiGenerationRequest request) {

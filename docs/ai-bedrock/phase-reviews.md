@@ -155,3 +155,15 @@
 - Breaking changes: 없음 (모든 provider defaults enabled=false, 신규 기능은 옵트인)
 - Rollback plan: AiOpsSummaryScheduler, AiRagRateLimiter, BedrockGenerationProvider는 설정으로 비활성화 가능
 - Next phase candidates: Bedrock Agent 실제 InvokeAgent SDK 호출 (AWS 자격증명 필요), CloudWatch 연동
+
+---
+
+## Phase 2 Task 2b 보완 - 토큰 추적
+
+- Date: 2026-06-10
+- Phase status: accepted
+- Summary: Phase 2 계획에 명시된 inputTokens/outputTokens 필드가 구현에서 누락된 것을 발견하고 보완. Bedrock Converse API response.usage()에서 실제 토큰 수 추출. ai.bedrock.tokens{direction=input/output} 카운터 추가.
+- New tests added:
+  - AiCallMetricsTest: record_nullTokenCounts_doesNotRegisterTokenCounter (신규)
+  - AiCallMetricsTest: record_successfulBedrockCall — 토큰 카운터 어설션 추가
+- Breaking changes: 없음 (필드 추가만, 기존 behavior 유지)

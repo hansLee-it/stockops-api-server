@@ -386,3 +386,23 @@ Use this section when local Chrome/Chromium execution is unavailable.
 - Expected result: fetchRecommendationExplanation 1회만 호출
 - Status: PASS
 - Evidence: AiExplanationPanel.test.tsx — does not re-fetch if explanation is already loaded
+
+---
+
+## TS-P2-011: 토큰 카운터 — Bedrock 성공 호출
+
+- ID: TS-P2-011
+- 대상: AiCallMetrics.record()
+- 전제: AiCallRecord.inputTokens=120, outputTokens=85
+- 실행: aiCallMetrics.record(record)
+- 기대: ai.bedrock.tokens{direction=input} == 120, ai.bedrock.tokens{direction=output} == 85
+- 자동화: AiCallMetricsTest.record_successfulBedrockCall_incrementsCounterAndRecordsTimer (unit)
+
+## TS-P2-012: 토큰 카운터 — null 토큰 케이스
+
+- ID: TS-P2-012
+- 대상: AiCallMetrics.record()
+- 전제: AiCallRecord.inputTokens=null, outputTokens=null (Vertex 또는 실패 케이스)
+- 실행: aiCallMetrics.record(record)
+- 기대: ai.bedrock.tokens 카운터 미등록
+- 자동화: AiCallMetricsTest.record_nullTokenCounts_doesNotRegisterTokenCounter (unit)

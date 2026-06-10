@@ -25,7 +25,7 @@ class AiCallMetricsTest {
     void record_successfulBedrockCall_incrementsCounterAndRecordsTimer() {
         final AiCallRecord record = new AiCallRecord(
                 "req-001", "bedrock", "anthropic.claude-3-haiku", "RECOMMENDATION_EXPLANATION",
-                true, false, null, 350L, Instant.now());
+                true, false, null, 350L, 120, 85, Instant.now());
 
         aiCallMetrics.record(record);
 
@@ -43,13 +43,27 @@ class AiCallMetricsTest {
                 "useCase", "RECOMMENDATION_EXPLANATION");
         assertThat(timer.count()).isEqualTo(1L);
         assertThat(timer.totalTime(java.util.concurrent.TimeUnit.MILLISECONDS)).isEqualTo(350.0);
+
+        final io.micrometer.core.instrument.Counter inputTokenCounter = meterRegistry.counter(
+                "ai.bedrock.tokens",
+                "provider", "bedrock",
+                "useCase", "RECOMMENDATION_EXPLANATION",
+                "direction", "input");
+        assertThat(inputTokenCounter.count()).isEqualTo(120.0);
+
+        final io.micrometer.core.instrument.Counter outputTokenCounter = meterRegistry.counter(
+                "ai.bedrock.tokens",
+                "provider", "bedrock",
+                "useCase", "RECOMMENDATION_EXPLANATION",
+                "direction", "output");
+        assertThat(outputTokenCounter.count()).isEqualTo(85.0);
     }
 
     @Test
     void record_fallbackVertexCall_tagsFallbackTrue() {
         final AiCallRecord record = new AiCallRecord(
                 "req-002", "vertex", "gemini-2.5-flash", "OPS_SUMMARY",
-                true, true, null, 800L, Instant.now());
+                true, true, null, 800L, null, null, Instant.now());
 
         aiCallMetrics.record(record);
 
@@ -66,7 +80,7 @@ class AiCallMetricsTest {
     void record_failedBedrockCall_tagsSuccessFalse() {
         final AiCallRecord record = new AiCallRecord(
                 "req-003", "bedrock", "", "RECOMMENDATION_EXPLANATION",
-                false, false, "timeout exceeded", 15000L, Instant.now());
+                false, false, "timeout exceeded", 15000L, null, null, Instant.now());
 
         aiCallMetrics.record(record);
 
@@ -80,11 +94,23 @@ class AiCallMetricsTest {
     }
 
     @Test
+    void record_nullTokenCounts_doesNotRegisterTokenCounter() {
+        final AiCallRecord record = new AiCallRecord(
+                "req-004", "vertex", "gemini-2.5-flash", "OPS_SUMMARY",
+                true, true, null, 600L, null, null, Instant.now());
+
+        aiCallMetrics.record(record);
+
+        // Token counter must NOT be registered when tokens are null
+        assertThat(meterRegistry.find("ai.bedrock.tokens").counters()).isEmpty();
+    }
+
+    @Test
     void record_multipleCallsSameUseCase_accumulatesCounterAndTimer() {
         for (int i = 0; i < 5; i++) {
             aiCallMetrics.record(new AiCallRecord(
                     "req-" + i, "bedrock", "model-id", "RAG_QUERY",
-                    true, false, null, 100L, Instant.now()));
+                    true, false, null, 100L, 50, 30, Instant.now()));
         }
 
         final Counter counter = meterRegistry.counter(

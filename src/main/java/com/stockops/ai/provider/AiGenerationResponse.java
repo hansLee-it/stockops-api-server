@@ -8,5 +8,7 @@ public record AiGenerationResponse(
         boolean fallbackUsed,
         String fallbackReason,
         String fallbackNotice,
-        String serviceNotice) {
+        String serviceNotice,
+        Integer inputTokens,
+        Integer outputTokens) {
 }
