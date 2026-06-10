@@ -421,6 +421,75 @@
 
 ---
 
+## 2026-06-10 | Phase 3 - §8 JSON 파싱 실패 정책 수정 + Vertex AI 토큰 추출
+
+- Date: 2026-06-10
+- Phase: Phase 3 - Task 1 & Task 2
+- Summary: ①설계 문서 §8 정책 위반 수정(JSON 파싱 실패 시 원문 저장 금지), ②Vertex AI token usage 추출, ③VertexAiGenerationProvider 단위 테스트 신규 작성.
+- Files changed:
+  - src/main/java/com/stockops/ai/bedrock/BedrockAiFacade.java
+    - parseExplanationResponse catch → fallbackExplanation() 호출 (raw text 반환 제거)
+    - parseExplanationResponse 성공 경로: summary 키 없을 때 결정론적 메시지 사용
+    - parseOpsSummaryResponse catch → "AI 운영 요약 생성 중 오류가 발생했습니다." (raw text 반환 제거)
+    - parseOpsSummaryResponse 성공 경로: summary 키 없을 때 결정론적 메시지 사용
+  - src/test/java/com/stockops/ai/bedrock/BedrockAiFacadeTest.java
+    - explainRecommendation_fallsBackToRawTextWhenJsonInvalid → explainRecommendation_returnsSafeFallbackWhenJsonInvalid 개명
+    - 어설션: raw text 반환하지 않음 확인 + fallbackExplanation 결과 검증
+  - src/main/java/com/stockops/ai/gcp/VertexAiGenerationProvider.java
+    - SLF4J Logger 추가
+    - callVertexAi() private → callApi() protected 리팩터링 (테스트 spy 가능)
+    - response.usageMetadata() → Optional<UsageMetadata> → promptTokenCount/candidatesTokenCount 추출
+    - 추출 실패 시 null 유지 (fault-tolerant)
+  - src/test/java/com/stockops/ai/gcp/VertexAiGenerationProviderTest.java (신규 — 5 tests)
+    - disabled/프로젝트ID 미설정 예외 테스트
+    - usageMetadata 정상 추출(120 input, 80 output) 검증
+    - usageMetadata absent graceful handling 검증
+    - 빈 응답 텍스트 예외 검증
+    - chatVisible 여부에 따른 fallbackNotice 분기 검증
+  - C:\Users\tngusd16\Documents\git_repository\stockops-ai-docs\cur_ai-docs\2026-06-10-stockops-bedrock-ai-phase3-plan.md (신규)
+- Decisions:
+  - §8 정책: "원문 일부를 저장하지 않고 안전한 fallback 생성" → JSON 파싱 실패 시 raw text 절대 미반환
+  - Vertex AI token API: usageMetadata() → Optional<GenerateContentResponseUsageMetadata> (AutoValue 패턴), promptTokenCount()/candidatesTokenCount() → Optional<Integer> (javap -p으로 확인)
+  - protected callApi() 추출: Mockito spy로 SDK 호출 없이 단위 테스트 가능
+  - token null 허용: usageMetadata 없는 응답에서도 정상 동작
+- Blockers: 없음
+- Verification: mvn test — BedrockAiFacadeTest 9/9 PASS, VertexAiGenerationProviderTest 6/6 PASS
+- Next step: Phase 3 Task 3 — §5.4 output spec: sourceCounts + confidenceCaveat
+
+---
+
+## 2026-06-10 | Phase 3 - §5.4 출력 스펙 보완 (sourceCounts + confidenceCaveat)
+
+- Date: 2026-06-10
+- Phase: Phase 3 - Task 3
+- Summary: 설계 문서 §5.4 출력 스펙 중 `source counts`와 `confidence caveat`가 `BedrockOpsSummaryResponse`에 없던 것을 보완. 두 필드 모두 AI 응답 텍스트가 아닌 입력 데이터에서 결정론적으로 계산 (§8 정책 준수).
+- Files changed:
+  - src/main/java/com/stockops/ai/bedrock/dto/BedrockOpsSummaryResponse.java
+    - `Map<String, Integer> sourceCounts` 필드 추가 (설명 Javadoc 포함)
+    - `String confidenceCaveat` 필드 추가
+  - src/main/java/com/stockops/ai/bedrock/BedrockAiFacade.java
+    - `buildOpsFacts()` 반환 타입 `String` → `OpsFacts` (private record)
+    - `OpsFacts` private record 추가: factsJson, recommendationCount, sensorAlertCount, criticalExpiryCount, warningExpiryCount
+    - `OpsFacts.toSourceCounts()`: Map<String, Integer> 반환
+    - `OpsFacts.buildConfidenceCaveat()`: 데이터 총량 기반 결정론적 메시지 (5건 미만 → 부족 경고, 이상 → 데이터 출처 요약)
+    - `summarizeOperations()`: `buildOpsFacts()` 반환값에서 sourceCounts/confidenceCaveat 계산
+    - `parseOpsSummaryResponse()`: sourceCounts, confidenceCaveat 파라미터 추가
+    - 모든 `BedrockOpsSummaryResponse` 생성자 호출을 10-arg로 업데이트
+  - src/test/java/com/stockops/ai/bedrock/AiOpsSummarySchedulerTest.java
+    - `BedrockOpsSummaryResponse` 생성자 업데이트 (Map.of(), "" 추가)
+  - src/test/java/com/stockops/ai/bedrock/BedrockAiFacadeTest.java
+    - `summarizeOperations_parsesJsonFieldsFromBedrockResponse`에 sourceCounts/confidenceCaveat 어설션 추가
+- Decisions:
+  - sourceCounts/confidenceCaveat는 AI 응답에서 파싱하지 않음 (§8 정책: 원문 미저장)
+  - confidenceCaveat: 5건 미만 데이터 → "분석 가능한 데이터가 부족합니다." / 이상 → 각 소스 건수 요약
+  - OpsFacts private record: Java 16+ 인너 레코드, BedrockAiFacade 내부에서만 사용
+  - API 응답은 두 신규 필드가 추가되지만 기존 필드 변경 없음 (하위 호환)
+- Blockers: 없음
+- Verification: mvn test — BedrockAiFacadeTest 9/9 PASS, AiOpsSummarySchedulerTest 2/2 PASS (전체 빌드 진행 중)
+- Next step: git commit (Phase 3 Tasks 1-3)
+
+---
+
 ## 2026-06-10 | Phase 2 - Task 3b (운영 요약 팩트 보완)
 
 - Date: 2026-06-10

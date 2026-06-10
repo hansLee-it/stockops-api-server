@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 import com.stockops.ai.bedrock.dto.BedrockOpsSummaryResponse;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -32,7 +33,8 @@ class AiOpsSummarySchedulerTest {
     void generateDailyOpsSummaries_callsSummarizeOperationsForToday() {
         when(bedrockAiFacade.summarizeOperations(any(), isNull(), isNull()))
                 .thenReturn(new BedrockOpsSummaryResponse(
-                        null, null, null, "요약 내용", List.of(), List.of(), "MEDIUM", Instant.now()));
+                        null, null, null, "요약 내용", List.of(), List.of(), "MEDIUM", Instant.now(),
+                        Map.of(), "요약 생성 완료"));
 
         scheduler.generateDailyOpsSummaries();
 

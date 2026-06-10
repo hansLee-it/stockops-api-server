@@ -447,14 +447,98 @@ Use this section when local Chrome/Chromium execution is unavailable.
 - 기대: 코드펜스 제거 후 JSON 파싱 성공, summary/reasons/riskLevel 정상 반환
 - 자동화: BedrockAiFacadeTest.explainRecommendation_stripsMarkdownCodeFenceFromBedrockResponse (unit)
 
-## TS-P2-017: Bedrock JSON 파싱 — 비JSON 응답 fallback
+## TS-P2-017: Bedrock JSON 파싱 — 비JSON 응답 안전 fallback (§8 정책)
 
 - ID: TS-P2-017
 - 대상: BedrockAiFacade.explainRecommendation()
 - 전제: Bedrock 응답이 JSON이 아닌 평문 텍스트
 - 실행: explainRecommendation(dto)
-- 기대: response.summary() == 원문 텍스트, reasons == []
-- 자동화: BedrockAiFacadeTest.explainRecommendation_fallsBackToRawTextWhenJsonInvalid (unit)
+- 기대: §8 정책 준수 — raw model text가 summary에 반환되지 않음, fallbackExplanation() 결과 반환
+  - response.summary() 포함: "AI 설명을 생성하지 못했습니다"
+  - response.modelId() == "fallback"
+  - response.reasons() == ["응답 JSON 파싱 실패"]
+- 자동화: BedrockAiFacadeTest.explainRecommendation_returnsSafeFallbackWhenJsonInvalid (unit)
+- 변경 이력: TS-P2-017 Phase 3에서 수정 — 기존 "raw text 반환" 어설션이 §8 정책 위반임을 확인하고 수정
+
+---
+
+## Phase 3 테스트 시나리오
+
+## TS-P3-001: Vertex AI — usageMetadata 정상 추출
+
+- ID: TS-P3-001
+- 대상: VertexAiGenerationProvider.generate()
+- 전제: mock GenerateContentResponse — text()="AI 응답", usageMetadata()=Optional.of(meta), meta.promptTokenCount()=120, meta.candidatesTokenCount()=80
+- 실행: provider.generate(request)
+- 기대: result.inputTokens() == 120, result.outputTokens() == 80, result.fallbackUsed() == true
+- 자동화: VertexAiGenerationProviderTest.generate_extractsTokenCountsFromUsageMetadata (unit)
+
+## TS-P3-002: Vertex AI — usageMetadata absent 처리
+
+- ID: TS-P3-002
+- 대상: VertexAiGenerationProvider.generate()
+- 전제: mock response — usageMetadata()=Optional.empty()
+- 실행: provider.generate(request)
+- 기대: result.inputTokens() == null, result.outputTokens() == null, 예외 없음
+- 자동화: VertexAiGenerationProviderTest.generate_handlesAbsentUsageMetadataGracefully (unit)
+
+## TS-P3-003: Vertex AI — provider disabled 예외
+
+- ID: TS-P3-003
+- 대상: VertexAiGenerationProvider.generate()
+- 전제: properties.isEnabled() == false
+- 실행: provider.generate(request)
+- 기대: IllegalStateException("disabled")
+- 자동화: VertexAiGenerationProviderTest.generate_throwsWhenProviderDisabled (unit)
+
+## TS-P3-004: Vertex AI — projectId 미설정 예외
+
+- ID: TS-P3-004
+- 대상: VertexAiGenerationProvider.generate()
+- 전제: isEnabled=true, projectId=null
+- 실행: provider.generate(request)
+- 기대: IllegalStateException("project id")
+- 자동화: VertexAiGenerationProviderTest.generate_throwsWhenProjectIdNotConfigured (unit)
+
+## TS-P3-005: Vertex AI — 빈 응답 텍스트 예외
+
+- ID: TS-P3-005
+- 대상: VertexAiGenerationProvider.generate()
+- 전제: mock response — text()=""
+- 실행: provider.generate(request)
+- 기대: IllegalStateException("empty")
+- 자동화: VertexAiGenerationProviderTest.generate_throwsWhenResponseTextIsBlank (unit)
+
+## TS-P3-006: Vertex AI — chatVisible=true → fallbackNotice 포함
+
+- ID: TS-P3-006
+- 대상: VertexAiGenerationProvider.generate()
+- 전제: request.chatVisible() == true, properties.getFallbackNotice() == "기본 제공 모델의 연결이 불안정합니다."
+- 실행: provider.generate(chatRequest)
+- 기대: result.fallbackNotice() == "기본 제공 모델의 연결이 불안정합니다."
+- 자동화: VertexAiGenerationProviderTest.generate_includesFallbackNoticeOnlyForChatVisibleRequests (unit)
+
+---
+
+## TS-P3-007: 운영 요약 sourceCounts — 결정론적 소스 건수 포함
+
+- ID: TS-P3-007
+- 대상: BedrockAiFacade.summarizeOperations()
+- 전제: 추천 0건, 센서 알림 0건, 만료 경보 0건 (all stubs return empty)
+- 실행: summarizeOperations(date, centerId, warehouseId)
+- 기대:
+  - response.sourceCounts().get("recommendations") == 0
+  - response.sourceCounts().get("sensorAlerts") == 0
+  - response.confidenceCaveat() contains "데이터가 부족"
+- 자동화: BedrockAiFacadeTest.summarizeOperations_parsesJsonFieldsFromBedrockResponse (unit, assertions 추가)
+
+## TS-P3-008: 운영 요약 confidenceCaveat — 충분한 데이터 → 출처 요약 메시지
+
+- ID: TS-P3-008
+- 대상: BedrockAiFacade.OpsFacts.buildConfidenceCaveat()
+- 전제: recommendationCount=5, sensorAlertCount=3, criticalExpiry=1, warningExpiry=2 (total=11 ≥ 5)
+- 기대: confidenceCaveat contains "추천 5건, 센서 알림 3건, 만료 경보 3건"
+- 자동화: 단위 레코드 테스트 없음 (integration-tested via BedrockAiFacadeTest)
 
 ## TS-P2-018: Bedrock 운영 요약 JSON 파싱
 

@@ -92,7 +92,8 @@ class BedrockAiFacadeTest {
     }
 
     @Test
-    void explainRecommendation_fallsBackToRawTextWhenJsonInvalid() {
+    void explainRecommendation_returnsSafeFallbackWhenJsonInvalid() {
+        // §8 정책: 응답 JSON 파싱 실패 → 원문 일부를 저장하지 않고 안전한 fallback 생성
         when(properties.isEnabled()).thenReturn(true);
         when(promptBuilder.buildRecommendationExplanationPrompt(any())).thenReturn("prompt");
         when(providerFacade.generate(any())).thenReturn(
@@ -101,8 +102,11 @@ class BedrockAiFacadeTest {
 
         final var response = facade.explainRecommendation(sampleDto());
 
-        assertThat(response.summary()).isEqualTo("plain text response (not JSON)");
-        assertThat(response.reasons()).isEmpty();
+        // Must NOT surface raw model text — fallbackExplanation() produces a deterministic message
+        assertThat(response.summary()).contains("AI 설명을 생성하지 못했습니다");
+        assertThat(response.summary()).doesNotContain("plain text response (not JSON)");
+        assertThat(response.modelId()).isEqualTo("fallback");
+        assertThat(response.reasons()).containsExactly("응답 JSON 파싱 실패");
     }
 
     @Test
@@ -145,6 +149,10 @@ class BedrockAiFacadeTest {
         assertThat(response.urgentItems()).containsExactly("재고 부족");
         assertThat(response.recommendedActions()).containsExactly("즉시 발주");
         assertThat(response.riskLevel()).isEqualTo("HIGH");
+        // §5.4 출력 스펙: sourceCounts와 confidenceCaveat는 입력 데이터에서 결정론적으로 계산됨
+        assertThat(response.sourceCounts()).containsEntry("recommendations", 0);
+        assertThat(response.sourceCounts()).containsEntry("sensorAlerts", 0);
+        assertThat(response.confidenceCaveat()).contains("데이터가 부족");
     }
 
     @Test

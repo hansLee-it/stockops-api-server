@@ -167,3 +167,55 @@
   - AiCallMetricsTest: record_nullTokenCounts_doesNotRegisterTokenCounter (신규)
   - AiCallMetricsTest: record_successfulBedrockCall — 토큰 카운터 어설션 추가
 - Breaking changes: 없음 (필드 추가만, 기존 behavior 유지)
+
+---
+
+## Phase 3 초기 - §8 정책 수정 + Vertex AI 토큰 추출
+
+- Date: 2026-06-10
+- Phase: Phase 3 (Task 1 + Task 2)
+- Phase status: accepted
+- Summary:
+  - §8 정책 위반(JSON 파싱 실패 시 raw model text → summary 저장) 발견 및 수정
+  - 잘못된 계약을 테스트하던 `explainRecommendation_fallsBackToRawTextWhenJsonInvalid` 수정
+  - Vertex AI 토큰 사용량 추출 구현 (google-genai 1.5.0 usageMetadata API, javap으로 반환 타입 확인)
+  - VertexAiGenerationProviderTest 신규 작성 (5 tests)
+  - Phase 3 계획 문서 작성 (cur_ai-docs/2026-06-10-stockops-bedrock-ai-phase3-plan.md)
+- Root cause (§8 위반): BedrockAiFacade의 JSON 파싱 catch 블록이 raw model text를 summary 필드에 직접 저장. 동시에 테스트도 이 잘못된 동작을 정식 계약으로 검증하고 있었음. 자기 검증(self-verification) 함정.
+- New tests added:
+  - BedrockAiFacadeTest.explainRecommendation_returnsSafeFallbackWhenJsonInvalid (기존 테스트 수정)
+  - VertexAiGenerationProviderTest.generate_extractsTokenCountsFromUsageMetadata (신규)
+  - VertexAiGenerationProviderTest.generate_handlesAbsentUsageMetadataGracefully (신규)
+  - VertexAiGenerationProviderTest.generate_throwsWhenProviderDisabled (신규)
+  - VertexAiGenerationProviderTest.generate_throwsWhenProjectIdNotConfigured (신규)
+  - VertexAiGenerationProviderTest.generate_throwsWhenResponseTextIsBlank (신규)
+  - VertexAiGenerationProviderTest.generate_includesFallbackNoticeOnlyForChatVisibleRequests (신규)
+- Breaking changes: 없음 (정상 JSON 파싱 경로 동작 변경 없음, summary 키 존재 시 동일 동작)
+- Constraints verified: AIRecommendationService 예측 알고리즘 무변경, AISuggestion 상태 전이 무변경
+- Next phase: Phase 3 Task 3 — §5.4 output spec sourceCounts + confidenceCaveat
+
+---
+
+## Phase 3 §5.4 출력 스펙 보완 — sourceCounts + confidenceCaveat
+
+- Date: 2026-06-10
+- Phase: Phase 3 (Task 3)
+- Phase status: accepted
+- Summary:
+  - `BedrockOpsSummaryResponse`에 `sourceCounts(Map<String,Integer>)` + `confidenceCaveat(String)` 추가
+  - `buildOpsFacts()`를 `OpsFacts` private record를 반환하도록 리팩터링
+  - `OpsFacts.toSourceCounts()` / `OpsFacts.buildConfidenceCaveat()` — 결정론적 계산 (§8 정책 준수)
+  - `AiOpsSummarySchedulerTest` — BedrockOpsSummaryResponse 생성자 업데이트
+  - `BedrockAiFacadeTest` — sourceCounts/confidenceCaveat 어설션 추가
+- Root cause (§5.4 gap): 설계 문서 §5.4 출력 스펙이 "source counts"와 "confidence caveat"를 명시하고 있었으나 BedrockOpsSummaryResponse에 구현되지 않았음
+- Design decision:
+  - AI 응답에서 sourceCounts/confidenceCaveat를 파싱하지 않음 → 조작 가능성 제거, §8 정책 준수
+  - confidenceCaveat: 데이터 총량 < 5 → 부족 경고, ≥ 5 → 각 소스 건수 요약
+  - OpsFacts record: Java 16+ private record, BedrockAiFacade 외부 노출 없음
+  - API 응답 하위 호환: 기존 필드 변경 없이 신규 필드 추가
+- New tests added:
+  - AiOpsSummarySchedulerTest: BedrockOpsSummaryResponse 10-arg constructor 적용 (기존 2 tests 유지)
+  - BedrockAiFacadeTest.summarizeOperations_parsesJsonFieldsFromBedrockResponse: sourceCounts/confidenceCaveat 어설션 추가
+- Breaking changes: 없음 (기존 API 클라이언트는 신규 필드 무시 가능)
+- Constraints verified: AIRecommendationService 예측 알고리즘 무변경, AISuggestion 상태 전이 무변경
+- Remaining Phase 3 candidates: overdueShipmentCount in ops facts (deferred), inventoryBelowSafetyStock (blocked)

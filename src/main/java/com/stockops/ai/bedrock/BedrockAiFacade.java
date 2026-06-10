@@ -99,10 +99,11 @@ public class BedrockAiFacade {
             return new BedrockOpsSummaryResponse(
                     businessDate, centerId, warehouseId,
                     "AI 운영 요약 서비스가 비활성화 상태입니다.",
-                    List.of(), List.of(), "LOW", Instant.now());
+                    List.of(), List.of(), "LOW", Instant.now(),
+                    Map.of(), "AI 서비스가 비활성화 상태입니다.");
         }
-        final String factsJson = buildOpsFacts(businessDate, centerId, warehouseId);
-        final String prompt = promptBuilder.buildOpsSummaryPrompt(factsJson);
+        final OpsFacts opsFacts = buildOpsFacts(businessDate, centerId, warehouseId);
+        final String prompt = promptBuilder.buildOpsSummaryPrompt(opsFacts.factsJson());
         final AiGenerationResponse generation = providerFacade.generate(new AiGenerationRequest(
                 "You summarize inventory operations. Return Korean JSON only.",
                 prompt,
@@ -113,9 +114,11 @@ public class BedrockAiFacade {
             return new BedrockOpsSummaryResponse(
                     businessDate, centerId, warehouseId,
                     "AI 운영 요약을 생성하지 못했습니다.",
-                    List.of(), List.of(), "LOW", Instant.now());
+                    List.of(), List.of(), "LOW", Instant.now(),
+                    opsFacts.toSourceCounts(), "AI가 빈 응답을 반환하여 요약을 생성하지 못했습니다.");
         }
-        return parseOpsSummaryResponse(responseText, businessDate, centerId, warehouseId);
+        return parseOpsSummaryResponse(responseText, businessDate, centerId, warehouseId,
+                opsFacts.toSourceCounts(), opsFacts.buildConfidenceCaveat());
     }
 
     public BedrockRagQueryResponse queryKnowledgeBase(final BedrockRagQueryRequest request) {
@@ -183,7 +186,8 @@ public class BedrockAiFacade {
     /**
      * Parses a Bedrock explanation response JSON into a structured response.
      * Expected JSON fields: {@code summary}, {@code reasons}, {@code reviewerChecklist}, {@code riskLevel}.
-     * Falls back gracefully if the response is not valid JSON or fields are missing.
+     * Per §8 error policy: on parse failure, returns a safe deterministic fallback — raw model text
+     * is never stored as-is (원문 일부를 저장하지 않고 안전한 fallback 생성).
      */
     private BedrockRecommendationExplanationResponse parseExplanationResponse(
             final String responseText,
@@ -191,7 +195,9 @@ public class BedrockAiFacade {
             final String modelId) {
         try {
             final JsonNode json = JSON.readTree(extractJson(responseText));
-            final String summary = json.has("summary") ? json.get("summary").asText() : responseText;
+            final String summary = json.has("summary")
+                    ? json.get("summary").asText()
+                    : "AI가 설명 요약을 제공하지 않았습니다.";
             final List<String> reasons = parseStringList(json, "reasons");
             final List<String> checklist = parseStringList(json, "reviewerChecklist");
             final String riskLevelStr = json.has("riskLevel")
@@ -200,30 +206,32 @@ public class BedrockAiFacade {
             return new BedrockRecommendationExplanationResponse(
                     recommendation.id(), summary, reasons, checklist, riskLevelStr, modelId, Instant.now());
         } catch (final JsonProcessingException | IllegalArgumentException e) {
-            log.warn("[Bedrock] Could not parse explanation JSON, using raw text as summary: {}", e.getMessage());
-            return new BedrockRecommendationExplanationResponse(
-                    recommendation.id(),
-                    responseText,
-                    List.of(),
-                    List.of("추천 수량 승인 전 공급 가능 여부를 확인하세요."),
-                    riskLevel(recommendation),
-                    modelId,
-                    Instant.now());
+            log.warn("[Bedrock] Could not parse explanation JSON, returning safe fallback: {}", e.getMessage());
+            return fallbackExplanation(recommendation, "응답 JSON 파싱 실패");
         }
     }
 
     /**
      * Parses a Bedrock ops summary response JSON.
      * Expected JSON fields: {@code summary}, {@code urgentItems}, {@code recommendedActions}, {@code riskLevel}.
+     * Per §8 error policy: on parse failure, returns a safe deterministic message — raw model text
+     * is never stored as-is (원문 일부를 저장하지 않고 안전한 fallback 생성).
+     *
+     * <p>{@code sourceCounts} and {@code confidenceCaveat} are passed in from the caller (computed
+     * deterministically from the input data, independent of the AI response).
      */
     private BedrockOpsSummaryResponse parseOpsSummaryResponse(
             final String responseText,
             final LocalDate businessDate,
             final Long centerId,
-            final Long warehouseId) {
+            final Long warehouseId,
+            final Map<String, Integer> sourceCounts,
+            final String confidenceCaveat) {
         try {
             final JsonNode json = JSON.readTree(extractJson(responseText));
-            final String summary = json.has("summary") ? json.get("summary").asText() : responseText;
+            final String summary = json.has("summary")
+                    ? json.get("summary").asText()
+                    : "AI가 운영 요약을 제공하지 않았습니다.";
             final List<String> urgentItems = parseStringList(json, "urgentItems");
             final List<String> recommendedActions = parseStringList(json, "recommendedActions");
             final String riskLevelStr = json.has("riskLevel")
@@ -231,12 +239,15 @@ public class BedrockAiFacade {
                     : "MEDIUM";
             return new BedrockOpsSummaryResponse(
                     businessDate, centerId, warehouseId,
-                    summary, urgentItems, recommendedActions, riskLevelStr, Instant.now());
+                    summary, urgentItems, recommendedActions, riskLevelStr, Instant.now(),
+                    sourceCounts, confidenceCaveat);
         } catch (final JsonProcessingException | IllegalArgumentException e) {
-            log.warn("[Bedrock] Could not parse ops summary JSON, using raw text: {}", e.getMessage());
+            log.warn("[Bedrock] Could not parse ops summary JSON, returning safe fallback: {}", e.getMessage());
             return new BedrockOpsSummaryResponse(
                     businessDate, centerId, warehouseId,
-                    responseText, List.of(), List.of(), "MEDIUM", Instant.now());
+                    "AI 운영 요약 생성 중 오류가 발생했습니다.",
+                    List.of(), List.of(), "MEDIUM", Instant.now(),
+                    sourceCounts, confidenceCaveat);
         }
     }
 
@@ -308,8 +319,10 @@ public class BedrockAiFacade {
     /**
      * Builds an enriched JSON facts payload for the Bedrock operations summary prompt.
      * Includes inventory recommendations, sensor alerts (7-day window), and expiry risk counts.
+     * Returns an {@link OpsFacts} carrying both the JSON string and the source metadata
+     * (used to compute {@code sourceCounts} and {@code confidenceCaveat} deterministically).
      */
-    private String buildOpsFacts(final LocalDate businessDate, final Long centerId, final Long warehouseId) {
+    private OpsFacts buildOpsFacts(final LocalDate businessDate, final Long centerId, final Long warehouseId) {
         final List<AIRecommendationDTO> recommendations =
                 recommendationService.listRecommendations(businessDate, centerId, warehouseId, null);
 
@@ -331,6 +344,9 @@ public class BedrockAiFacade {
             log.warn("[OPS_FACTS] Could not load expiry alert counts: {}", e.getMessage());
         }
 
+        final int recCount = (int) Math.min(recommendations.size(), 20);
+        final int alertCount = (int) Math.min(sensorAlerts.size(), 10);
+
         final Map<String, Object> facts = new LinkedHashMap<>();
         facts.put("businessDate", businessDate);
         facts.put("centerId", centerId);
@@ -350,11 +366,49 @@ public class BedrockAiFacade {
         facts.put("expiryRisk", Map.of(
                 "critical", criticalExpiryCount,
                 "warning", warningExpiryCount));
+
+        String factsJson;
         try {
-            return JSON.writeValueAsString(facts);
+            factsJson = JSON.writeValueAsString(facts);
         } catch (final JsonProcessingException e) {
             log.warn("Failed to serialize ops facts: {}", e.getMessage());
-            return "{}";
+            factsJson = "{}";
+        }
+        return new OpsFacts(factsJson, recCount, alertCount,
+                (int) criticalExpiryCount, (int) warningExpiryCount);
+    }
+
+    /**
+     * Carries the serialized facts JSON and per-source counts for a single ops-summary call.
+     * Source counts are used to build {@code sourceCounts} and {@code confidenceCaveat}
+     * deterministically — they are never derived from the AI response (§8 policy).
+     */
+    private record OpsFacts(
+            String factsJson,
+            int recommendationCount,
+            int sensorAlertCount,
+            int criticalExpiryCount,
+            int warningExpiryCount) {
+
+        Map<String, Integer> toSourceCounts() {
+            return Map.of(
+                    "recommendations", recommendationCount,
+                    "sensorAlerts", sensorAlertCount,
+                    "criticalExpiry", criticalExpiryCount,
+                    "warningExpiry", warningExpiryCount);
+        }
+
+        String buildConfidenceCaveat() {
+            final int total = recommendationCount + sensorAlertCount
+                    + criticalExpiryCount + warningExpiryCount;
+            if (total < 5) {
+                return "분석 가능한 데이터가 부족합니다. 더 많은 데이터가 확보되면 요약의 신뢰도가 높아집니다.";
+            }
+            return String.format(
+                    "추천 %d건, 센서 알림 %d건, 만료 경보 %d건을 기반으로 생성되었습니다. " +
+                    "실제 운영 결정 전 추가 검토를 권장합니다.",
+                    recommendationCount, sensorAlertCount,
+                    criticalExpiryCount + warningExpiryCount);
         }
     }
 }
