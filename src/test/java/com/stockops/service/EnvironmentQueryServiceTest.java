@@ -12,9 +12,11 @@ import com.stockops.entity.SensorDevice;
 import com.stockops.entity.SensorType;
 import com.stockops.repository.EnvironmentAlertRepository;
 import com.stockops.repository.SensorDeviceRepository;
+import com.stockops.security.CurrentUserProvider;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -36,6 +38,9 @@ class EnvironmentQueryServiceTest {
 
     @Mock
     private EnvironmentAlertRepository environmentAlertRepository;
+
+    @Mock
+    private CurrentUserProvider currentUserProvider;
 
     @InjectMocks
     private EnvironmentQueryService environmentQueryService;
@@ -137,6 +142,27 @@ class EnvironmentQueryServiceTest {
                 .thenReturn(List.of());
 
         assertThat(environmentQueryService.getAlerts(null)).isEmpty();
+    }
+
+    /**
+     * Verifies that acknowledging an alert records the actor, handling note, and clears active state.
+     */
+    @Test
+    void acknowledgeAlertRecordsHandlingNoteAndActor() {
+        final EnvironmentAlert alert = alert(7L, 1L, AlertSeverity.CRITICAL, Instant.parse("2026-04-02T02:00:00Z"));
+        when(environmentAlertRepository.findById(7L)).thenReturn(Optional.of(alert));
+        when(environmentAlertRepository.save(any(EnvironmentAlert.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(currentUserProvider.getCurrentUserEmail()).thenReturn("admin@stockops.local");
+        when(sensorDeviceRepository.findById(1L))
+                .thenReturn(Optional.of(sensor(1L, "Temp-1", SensorType.TEMPERATURE, true)));
+
+        final SensorAlertResponse response = environmentQueryService.acknowledgeAlert(7L, "센서 교체 완료");
+
+        assertThat(response.acknowledged()).isTrue();
+        assertThat(response.acknowledgedAt()).isNotNull();
+        assertThat(response.acknowledgedBy()).isEqualTo("admin@stockops.local");
+        assertThat(response.acknowledgementNote()).isEqualTo("센서 교체 완료");
+        assertThat(response.active()).isFalse();
     }
 
     private SensorDevice sensor(final Long id, final String name, final SensorType sensorType, final boolean active) {

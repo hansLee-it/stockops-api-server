@@ -5,8 +5,10 @@ import com.stockops.dto.SensorAlertResponse;
 import com.stockops.entity.AlertSeverity;
 import com.stockops.entity.EnvironmentAlert;
 import com.stockops.entity.SensorDevice;
+import com.stockops.exception.ResourceNotFoundException;
 import com.stockops.repository.EnvironmentAlertRepository;
 import com.stockops.repository.SensorDeviceRepository;
+import com.stockops.security.CurrentUserProvider;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -36,17 +38,22 @@ public class EnvironmentQueryService {
 
     private final EnvironmentAlertRepository environmentAlertRepository;
 
+    private final CurrentUserProvider currentUserProvider;
+
     /**
      * Creates the service.
      *
      * @param sensorDeviceRepository sensor repository
      * @param environmentAlertRepository environment alert (event) repository
+     * @param currentUserProvider current authenticated user provider
      */
     public EnvironmentQueryService(
             final SensorDeviceRepository sensorDeviceRepository,
-            final EnvironmentAlertRepository environmentAlertRepository) {
+            final EnvironmentAlertRepository environmentAlertRepository,
+            final CurrentUserProvider currentUserProvider) {
         this.sensorDeviceRepository = sensorDeviceRepository;
         this.environmentAlertRepository = environmentAlertRepository;
+        this.currentUserProvider = currentUserProvider;
     }
 
     /**
@@ -98,6 +105,31 @@ public class EnvironmentQueryService {
                 .toList();
     }
 
+    /**
+     * Acknowledges an environment alert and records the administrator's handling note.
+     * Acknowledging clears the alert from the active set (alongside auto-resolution on normalize).
+     *
+     * @param alertId environment alert id
+     * @param note administrator handling/action note (may be blank)
+     * @return the updated alert
+     */
+    @Transactional
+    public SensorAlertResponse acknowledgeAlert(final Long alertId, final String note) {
+        final EnvironmentAlert alert = environmentAlertRepository.findById(alertId)
+                .orElseThrow(() -> new ResourceNotFoundException("환경 알림을 찾을 수 없습니다: " + alertId));
+
+        alert.setAcknowledged(true);
+        alert.setAcknowledgedAt(Instant.now());
+        alert.setAcknowledgedBy(currentUserProvider.getCurrentUserEmail());
+        alert.setAcknowledgementNote(note);
+        final EnvironmentAlert saved = environmentAlertRepository.save(alert);
+
+        final SensorDevice sensor = saved.getSensorDeviceId() == null
+                ? null
+                : sensorDeviceRepository.findById(saved.getSensorDeviceId()).orElse(null);
+        return toAlertResponse(saved, sensor);
+    }
+
     private SensorAlertResponse toAlertResponse(final EnvironmentAlert alert, final SensorDevice sensor) {
         return new SensorAlertResponse(
                 alert.getId(),
@@ -109,6 +141,8 @@ public class EnvironmentQueryService {
                 alert.isAcknowledged(),
                 alert.getAcknowledgedAt(),
                 alert.getAcknowledgedBy(),
+                alert.getAcknowledgementNote(),
+                alert.getResolvedAt(),
                 alert.getCreatedAt());
     }
 
