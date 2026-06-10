@@ -13,6 +13,7 @@ public-mirror cleanup (2026-06-10).
 | `sensor_latest` | Drop | `V39__remove_sensor_measurement_storage.sql` | Latest-value projection removed with bulk measurement storage. |
 | `environment_alerts.resolved_at` | Add (nullable) | `V40__environment_alert_lifecycle.sql` | `environment_alerts` becomes the event store. An alert is ACTIVE while `resolved_at IS NULL AND acknowledged = false`; it auto-resolves when the sensor normalizes or is cleared when an admin acknowledges. Drives the dashboard normal/warning/danger view. |
 | `sms_send_history` | Create | `V41__sms_send_history.sql` | Backfills the missing table for the `SmsSendHistory` JPA entity (schema mismatch fix). |
+| `environment_alerts.acknowledgement_note` | Add (nullable) | `V42__environment_alert_acknowledgement_note.sql` | Stores the administrator handling/action note recorded when acknowledging an alert via `POST /api/v1/environment/alerts/{id}/acknowledge`. |
 
 ## Event Model (replaces measurement storage)
 
@@ -45,5 +46,4 @@ public-mirror cleanup (2026-06-10).
 
 - Removing AI recommendation and suggestion tables.
 - Removing analytics read-model tables.
-- A dedicated admin acknowledge endpoint/UI for environment alerts (auto-resolve-on-normalize is the primary path today).
 - Removing notification, escalation, or webhook features.
