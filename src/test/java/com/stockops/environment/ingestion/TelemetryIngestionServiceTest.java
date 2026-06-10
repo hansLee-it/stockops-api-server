@@ -1,21 +1,16 @@
 package com.stockops.environment.ingestion;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.stockops.entity.AlertSeverity;
+import com.stockops.entity.EnvironmentAlert;
 import com.stockops.entity.SensorDevice;
-import com.stockops.entity.SensorReading;
-import com.stockops.environment.WebSocketEnvironmentPublisher;
+import com.stockops.repository.EnvironmentAlertRepository;
 import com.stockops.repository.SensorDeviceRepository;
-import com.stockops.repository.SensorReadingRepository;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -23,10 +18,9 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.dao.DataIntegrityViolationException;
 
 /**
- * Unit tests for {@link TelemetryIngestionService}.
+ * Unit tests for {@link TelemetryIngestionService} event lifecycle.
  *
  * @author StockOps Team
  * @since 1.0
@@ -34,257 +28,168 @@ import org.springframework.dao.DataIntegrityViolationException;
 @ExtendWith(MockitoExtension.class)
 class TelemetryIngestionServiceTest {
 
+    private static final String TOPIC = "sensimul/sites/site-a/sensors/sensor-01";
+
     @Mock
     private SensorDeviceRepository sensorDeviceRepository;
 
     @Mock
-    private SensorReadingRepository sensorReadingRepository;
-
-    @Mock
-    private SensorLatestProjectionRepository sensorLatestProjectionRepository;
-
-    @Mock
-    private WebSocketEnvironmentPublisher webSocketEnvironmentPublisher;
-
-    @Mock
-    private ObjectMapper objectMapper;
+    private EnvironmentAlertRepository environmentAlertRepository;
 
     @InjectMocks
     private TelemetryIngestionService telemetryIngestionService;
 
     /**
-     * Verifies that a valid payload stores history and creates the latest projection.
+     * Verifies a WARNING status opens a new active alert when none exists for the sensor.
      */
     @Test
-    void ingestPersistsReadingAndCreatesLatestProjection() throws Exception {
-        final SensimulPayload payload = payload("site-a", "sensor-01", "", "2026-04-05T00:00:00Z", 10L);
-        final SensorDevice sensorDevice = sensorDevice(5L, "sensimul/sites/site-a/sensors/sensor-01", "C");
-        when(sensorDeviceRepository.findByMqttTopic(sensorDevice.getMqttTopic()))
-                .thenReturn(Optional.of(sensorDevice));
-        when(objectMapper.writeValueAsString(payload)).thenReturn("{json}");
-        when(sensorLatestProjectionRepository.findBySensorDeviceId(5L)).thenReturn(Optional.empty());
-        when(sensorLatestProjectionRepository.updateIfNewer(eq(5L), eq(12.5), eq("temperature"), eq("C"), eq("ok"),
-                eq(java.time.Instant.parse("2026-04-05T00:00:00Z")), eq(10L), any(java.time.Instant.class)))
-                .thenReturn(0);
+    void ingestOpensWarningAlertWhenNoActiveAlert() {
+        final SensorDevice device = sensorDevice(5L, "Temp-1", "C");
+        when(sensorDeviceRepository.findByMqttTopic(TOPIC)).thenReturn(Optional.of(device));
+        when(environmentAlertRepository
+                .findFirstBySensorDeviceIdAndResolvedAtIsNullAndAcknowledgedFalseOrderByCreatedAtDesc(5L))
+                .thenReturn(Optional.empty());
 
-        telemetryIngestionService.ingest(payload);
+        telemetryIngestionService.ingest(payload("WARNING", "2026-04-05T00:00:00Z"));
 
-        final ArgumentCaptor<SensorReading> readingCaptor = ArgumentCaptor.forClass(SensorReading.class);
-        verify(sensorReadingRepository).save(readingCaptor.capture());
-        assertThat(readingCaptor.getValue().getSensorDeviceId()).isEqualTo(5L);
-        assertThat(readingCaptor.getValue().getUnit()).isEqualTo("C");
-        assertThat(readingCaptor.getValue().getRawPayload()).isEqualTo("{json}");
-
-        final ArgumentCaptor<SensorLatestProjection> projectionCaptor = ArgumentCaptor.forClass(SensorLatestProjection.class);
-        verify(sensorLatestProjectionRepository).save(projectionCaptor.capture());
-        assertThat(projectionCaptor.getValue().getSensorDeviceId()).isEqualTo(5L);
-        assertThat(projectionCaptor.getValue().getSequenceId()).isEqualTo(10L);
+        final ArgumentCaptor<EnvironmentAlert> captor = ArgumentCaptor.forClass(EnvironmentAlert.class);
+        verify(environmentAlertRepository).save(captor.capture());
+        assertThat(captor.getValue().getSensorDeviceId()).isEqualTo(5L);
+        assertThat(captor.getValue().getSeverity()).isEqualTo(AlertSeverity.WARNING);
+        assertThat(captor.getValue().isAcknowledged()).isFalse();
+        assertThat(captor.getValue().getResolvedAt()).isNull();
     }
 
     /**
-     * Verifies that malformed payloads are ignored without any persistence.
+     * Verifies an escalation updates the active alert severity from WARNING to CRITICAL.
+     */
+    @Test
+    void ingestEscalatesActiveAlertSeverity() {
+        final SensorDevice device = sensorDevice(5L, "Temp-1", "C");
+        final EnvironmentAlert active = activeAlert(5L, AlertSeverity.WARNING);
+        when(sensorDeviceRepository.findByMqttTopic(TOPIC)).thenReturn(Optional.of(device));
+        when(environmentAlertRepository
+                .findFirstBySensorDeviceIdAndResolvedAtIsNullAndAcknowledgedFalseOrderByCreatedAtDesc(5L))
+                .thenReturn(Optional.of(active));
+
+        telemetryIngestionService.ingest(payload("CRITICAL", "2026-04-05T00:00:00Z"));
+
+        final ArgumentCaptor<EnvironmentAlert> captor = ArgumentCaptor.forClass(EnvironmentAlert.class);
+        verify(environmentAlertRepository).save(captor.capture());
+        assertThat(captor.getValue().getSeverity()).isEqualTo(AlertSeverity.CRITICAL);
+    }
+
+    /**
+     * Verifies a repeated same-severity event does not create or rewrite an alert.
+     */
+    @Test
+    void ingestDoesNotDuplicateActiveAlertOfSameSeverity() {
+        final SensorDevice device = sensorDevice(5L, "Temp-1", "C");
+        when(sensorDeviceRepository.findByMqttTopic(TOPIC)).thenReturn(Optional.of(device));
+        when(environmentAlertRepository
+                .findFirstBySensorDeviceIdAndResolvedAtIsNullAndAcknowledgedFalseOrderByCreatedAtDesc(5L))
+                .thenReturn(Optional.of(activeAlert(5L, AlertSeverity.WARNING)));
+
+        telemetryIngestionService.ingest(payload("WARNING", "2026-04-05T00:00:00Z"));
+
+        verify(environmentAlertRepository, never()).save(any());
+    }
+
+    /**
+     * Verifies a normal status auto-resolves the sensor's active alert.
+     */
+    @Test
+    void ingestResolvesActiveAlertOnNormalStatus() {
+        final SensorDevice device = sensorDevice(5L, "Temp-1", "C");
+        final EnvironmentAlert active = activeAlert(5L, AlertSeverity.WARNING);
+        when(sensorDeviceRepository.findByMqttTopic(TOPIC)).thenReturn(Optional.of(device));
+        when(environmentAlertRepository
+                .findFirstBySensorDeviceIdAndResolvedAtIsNullAndAcknowledgedFalseOrderByCreatedAtDesc(5L))
+                .thenReturn(Optional.of(active));
+
+        telemetryIngestionService.ingest(payload("ok", "2026-04-05T00:00:00Z"));
+
+        final ArgumentCaptor<EnvironmentAlert> captor = ArgumentCaptor.forClass(EnvironmentAlert.class);
+        verify(environmentAlertRepository).save(captor.capture());
+        assertThat(captor.getValue().getResolvedAt()).isNotNull();
+    }
+
+    /**
+     * Verifies a normal status with no active alert performs no writes.
+     */
+    @Test
+    void ingestNormalStatusWithoutActiveAlertDoesNothing() {
+        final SensorDevice device = sensorDevice(5L, "Temp-1", "C");
+        when(sensorDeviceRepository.findByMqttTopic(TOPIC)).thenReturn(Optional.of(device));
+        when(environmentAlertRepository
+                .findFirstBySensorDeviceIdAndResolvedAtIsNullAndAcknowledgedFalseOrderByCreatedAtDesc(5L))
+                .thenReturn(Optional.empty());
+
+        telemetryIngestionService.ingest(payload("ok", "2026-04-05T00:00:00Z"));
+
+        verify(environmentAlertRepository, never()).save(any());
+    }
+
+    /**
+     * Verifies malformed payloads are ignored without repository access.
      */
     @Test
     void ingestSkipsMalformedPayload() {
         telemetryIngestionService.ingest(new SensimulPayload(
-                "",
-                "sensor-01",
-                "temperature",
-                "temperature",
-                12.5,
-                "C",
-                "ok",
-                "2026-04-05T00:00:00Z",
-                10L,
-                ""));
+                "", "sensor-01", "temperature", "temperature", 12.5, "C", "WARNING",
+                "2026-04-05T00:00:00Z", 10L, "1.0"));
 
         verify(sensorDeviceRepository, never()).findByMqttTopic(any());
-        verify(sensorReadingRepository, never()).save(any());
+        verify(environmentAlertRepository, never()).save(any());
     }
 
     /**
-     * Verifies that invalid timestamps are dropped before repository access.
+     * Verifies invalid timestamps are dropped before repository access.
      */
     @Test
     void ingestSkipsInvalidTimestamp() {
-        telemetryIngestionService.ingest(payload("site-a", "sensor-01", "C", "not-a-timestamp", 10L));
+        telemetryIngestionService.ingest(payload("WARNING", "not-a-timestamp"));
 
         verify(sensorDeviceRepository, never()).findByMqttTopic(any());
-        verify(sensorReadingRepository, never()).save(any());
+        verify(environmentAlertRepository, never()).save(any());
     }
 
     /**
-     * Verifies that telemetry for unknown or deleted sensors is ignored.
+     * Verifies telemetry for unknown or deleted sensors is ignored.
      */
     @Test
     void ingestSkipsUnknownSensorTopic() {
-        final SensimulPayload payload = payload("site-a", "sensor-01", "C", "2026-04-05T00:00:00Z", 10L);
+        when(sensorDeviceRepository.findByMqttTopic(TOPIC)).thenReturn(Optional.empty());
 
-        telemetryIngestionService.ingest(payload);
+        telemetryIngestionService.ingest(payload("CRITICAL", "2026-04-05T00:00:00Z"));
 
-        verify(sensorReadingRepository, never()).save(any());
-        verify(sensorLatestProjectionRepository, never()).save(any());
+        verify(environmentAlertRepository, never()).save(any());
     }
 
-    /**
-     * Verifies that stale sequences are stored in history without mutating the latest projection.
-     */
-    @Test
-    void ingestStoresStaleSequenceWithoutUpdatingProjection() throws Exception {
-        final SensimulPayload payload = payload("site-a", "sensor-01", "C", "2026-04-05T00:00:00Z", 8L);
-        final SensorDevice sensorDevice = sensorDevice(5L, "sensimul/sites/site-a/sensors/sensor-01", "C");
-        final SensorLatestProjection latest = new SensorLatestProjection();
-        latest.setSensorDeviceId(5L);
-        latest.setSequenceId(10L);
-
-        when(sensorDeviceRepository.findByMqttTopic(sensorDevice.getMqttTopic()))
-                .thenReturn(Optional.of(sensorDevice));
-        when(objectMapper.writeValueAsString(payload)).thenReturn("{json}");
-        when(sensorLatestProjectionRepository.findBySensorDeviceId(5L)).thenReturn(Optional.of(latest));
-
-        telemetryIngestionService.ingest(payload);
-
-        verify(sensorReadingRepository).save(any(SensorReading.class));
-        verify(sensorLatestProjectionRepository, never()).updateIfNewer(eq(5L), any(), any(), any(), any(), any(), any(), any());
-        verify(sensorLatestProjectionRepository, never()).save(any());
+    private SensimulPayload payload(final String status, final String timestamp) {
+        return new SensimulPayload("site-a", "sensor-01", "temperature", "temperature", 12.5, "C", status,
+                timestamp, 10L, "1.0");
     }
 
-    /**
-     * Verifies that a concurrent insert collision falls back to an update retry.
-     */
-    @Test
-    void ingestRetriesProjectionUpdateAfterConcurrentInsertConflict() throws Exception {
-        final SensimulPayload payload = payload("site-a", "sensor-01", "C", "2026-04-05T00:00:00Z", 10L);
-        final SensorDevice sensorDevice = sensorDevice(5L, "sensimul/sites/site-a/sensors/sensor-01", "C");
-        when(sensorDeviceRepository.findByMqttTopic(sensorDevice.getMqttTopic()))
-                .thenReturn(Optional.of(sensorDevice));
-        when(objectMapper.writeValueAsString(payload)).thenReturn("{json}");
-        when(sensorLatestProjectionRepository.findBySensorDeviceId(5L)).thenReturn(Optional.empty());
-        when(sensorLatestProjectionRepository.updateIfNewer(eq(5L), eq(12.5), eq("temperature"), eq("C"), eq("ok"),
-                eq(java.time.Instant.parse("2026-04-05T00:00:00Z")), eq(10L), any(java.time.Instant.class)))
-                .thenReturn(0, 1);
-        when(sensorLatestProjectionRepository.save(any(SensorLatestProjection.class)))
-                .thenThrow(new DataIntegrityViolationException("duplicate key"));
-
-        telemetryIngestionService.ingest(payload);
-
-        verify(sensorLatestProjectionRepository, times(2)).updateIfNewer(eq(5L), eq(12.5), eq("temperature"), eq("C"),
-                eq("ok"), eq(java.time.Instant.parse("2026-04-05T00:00:00Z")), eq(10L), any(java.time.Instant.class));
-    }
-
-    /**
-     * Verifies that payload serialization failures surface as illegal state exceptions.
-     */
-    @Test
-    void ingestPropagatesSerializationFailure() throws Exception {
-        final SensimulPayload payload = payload("site-a", "sensor-01", "C", "2026-04-05T00:00:00Z", 10L);
-        final SensorDevice sensorDevice = sensorDevice(5L, "sensimul/sites/site-a/sensors/sensor-01", "C");
-        when(sensorDeviceRepository.findByMqttTopic(sensorDevice.getMqttTopic()))
-                .thenReturn(Optional.of(sensorDevice));
-        when(objectMapper.writeValueAsString(payload)).thenThrow(new JsonProcessingException("boom") { });
-
-        assertThrows(IllegalStateException.class, () -> telemetryIngestionService.ingest(payload));
-    }
-
-    /**
-     * Verifies that latest-reading lookup prefers the projection sequence when present.
-     */
-    @Test
-    void getLatestReadingUsesProjectionSequenceWhenAvailable() {
-        final SensorLatestProjection projection = new SensorLatestProjection();
-        projection.setSensorDeviceId(5L);
-        projection.setSequenceId(10L);
-        final SensorReading reading = new SensorReading();
-        reading.setSensorDeviceId(5L);
-        reading.setSequenceId(10L);
-        when(sensorLatestProjectionRepository.findBySensorDeviceId(5L)).thenReturn(Optional.of(projection));
-        when(sensorReadingRepository.findTopBySensorDeviceIdAndSequenceIdOrderByRecordedAtDesc(5L, 10L))
-                .thenReturn(Optional.of(reading));
-
-        final Optional<SensorReading> latestReading = telemetryIngestionService.getLatestReading(5L);
-
-        assertThat(latestReading).contains(reading);
-    }
-
-    /**
-     * Verifies that latest-reading lookup falls back when no projection exists.
-     */
-    @Test
-    void getLatestReadingFallsBackToHistoryWhenProjectionMissing() {
-        final SensorReading reading = new SensorReading();
-        reading.setSensorDeviceId(5L);
-        reading.setSequenceId(11L);
-        when(sensorLatestProjectionRepository.findBySensorDeviceId(5L)).thenReturn(Optional.empty());
-        when(sensorReadingRepository.findTopBySensorDeviceIdOrderBySequenceIdDescRecordedAtDesc(5L))
-                .thenReturn(Optional.of(reading));
-
-        final Optional<SensorReading> latestReading = telemetryIngestionService.getLatestReading(5L);
-
-        assertThat(latestReading).contains(reading);
-    }
-
-    /**
-     * Verifies that a projection without sequence id falls back to the newest reading by timestamp.
-     */
-    @Test
-    void getLatestReadingFallsBackToRecordedAtWhenProjectionHasNoSequence() {
-        final SensorLatestProjection projection = new SensorLatestProjection();
-        projection.setSensorDeviceId(5L);
-        projection.setSequenceId(null);
-        final SensorReading reading = new SensorReading();
-        reading.setSensorDeviceId(5L);
-        reading.setSequenceId(11L);
-        when(sensorLatestProjectionRepository.findBySensorDeviceId(5L)).thenReturn(Optional.of(projection));
-        when(sensorReadingRepository.findTopBySensorDeviceIdOrderByRecordedAtDesc(5L)).thenReturn(Optional.of(reading));
-
-        final Optional<SensorReading> latestReading = telemetryIngestionService.getLatestReading(5L);
-
-        assertThat(latestReading).contains(reading);
-    }
-
-    /**
-     * Verifies that latest-reading lookup returns empty when neither projection nor history exists.
-     */
-    @Test
-    void getLatestReadingReturnsEmptyWhenNoProjectionOrHistoryExists() {
-        when(sensorLatestProjectionRepository.findBySensorDeviceId(5L)).thenReturn(Optional.empty());
-        when(sensorReadingRepository.findTopBySensorDeviceIdOrderBySequenceIdDescRecordedAtDesc(5L))
-                .thenReturn(Optional.empty());
-
-        assertThat(telemetryIngestionService.getLatestReading(5L)).isEmpty();
-    }
-
-    /**
-     * Verifies the stale-sequence predicate boundary behavior.
-     */
-    @Test
-    void isSequenceStaleReturnsTrueOnlyWhenIncomingSequenceIsOlder() {
-        final SensorLatestProjection projection = new SensorLatestProjection();
-        projection.setSensorDeviceId(5L);
-        projection.setSequenceId(10L);
-        when(sensorLatestProjectionRepository.findBySensorDeviceId(5L)).thenReturn(Optional.of(projection));
-
-        assertThat(telemetryIngestionService.isSequenceStale(5L, 9L)).isTrue();
-        assertThat(telemetryIngestionService.isSequenceStale(5L, 10L)).isFalse();
-    }
-
-    private SensimulPayload payload(
-            final String siteId,
-            final String sensorId,
-            final String unit,
-            final String timestamp,
-            final long sequenceId) {
-        return new SensimulPayload(siteId, sensorId, "temperature", "temperature", 12.5, unit, "ok", timestamp,
-                sequenceId, "1.0");
-    }
-
-    private SensorDevice sensorDevice(final Long id, final String topic, final String unit) {
+    private SensorDevice sensorDevice(final Long id, final String name, final String unit) {
         final SensorDevice sensorDevice = new SensorDevice();
         sensorDevice.setId(id);
-        sensorDevice.setMqttTopic(topic);
+        sensorDevice.setName(name);
+        sensorDevice.setMqttTopic(TOPIC);
         sensorDevice.setUnit(unit);
         sensorDevice.setDeleted(false);
         sensorDevice.setActive(true);
         return sensorDevice;
+    }
+
+    private EnvironmentAlert activeAlert(final Long sensorDeviceId, final AlertSeverity severity) {
+        final EnvironmentAlert alert = new EnvironmentAlert();
+        alert.setId(99L);
+        alert.setSensorDeviceId(sensorDeviceId);
+        alert.setAlertType("temperature");
+        alert.setSeverity(severity);
+        alert.setMessage("existing");
+        alert.setAcknowledged(false);
+        return alert;
     }
 }

@@ -2,27 +2,27 @@ package com.stockops.service;
 
 import com.stockops.dto.DashboardResponse;
 import com.stockops.dto.SensorAlertResponse;
-import com.stockops.dto.SensorHistoryResponse;
 import com.stockops.entity.AlertSeverity;
 import com.stockops.entity.EnvironmentAlert;
 import com.stockops.entity.SensorDevice;
-import com.stockops.entity.SensorReading;
-import com.stockops.environment.ingestion.SensorLatestProjection;
-import com.stockops.environment.ingestion.SensorLatestProjectionRepository;
 import com.stockops.repository.EnvironmentAlertRepository;
 import com.stockops.repository.SensorDeviceRepository;
-import com.stockops.repository.SensorReadingRepository;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Read-only environment dashboard, alert, and history query service.
+ * Read-only environment dashboard and alert query service.
+ *
+ * <p>Live sensor measurements are no longer stored server-side; the dashboard's
+ * normal/warning/danger view is derived from the currently <em>active</em> environment alerts
+ * (unresolved and unacknowledged events).
  *
  * @author StockOps Team
  * @since 1.0
@@ -34,58 +34,53 @@ public class EnvironmentQueryService {
 
     private final SensorDeviceRepository sensorDeviceRepository;
 
-    private final SensorReadingRepository sensorReadingRepository;
-
     private final EnvironmentAlertRepository environmentAlertRepository;
-
-    private final SensorLatestProjectionRepository sensorLatestProjectionRepository;
 
     /**
      * Creates the service.
      *
      * @param sensorDeviceRepository sensor repository
-     * @param sensorReadingRepository sensor reading repository
-     * @param environmentAlertRepository environment alert repository
-     * @param sensorLatestProjectionRepository latest projection repository
+     * @param environmentAlertRepository environment alert (event) repository
      */
     public EnvironmentQueryService(
             final SensorDeviceRepository sensorDeviceRepository,
-            final SensorReadingRepository sensorReadingRepository,
-            final EnvironmentAlertRepository environmentAlertRepository,
-            final SensorLatestProjectionRepository sensorLatestProjectionRepository) {
+            final EnvironmentAlertRepository environmentAlertRepository) {
         this.sensorDeviceRepository = sensorDeviceRepository;
-        this.sensorReadingRepository = sensorReadingRepository;
         this.environmentAlertRepository = environmentAlertRepository;
-        this.sensorLatestProjectionRepository = sensorLatestProjectionRepository;
     }
 
     /**
      * Returns aggregated dashboard data for the environment domain.
+     *
+     * <p>Latest readings are intentionally empty — real-time values are viewed client-side via MQTT.
+     * Normal/warning/danger counts are computed from active alerts: a sensor with an active CRITICAL
+     * alert is dangerous, an active WARNING alert is a warning, and the remainder of active sensors
+     * are normal.
      *
      * @return dashboard response
      */
     @Transactional(readOnly = true)
     public DashboardResponse getDashboard() {
         final List<SensorDevice> sensors = sensorDeviceRepository.findAll();
-        final Map<Long, SensorDevice> sensorMap = sensors.stream()
-                .collect(java.util.stream.Collectors.toMap(SensorDevice::getId, Function.identity()));
-        final List<SensorLatestProjection> latestProjections = sensorLatestProjectionRepository.findAll();
-        final Instant cutoff = cutoff(DEFAULT_DAYS);
-        final List<EnvironmentAlert> recentAlerts = environmentAlertRepository.findAllByCreatedAtAfterOrderByCreatedAtDesc(cutoff);
-
         final long totalSensors = sensors.size();
         final long activeSensors = sensors.stream().filter(SensorDevice::isActive).count();
-        final long normalCount = recentAlerts.stream().filter(alert -> alert.getSeverity() == AlertSeverity.INFO).count();
-        final long warningCount = recentAlerts.stream().filter(alert -> alert.getSeverity() == AlertSeverity.WARNING).count();
-        final long dangerCount = recentAlerts.stream().filter(alert -> alert.getSeverity() == AlertSeverity.CRITICAL).count();
 
-        final List<DashboardResponse.LatestReadingSummary> latestReadings = latestProjections.stream()
-                .sorted(Comparator.comparing(SensorLatestProjection::getRecordedAt,
-                        Comparator.nullsLast(Comparator.reverseOrder())))
-                .map(projection -> toLatestReadingSummary(projection, sensorMap.get(projection.getSensorDeviceId())))
-                .toList();
+        final List<EnvironmentAlert> activeAlerts = environmentAlertRepository.findByResolvedAtIsNullAndAcknowledgedFalse();
+        final Set<Long> criticalSensors = activeAlerts.stream()
+                .filter(alert -> alert.getSeverity() == AlertSeverity.CRITICAL)
+                .map(EnvironmentAlert::getSensorDeviceId)
+                .collect(Collectors.toSet());
+        final Set<Long> warningSensors = activeAlerts.stream()
+                .filter(alert -> alert.getSeverity() == AlertSeverity.WARNING)
+                .map(EnvironmentAlert::getSensorDeviceId)
+                .filter(sensorId -> !criticalSensors.contains(sensorId))
+                .collect(Collectors.toSet());
 
-        return new DashboardResponse(totalSensors, activeSensors, normalCount, warningCount, dangerCount, latestReadings);
+        final long dangerCount = criticalSensors.size();
+        final long warningCount = warningSensors.size();
+        final long normalCount = Math.max(0L, activeSensors - dangerCount - warningCount);
+
+        return new DashboardResponse(totalSensors, activeSensors, normalCount, warningCount, dangerCount, List.of());
     }
 
     /**
@@ -97,39 +92,10 @@ public class EnvironmentQueryService {
     @Transactional(readOnly = true)
     public List<SensorAlertResponse> getAlerts(final Integer days) {
         final Map<Long, SensorDevice> sensorMap = sensorDeviceRepository.findAll().stream()
-                .collect(java.util.stream.Collectors.toMap(SensorDevice::getId, Function.identity()));
+                .collect(Collectors.toMap(SensorDevice::getId, Function.identity()));
         return environmentAlertRepository.findAllByCreatedAtAfterOrderByCreatedAtDesc(cutoff(resolveDays(days))).stream()
                 .map(alert -> toAlertResponse(alert, sensorMap.get(alert.getSensorDeviceId())))
                 .toList();
-    }
-
-    /**
-     * Returns time-series history for a sensor from the last requested number of days.
-     *
-     * @param sensorId sensor device identifier
-     * @param days requested number of days, defaults to 30 when invalid or absent
-     * @return oldest-first sensor reading history
-     */
-    @Transactional(readOnly = true)
-    public List<SensorHistoryResponse> getHistory(final Long sensorId, final Integer days) {
-        return sensorReadingRepository.findHistoryBySensorDeviceIdAndRecordedAtAfter(sensorId, cutoff(resolveDays(days))).stream()
-                .map(this::toHistoryResponse)
-                .toList();
-    }
-
-    private DashboardResponse.LatestReadingSummary toLatestReadingSummary(
-            final SensorLatestProjection projection,
-            final SensorDevice sensor) {
-        return new DashboardResponse.LatestReadingSummary(
-                projection.getSensorDeviceId(),
-                sensor == null ? null : sensor.getName(),
-                sensor == null ? null : sensor.getSensorType(),
-                sensor == null ? null : sensor.getLocation(),
-                projection.getValue(),
-                projection.getValueKind(),
-                projection.getUnit(),
-                projection.getStatus(),
-                projection.getRecordedAt());
     }
 
     private SensorAlertResponse toAlertResponse(final EnvironmentAlert alert, final SensorDevice sensor) {
@@ -144,17 +110,6 @@ public class EnvironmentQueryService {
                 alert.getAcknowledgedAt(),
                 alert.getAcknowledgedBy(),
                 alert.getCreatedAt());
-    }
-
-    private SensorHistoryResponse toHistoryResponse(final SensorReading reading) {
-        return new SensorHistoryResponse(
-                reading.getSensorDeviceId(),
-                reading.getValue(),
-                reading.getValueKind(),
-                reading.getUnit(),
-                reading.getStatus(),
-                reading.getSequenceId(),
-                reading.getRecordedAt());
     }
 
     private int resolveDays(final Integer requestedDays) {

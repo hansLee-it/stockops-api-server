@@ -6,17 +6,12 @@ import static org.mockito.Mockito.when;
 
 import com.stockops.dto.DashboardResponse;
 import com.stockops.dto.SensorAlertResponse;
-import com.stockops.dto.SensorHistoryResponse;
 import com.stockops.entity.AlertSeverity;
 import com.stockops.entity.EnvironmentAlert;
 import com.stockops.entity.SensorDevice;
-import com.stockops.entity.SensorReading;
 import com.stockops.entity.SensorType;
-import com.stockops.environment.ingestion.SensorLatestProjection;
-import com.stockops.environment.ingestion.SensorLatestProjectionRepository;
 import com.stockops.repository.EnvironmentAlertRepository;
 import com.stockops.repository.SensorDeviceRepository;
-import com.stockops.repository.SensorReadingRepository;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -40,47 +35,54 @@ class EnvironmentQueryServiceTest {
     private SensorDeviceRepository sensorDeviceRepository;
 
     @Mock
-    private SensorReadingRepository sensorReadingRepository;
-
-    @Mock
     private EnvironmentAlertRepository environmentAlertRepository;
-
-    @Mock
-    private SensorLatestProjectionRepository sensorLatestProjectionRepository;
 
     @InjectMocks
     private EnvironmentQueryService environmentQueryService;
 
     /**
-     * Verifies that the dashboard aggregates counts and sorts latest projections newest first.
+     * Verifies that the dashboard derives normal/warning/danger counts from active alerts
+     * and returns no server-side latest readings.
      */
     @Test
-    void getDashboardAggregatesCountsAndSortsLatestReadings() {
-        final SensorDevice activeSensor = sensor(1L, "Temp-1", SensorType.TEMPERATURE, true);
-        final SensorDevice inactiveSensor = sensor(2L, "Humidity-1", SensorType.HUMIDITY, false);
-        when(sensorDeviceRepository.findAll()).thenReturn(List.of(activeSensor, inactiveSensor));
+    void getDashboardDerivesCountsFromActiveAlerts() {
+        final SensorDevice critical = sensor(1L, "Temp-1", SensorType.TEMPERATURE, true);
+        final SensorDevice warning = sensor(2L, "Humidity-1", SensorType.HUMIDITY, true);
+        final SensorDevice healthy = sensor(3L, "Temp-2", SensorType.TEMPERATURE, true);
+        when(sensorDeviceRepository.findAll()).thenReturn(List.of(critical, warning, healthy));
 
-        final SensorLatestProjection older = projection(2L, 45.0, "humidity", "%", "ok", Instant.parse("2026-04-01T00:00:00Z"), 5L);
-        final SensorLatestProjection newer = projection(1L, 3.2, "temperature", "C", "ok", Instant.parse("2026-04-02T00:00:00Z"), 7L);
-        when(sensorLatestProjectionRepository.findAll()).thenReturn(List.of(older, newer));
-
-        final EnvironmentAlert infoAlert = alert(10L, 1L, AlertSeverity.INFO, Instant.parse("2026-04-02T00:00:00Z"));
-        final EnvironmentAlert warningAlert = alert(11L, 1L, AlertSeverity.WARNING, Instant.parse("2026-04-02T01:00:00Z"));
-        final EnvironmentAlert criticalAlert = alert(12L, 2L, AlertSeverity.CRITICAL, Instant.parse("2026-04-02T02:00:00Z"));
-        when(environmentAlertRepository.findAllByCreatedAtAfterOrderByCreatedAtDesc(any(Instant.class)))
-                .thenReturn(List.of(criticalAlert, warningAlert, infoAlert));
+        final EnvironmentAlert criticalAlert = alert(12L, 1L, AlertSeverity.CRITICAL, Instant.parse("2026-04-02T02:00:00Z"));
+        final EnvironmentAlert warningAlert = alert(11L, 2L, AlertSeverity.WARNING, Instant.parse("2026-04-02T01:00:00Z"));
+        when(environmentAlertRepository.findByResolvedAtIsNullAndAcknowledgedFalse())
+                .thenReturn(List.of(criticalAlert, warningAlert));
 
         final DashboardResponse response = environmentQueryService.getDashboard();
 
-        assertThat(response.totalSensors()).isEqualTo(2);
-        assertThat(response.activeSensors()).isEqualTo(1);
-        assertThat(response.normalCount()).isEqualTo(1);
-        assertThat(response.warningCount()).isEqualTo(1);
+        assertThat(response.totalSensors()).isEqualTo(3);
+        assertThat(response.activeSensors()).isEqualTo(3);
         assertThat(response.dangerCount()).isEqualTo(1);
-        assertThat(response.latestReadings())
-                .extracting(DashboardResponse.LatestReadingSummary::sensorId)
-                .containsExactly(1L, 2L);
-        assertThat(response.latestReadings().get(0).sensorName()).isEqualTo("Temp-1");
+        assertThat(response.warningCount()).isEqualTo(1);
+        assertThat(response.normalCount()).isEqualTo(1);
+        assertThat(response.latestReadings()).isEmpty();
+    }
+
+    /**
+     * Verifies that a sensor with both warning and critical active alerts counts once, as danger.
+     */
+    @Test
+    void getDashboardCountsAMixedSensorAsDangerOnly() {
+        when(sensorDeviceRepository.findAll())
+                .thenReturn(List.of(sensor(1L, "Temp-1", SensorType.TEMPERATURE, true)));
+        when(environmentAlertRepository.findByResolvedAtIsNullAndAcknowledgedFalse())
+                .thenReturn(List.of(
+                        alert(1L, 1L, AlertSeverity.WARNING, Instant.parse("2026-04-02T01:00:00Z")),
+                        alert(2L, 1L, AlertSeverity.CRITICAL, Instant.parse("2026-04-02T02:00:00Z"))));
+
+        final DashboardResponse response = environmentQueryService.getDashboard();
+
+        assertThat(response.dangerCount()).isEqualTo(1);
+        assertThat(response.warningCount()).isZero();
+        assertThat(response.normalCount()).isZero();
     }
 
     /**
@@ -89,14 +91,13 @@ class EnvironmentQueryServiceTest {
     @Test
     void getDashboardReturnsEmptySummaryWhenNoDataExists() {
         when(sensorDeviceRepository.findAll()).thenReturn(List.of());
-        when(sensorLatestProjectionRepository.findAll()).thenReturn(List.of());
-        when(environmentAlertRepository.findAllByCreatedAtAfterOrderByCreatedAtDesc(any(Instant.class)))
-                .thenReturn(List.of());
+        when(environmentAlertRepository.findByResolvedAtIsNullAndAcknowledgedFalse()).thenReturn(List.of());
 
         final DashboardResponse response = environmentQueryService.getDashboard();
 
         assertThat(response.totalSensors()).isZero();
         assertThat(response.activeSensors()).isZero();
+        assertThat(response.normalCount()).isZero();
         assertThat(response.latestReadings()).isEmpty();
     }
 
@@ -138,48 +139,6 @@ class EnvironmentQueryServiceTest {
         assertThat(environmentQueryService.getAlerts(null)).isEmpty();
     }
 
-    /**
-     * Verifies that history queries forward the resolved cutoff and preserve repository ordering.
-     */
-    @Test
-    void getHistoryMapsReadingsUsingProvidedDayWindow() {
-        final SensorReading reading = new SensorReading();
-        reading.setSensorDeviceId(5L);
-        reading.setValue(12.4);
-        reading.setValueKind("temperature");
-        reading.setUnit("C");
-        reading.setStatus("ok");
-        reading.setSequenceId(101L);
-        reading.setRecordedAt(Instant.parse("2026-04-04T00:00:00Z"));
-        when(sensorReadingRepository.findHistoryBySensorDeviceIdAndRecordedAtAfter(any(Long.class), any(Instant.class)))
-                .thenReturn(List.of(reading));
-
-        final List<SensorHistoryResponse> response = environmentQueryService.getHistory(5L, 7);
-
-        final ArgumentCaptor<Instant> cutoffCaptor = ArgumentCaptor.forClass(Instant.class);
-        org.mockito.Mockito.verify(sensorReadingRepository)
-                .findHistoryBySensorDeviceIdAndRecordedAtAfter(org.mockito.ArgumentMatchers.eq(5L), cutoffCaptor.capture());
-        assertThat(cutoffCaptor.getValue())
-                .isAfterOrEqualTo(Instant.now().minus(Duration.ofDays(7)).minusSeconds(2))
-                .isBeforeOrEqualTo(Instant.now().minus(Duration.ofDays(7)).plusSeconds(2));
-        assertThat(response).singleElement().satisfies(history -> {
-            assertThat(history.sensorId()).isEqualTo(5L);
-            assertThat(history.value()).isEqualTo(12.4);
-            assertThat(history.sequenceId()).isEqualTo(101L);
-        });
-    }
-
-    /**
-     * Verifies that history queries return an empty list when no readings match the window.
-     */
-    @Test
-    void getHistoryReturnsEmptyListWhenNoReadingsExist() {
-        when(sensorReadingRepository.findHistoryBySensorDeviceIdAndRecordedAtAfter(any(Long.class), any(Instant.class)))
-                .thenReturn(List.of());
-
-        assertThat(environmentQueryService.getHistory(5L, null)).isEmpty();
-    }
-
     private SensorDevice sensor(final Long id, final String name, final SensorType sensorType, final boolean active) {
         final SensorDevice sensor = new SensorDevice();
         sensor.setId(id);
@@ -189,26 +148,6 @@ class EnvironmentQueryServiceTest {
         sensor.setActive(active);
         sensor.setDeleted(false);
         return sensor;
-    }
-
-    private SensorLatestProjection projection(
-            final Long sensorId,
-            final Double value,
-            final String valueKind,
-            final String unit,
-            final String status,
-            final Instant recordedAt,
-            final Long sequenceId) {
-        final SensorLatestProjection projection = new SensorLatestProjection();
-        projection.setSensorDeviceId(sensorId);
-        projection.setValue(value);
-        projection.setValueKind(valueKind);
-        projection.setUnit(unit);
-        projection.setStatus(status);
-        projection.setRecordedAt(recordedAt);
-        projection.setSequenceId(sequenceId);
-        projection.setUpdatedAt(recordedAt);
-        return projection;
     }
 
     private EnvironmentAlert alert(final Long id, final Long sensorId, final AlertSeverity severity, final Instant createdAt) {

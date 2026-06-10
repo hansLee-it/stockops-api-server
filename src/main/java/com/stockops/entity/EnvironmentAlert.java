@@ -47,6 +47,9 @@ public class EnvironmentAlert extends BaseEntity {
     @Column(name = "acknowledged_by")
     private String acknowledgedBy;
 
+    @Column(name = "resolved_at")
+    private Instant resolvedAt;
+
     public EnvironmentAlert() {
     }
 
@@ -104,6 +107,14 @@ public class EnvironmentAlert extends BaseEntity {
 
     public void setAcknowledgedAt(final Instant acknowledgedAt) {
         this.acknowledgedAt = acknowledgedAt;
+    }
+
+    public Instant getResolvedAt() {
+        return this.resolvedAt;
+    }
+
+    public void setResolvedAt(final Instant resolvedAt) {
+        this.resolvedAt = resolvedAt;
     }
 
     public String getAcknowledgedBy() {

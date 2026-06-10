@@ -2,7 +2,6 @@ package com.stockops.controller;
 
 import com.stockops.dto.DashboardResponse;
 import com.stockops.dto.SensorAlertResponse;
-import com.stockops.dto.SensorHistoryResponse;
 import com.stockops.service.EnvironmentQueryService;
 import java.util.List;
 import org.springframework.http.ResponseEntity;
@@ -54,20 +53,5 @@ public class EnvironmentQueryController {
     @PreAuthorize("@permissionChecker.hasPermission('ENVIRONMENT_READ')")
     public ResponseEntity<List<SensorAlertResponse>> getAlerts(@RequestParam(required = false) final Integer days) {
         return ResponseEntity.ok(environmentQueryService.getAlerts(days));
-    }
-
-    /**
-     * Returns sensor reading history for the requested sensor and time window.
-     *
-     * @param sensorId sensor device identifier
-     * @param days optional time window in days, defaults to 30
-     * @return oldest-first time-series readings
-     */
-    @GetMapping("/history")
-    @PreAuthorize("@permissionChecker.hasPermission('ENVIRONMENT_READ')")
-    public ResponseEntity<List<SensorHistoryResponse>> getHistory(
-            @RequestParam final Long sensorId,
-            @RequestParam(required = false) final Integer days) {
-        return ResponseEntity.ok(environmentQueryService.getHistory(sensorId, days));
     }
 }

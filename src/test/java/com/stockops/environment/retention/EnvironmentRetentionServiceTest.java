@@ -6,7 +6,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.stockops.repository.EnvironmentAlertRepository;
-import com.stockops.repository.SensorReadingRepository;
 import java.time.Duration;
 import java.time.Instant;
 import org.junit.jupiter.api.BeforeEach;
@@ -26,9 +25,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class EnvironmentRetentionServiceTest {
 
     @Mock
-    private SensorReadingRepository sensorReadingRepository;
-
-    @Mock
     private EnvironmentAlertRepository environmentAlertRepository;
 
     private EnvironmentRetentionService environmentRetentionService;
@@ -43,46 +39,41 @@ class EnvironmentRetentionServiceTest {
         retentionProperties.setBatchSize(1000);
         retentionProperties.setEnabled(true);
         environmentRetentionService = new EnvironmentRetentionService(
-                sensorReadingRepository,
                 environmentAlertRepository,
                 retentionProperties);
     }
 
     /**
-     * Verifies that old readings are purged using a UTC cutoff derived from retention days.
+     * Verifies that old alerts are purged using a UTC cutoff derived from retention days.
      */
     @Test
-    void purgeOldReadingsUsesThirtyDayUtcCutoff() {
-        when(sensorReadingRepository.deleteByRecordedAtBefore(any(Instant.class))).thenReturn(7);
+    void purgeOldAlertsUsesThirtyDayUtcCutoff() {
+        when(environmentAlertRepository.deleteByCreatedAtBefore(any(Instant.class))).thenReturn(5);
         final Instant minimumExpectedCutoff = Instant.now().minus(Duration.ofDays(30)).minusSeconds(2);
 
-        final int deletedCount = environmentRetentionService.purgeOldReadings();
+        final int deletedCount = environmentRetentionService.purgeOldAlerts();
 
         final ArgumentCaptor<Instant> cutoffCaptor = ArgumentCaptor.forClass(Instant.class);
-        verify(sensorReadingRepository).deleteByRecordedAtBefore(cutoffCaptor.capture());
-        assertThat(deletedCount).isEqualTo(7);
+        verify(environmentAlertRepository).deleteByCreatedAtBefore(cutoffCaptor.capture());
+        assertThat(deletedCount).isEqualTo(5);
         assertThat(cutoffCaptor.getValue())
                 .isAfterOrEqualTo(minimumExpectedCutoff)
                 .isBeforeOrEqualTo(Instant.now().minus(Duration.ofDays(30)).plusSeconds(2));
     }
 
     /**
-     * Verifies that a combined purge deletes both datasets with one shared cutoff summary.
+     * Verifies that a combined purge deletes alerts and reports zero readings (no longer stored).
      */
     @Test
-    void purgeAllReturnsCombinedCountsAndCutoff() {
-        when(sensorReadingRepository.deleteByRecordedAtBefore(any(Instant.class))).thenReturn(4);
+    void purgeAllReturnsAlertCountsAndZeroReadings() {
         when(environmentAlertRepository.deleteByCreatedAtBefore(any(Instant.class))).thenReturn(2);
 
         final PurgeResult result = environmentRetentionService.purgeAll();
 
-        final ArgumentCaptor<Instant> readingCutoffCaptor = ArgumentCaptor.forClass(Instant.class);
         final ArgumentCaptor<Instant> alertCutoffCaptor = ArgumentCaptor.forClass(Instant.class);
-        verify(sensorReadingRepository).deleteByRecordedAtBefore(readingCutoffCaptor.capture());
         verify(environmentAlertRepository).deleteByCreatedAtBefore(alertCutoffCaptor.capture());
-        assertThat(result.readingsDeleted()).isEqualTo(4);
+        assertThat(result.readingsDeleted()).isZero();
         assertThat(result.alertsDeleted()).isEqualTo(2);
-        assertThat(result.cutoffDate()).isEqualTo(readingCutoffCaptor.getValue());
         assertThat(result.cutoffDate()).isEqualTo(alertCutoffCaptor.getValue());
         assertThat(result.duration()).isGreaterThanOrEqualTo(Duration.ZERO);
     }
