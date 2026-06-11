@@ -10,8 +10,11 @@ import com.stockops.entity.AlertSeverity;
 import com.stockops.entity.EnvironmentAlert;
 import com.stockops.entity.SensorDevice;
 import com.stockops.environment.EnvironmentAlertNotifier;
+import com.stockops.environment.cache.SensorReadingCacheService;
+import com.stockops.environment.cache.SensorReadingSnapshot;
 import com.stockops.repository.EnvironmentAlertRepository;
 import com.stockops.repository.SensorDeviceRepository;
+import java.time.Instant;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -39,6 +42,9 @@ class TelemetryIngestionServiceTest {
 
     @Mock
     private EnvironmentAlertNotifier environmentAlertNotifier;
+
+    @Mock
+    private SensorReadingCacheService sensorReadingCacheService;
 
     @InjectMocks
     private TelemetryIngestionService telemetryIngestionService;
@@ -135,6 +141,46 @@ class TelemetryIngestionServiceTest {
         telemetryIngestionService.ingest(payload("ok", "2026-04-05T00:00:00Z"));
 
         verify(environmentAlertRepository, never()).save(any());
+    }
+
+    /**
+     * Verifies every valid reading is written to the shared recent-reading cache,
+     * including the device-unit fallback when the payload omits a unit.
+     */
+    @Test
+    void ingestCachesNormalizedReading() {
+        final SensorDevice device = sensorDevice(5L, "Temp-1", "C");
+        when(sensorDeviceRepository.findByMqttTopic(TOPIC)).thenReturn(Optional.of(device));
+        when(environmentAlertRepository
+                .findFirstBySensorDeviceIdAndResolvedAtIsNullAndAcknowledgedFalseOrderByCreatedAtDesc(5L))
+                .thenReturn(Optional.empty());
+
+        telemetryIngestionService.ingest(new SensimulPayload("site-a", "sensor-01", "temperature",
+                "temperature", 12.5, null, "ok", "2026-04-05T00:00:00Z", 10L, "1.0"));
+
+        final ArgumentCaptor<SensorReadingSnapshot> captor = ArgumentCaptor.forClass(SensorReadingSnapshot.class);
+        verify(sensorReadingCacheService).append(captor.capture());
+        final SensorReadingSnapshot snapshot = captor.getValue();
+        assertThat(snapshot.sensorDeviceId()).isEqualTo(5L);
+        assertThat(snapshot.siteId()).isEqualTo("site-a");
+        assertThat(snapshot.sensorId()).isEqualTo("sensor-01");
+        assertThat(snapshot.value()).isEqualTo(12.5);
+        assertThat(snapshot.unit()).isEqualTo("C");
+        assertThat(snapshot.status()).isEqualTo("ok");
+        assertThat(snapshot.recordedAt()).isEqualTo(Instant.parse("2026-04-05T00:00:00Z"));
+        assertThat(snapshot.sequenceId()).isEqualTo(10L);
+    }
+
+    /**
+     * Verifies readings for unknown sensors are not cached.
+     */
+    @Test
+    void ingestDoesNotCacheUnknownSensorReading() {
+        when(sensorDeviceRepository.findByMqttTopic(TOPIC)).thenReturn(Optional.empty());
+
+        telemetryIngestionService.ingest(payload("WARNING", "2026-04-05T00:00:00Z"));
+
+        verify(sensorReadingCacheService, never()).append(any());
     }
 
     /**

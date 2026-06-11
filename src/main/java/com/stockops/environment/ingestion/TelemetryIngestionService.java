@@ -4,6 +4,8 @@ import com.stockops.entity.AlertSeverity;
 import com.stockops.entity.EnvironmentAlert;
 import com.stockops.entity.SensorDevice;
 import com.stockops.environment.EnvironmentAlertNotifier;
+import com.stockops.environment.cache.SensorReadingCacheService;
+import com.stockops.environment.cache.SensorReadingSnapshot;
 import com.stockops.repository.EnvironmentAlertRepository;
 import com.stockops.repository.SensorDeviceRepository;
 import java.time.Instant;
@@ -19,11 +21,12 @@ import org.springframework.util.StringUtils;
 /**
  * Processes live Sensimul telemetry into environment alert EVENTS.
  *
- * <p>Raw sensor measurements are no longer persisted in bulk — real-time values are viewed
- * client-side (admin-web subscribes to MQTT directly). The API only records threshold events:
- * a {@code WARNING}/{@code CRITICAL} status opens (or escalates) an active alert for the sensor,
- * and a normal status auto-resolves it. An alert stays active until the sensor normalizes or an
- * administrator acknowledges it, which is what drives the dashboard normal/warning/danger view.
+ * <p>Raw sensor measurements are never persisted in PostgreSQL — each normalized reading is
+ * written to the shared Redis recent-reading cache so load-balanced API instances can serve
+ * live values over REST. The DB only records threshold events: a {@code WARNING}/{@code CRITICAL}
+ * status opens (or escalates) an active alert for the sensor, and a normal status auto-resolves it.
+ * An alert stays active until the sensor normalizes or an administrator acknowledges it, which is
+ * what drives the dashboard normal/warning/danger view.
  *
  * @author StockOps Team
  * @since 1.0
@@ -37,6 +40,7 @@ public class TelemetryIngestionService {
     private final SensorDeviceRepository sensorDeviceRepository;
     private final EnvironmentAlertRepository environmentAlertRepository;
     private final EnvironmentAlertNotifier environmentAlertNotifier;
+    private final SensorReadingCacheService sensorReadingCacheService;
 
     /**
      * Creates the telemetry ingestion service.
@@ -44,14 +48,17 @@ public class TelemetryIngestionService {
      * @param sensorDeviceRepository sensor device repository
      * @param environmentAlertRepository environment alert (event) repository
      * @param environmentAlertNotifier best-effort alert notifier (webhook/email)
+     * @param sensorReadingCacheService shared recent reading cache
      */
     public TelemetryIngestionService(
             final SensorDeviceRepository sensorDeviceRepository,
             final EnvironmentAlertRepository environmentAlertRepository,
-            final EnvironmentAlertNotifier environmentAlertNotifier) {
+            final EnvironmentAlertNotifier environmentAlertNotifier,
+            final SensorReadingCacheService sensorReadingCacheService) {
         this.sensorDeviceRepository = sensorDeviceRepository;
         this.environmentAlertRepository = environmentAlertRepository;
         this.environmentAlertNotifier = environmentAlertNotifier;
+        this.sensorReadingCacheService = sensorReadingCacheService;
     }
 
     /**
@@ -81,6 +88,8 @@ public class TelemetryIngestionService {
         }
 
         final SensorDevice device = sensorDevice.get();
+        sensorReadingCacheService.append(toSnapshot(device, payload, recordedAt));
+
         final AlertSeverity severity = severityFor(payload.status());
         if (severity == null) {
             resolveActiveAlert(device, recordedAt);
@@ -156,6 +165,22 @@ public class TelemetryIngestionService {
             case "WARNING", "WARN" -> AlertSeverity.WARNING;
             default -> null;
         };
+    }
+
+    private SensorReadingSnapshot toSnapshot(final SensorDevice device, final SensimulPayload payload,
+                                             final Instant recordedAt) {
+        final String unit = StringUtils.hasText(payload.unit()) ? payload.unit() : device.getUnit();
+        return new SensorReadingSnapshot(
+                device.getId(),
+                payload.siteId(),
+                payload.sensorId(),
+                payload.sensorType(),
+                payload.valueKind(),
+                payload.value(),
+                unit,
+                payload.status(),
+                recordedAt,
+                payload.sequenceId());
     }
 
     private String resolveAlertType(final SensimulPayload payload) {

@@ -10,6 +10,8 @@ import com.stockops.entity.AlertSeverity;
 import com.stockops.entity.EnvironmentAlert;
 import com.stockops.entity.SensorDevice;
 import com.stockops.entity.SensorType;
+import com.stockops.environment.cache.SensorReadingCacheService;
+import com.stockops.environment.cache.SensorReadingSnapshot;
 import com.stockops.repository.EnvironmentAlertRepository;
 import com.stockops.repository.SensorDeviceRepository;
 import com.stockops.security.CurrentUserProvider;
@@ -42,12 +44,15 @@ class EnvironmentQueryServiceTest {
     @Mock
     private CurrentUserProvider currentUserProvider;
 
+    @Mock
+    private SensorReadingCacheService sensorReadingCacheService;
+
     @InjectMocks
     private EnvironmentQueryService environmentQueryService;
 
     /**
      * Verifies that the dashboard derives normal/warning/danger counts from active alerts
-     * and returns no server-side latest readings.
+     * and returns no latest readings when the cache is empty.
      */
     @Test
     void getDashboardDerivesCountsFromActiveAlerts() {
@@ -60,6 +65,7 @@ class EnvironmentQueryServiceTest {
         final EnvironmentAlert warningAlert = alert(11L, 2L, AlertSeverity.WARNING, Instant.parse("2026-04-02T01:00:00Z"));
         when(environmentAlertRepository.findByResolvedAtIsNullAndAcknowledgedFalse())
                 .thenReturn(List.of(criticalAlert, warningAlert));
+        when(sensorReadingCacheService.latest(any(Long.class))).thenReturn(Optional.empty());
 
         final DashboardResponse response = environmentQueryService.getDashboard();
 
@@ -69,6 +75,34 @@ class EnvironmentQueryServiceTest {
         assertThat(response.warningCount()).isEqualTo(1);
         assertThat(response.normalCount()).isEqualTo(1);
         assertThat(response.latestReadings()).isEmpty();
+    }
+
+    /**
+     * Verifies that latest readings come from the shared recent-reading cache,
+     * omitting sensors without a cached value.
+     */
+    @Test
+    void getDashboardServesLatestReadingsFromCache() {
+        final SensorDevice cached = sensor(1L, "Temp-1", SensorType.TEMPERATURE, true);
+        final SensorDevice uncached = sensor(2L, "Humidity-1", SensorType.HUMIDITY, true);
+        when(sensorDeviceRepository.findAll()).thenReturn(List.of(cached, uncached));
+        when(environmentAlertRepository.findByResolvedAtIsNullAndAcknowledgedFalse()).thenReturn(List.of());
+        when(sensorReadingCacheService.latest(1L)).thenReturn(Optional.of(new SensorReadingSnapshot(
+                1L, "site-a", "temp-001", "TEMPERATURE", "temperature", 23.4, "C", "NORMAL",
+                Instant.parse("2026-06-11T09:15:30Z"), 184L)));
+        when(sensorReadingCacheService.latest(2L)).thenReturn(Optional.empty());
+
+        final DashboardResponse response = environmentQueryService.getDashboard();
+
+        assertThat(response.latestReadings()).hasSize(1);
+        final DashboardResponse.LatestReadingSummary summary = response.latestReadings().get(0);
+        assertThat(summary.sensorId()).isEqualTo(1L);
+        assertThat(summary.sensorName()).isEqualTo("Temp-1");
+        assertThat(summary.sensorType()).isEqualTo(SensorType.TEMPERATURE);
+        assertThat(summary.value()).isEqualTo(23.4);
+        assertThat(summary.unit()).isEqualTo("C");
+        assertThat(summary.status()).isEqualTo("NORMAL");
+        assertThat(summary.recordedAt()).isEqualTo(Instant.parse("2026-06-11T09:15:30Z"));
     }
 
     /**

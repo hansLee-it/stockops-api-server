@@ -107,6 +107,10 @@ stockops:
     broker-url: ${STOCKOPS_MQTT_INGESTION_BROKER_URL:tcp://localhost:1883}
     qos: ${STOCKOPS_MQTT_INGESTION_QOS:1}
     client-id: ${STOCKOPS_MQTT_INGESTION_CLIENT_ID:}
+  sensor-cache:
+    recent-window: ${STOCKOPS_SENSOR_CACHE_RECENT_WINDOW:10m}
+    key-ttl: ${STOCKOPS_SENSOR_CACHE_KEY_TTL:15m}
+    key-prefix: ${STOCKOPS_SENSOR_CACHE_KEY_PREFIX:stockops:sensor:readings}
   analytics:
     enabled: true
     business-zone: Asia/Seoul

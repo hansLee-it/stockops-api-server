@@ -5,6 +5,7 @@ import com.stockops.dto.SensorAlertResponse;
 import com.stockops.entity.AlertSeverity;
 import com.stockops.entity.EnvironmentAlert;
 import com.stockops.entity.SensorDevice;
+import com.stockops.environment.cache.SensorReadingCacheService;
 import com.stockops.exception.ResourceNotFoundException;
 import com.stockops.repository.EnvironmentAlertRepository;
 import com.stockops.repository.SensorDeviceRepository;
@@ -13,6 +14,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -22,9 +24,9 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Read-only environment dashboard and alert query service.
  *
- * <p>Live sensor measurements are no longer stored server-side; the dashboard's
- * normal/warning/danger view is derived from the currently <em>active</em> environment alerts
- * (unresolved and unacknowledged events).
+ * <p>Live sensor measurements are not stored in PostgreSQL; latest values come from the shared
+ * Redis recent-reading cache, while the dashboard's normal/warning/danger view is derived from
+ * the currently <em>active</em> environment alerts (unresolved and unacknowledged events).
  *
  * @author StockOps Team
  * @since 1.0
@@ -40,29 +42,34 @@ public class EnvironmentQueryService {
 
     private final CurrentUserProvider currentUserProvider;
 
+    private final SensorReadingCacheService sensorReadingCacheService;
+
     /**
      * Creates the service.
      *
      * @param sensorDeviceRepository sensor repository
      * @param environmentAlertRepository environment alert (event) repository
      * @param currentUserProvider current authenticated user provider
+     * @param sensorReadingCacheService shared recent reading cache
      */
     public EnvironmentQueryService(
             final SensorDeviceRepository sensorDeviceRepository,
             final EnvironmentAlertRepository environmentAlertRepository,
-            final CurrentUserProvider currentUserProvider) {
+            final CurrentUserProvider currentUserProvider,
+            final SensorReadingCacheService sensorReadingCacheService) {
         this.sensorDeviceRepository = sensorDeviceRepository;
         this.environmentAlertRepository = environmentAlertRepository;
         this.currentUserProvider = currentUserProvider;
+        this.sensorReadingCacheService = sensorReadingCacheService;
     }
 
     /**
      * Returns aggregated dashboard data for the environment domain.
      *
-     * <p>Latest readings are intentionally empty — real-time values are viewed client-side via MQTT.
-     * Normal/warning/danger counts are computed from active alerts: a sensor with an active CRITICAL
-     * alert is dangerous, an active WARNING alert is a warning, and the remainder of active sensors
-     * are normal.
+     * <p>Latest readings come from the shared Redis recent-reading cache; sensors without a cached
+     * reading are omitted. Normal/warning/danger counts are computed from active alerts: a sensor
+     * with an active CRITICAL alert is dangerous, an active WARNING alert is a warning, and the
+     * remainder of active sensors are normal.
      *
      * @return dashboard response
      */
@@ -87,7 +94,29 @@ public class EnvironmentQueryService {
         final long warningCount = warningSensors.size();
         final long normalCount = Math.max(0L, activeSensors - dangerCount - warningCount);
 
-        return new DashboardResponse(totalSensors, activeSensors, normalCount, warningCount, dangerCount, List.of());
+        final List<DashboardResponse.LatestReadingSummary> latestReadings = sensors.stream()
+                .filter(SensorDevice::isActive)
+                .map(this::toLatestReadingSummary)
+                .filter(Objects::nonNull)
+                .toList();
+
+        return new DashboardResponse(totalSensors, activeSensors, normalCount, warningCount, dangerCount,
+                latestReadings);
+    }
+
+    private DashboardResponse.LatestReadingSummary toLatestReadingSummary(final SensorDevice sensor) {
+        return sensorReadingCacheService.latest(sensor.getId())
+                .map(reading -> new DashboardResponse.LatestReadingSummary(
+                        sensor.getId(),
+                        sensor.getName(),
+                        sensor.getSensorType(),
+                        sensor.getLocation(),
+                        reading.value(),
+                        reading.valueKind(),
+                        reading.unit(),
+                        reading.status(),
+                        reading.recordedAt()))
+                .orElse(null);
     }
 
     /**
