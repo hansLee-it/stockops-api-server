@@ -10,7 +10,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClientResponseException;
@@ -45,16 +45,23 @@ public class AiForecastClient {
     private Instant openCircuitUntil;
 
     /**
-     * Constructs the client with timeout-configured {@link RestTemplate}.
+     * Constructs the client with a timeout-configured {@link RestTemplate}.
+     * <p>
+     * The {@link RestTemplate} is built through the auto-configured
+     * {@link RestTemplateBuilder} so that Spring Boot's observation/tracing
+     * customizers are applied. This is what propagates the W3C {@code traceparent}
+     * header to the Python AI service, letting api-server and ai-module spans
+     * join the same distributed trace.
      *
      * @param properties AI service configuration (URL, timeouts, circuit-breaker)
+     * @param restTemplateBuilder Spring-managed builder carrying observation instrumentation
      */
-    public AiForecastClient(final AiForecastProperties properties) {
+    public AiForecastClient(final AiForecastProperties properties, final RestTemplateBuilder restTemplateBuilder) {
         this.properties = properties;
-        final SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-        factory.setConnectTimeout((int) properties.getConnectTimeout().toMillis());
-        factory.setReadTimeout((int) properties.getReadTimeout().toMillis());
-        this.restTemplate = new RestTemplate(factory);
+        this.restTemplate = restTemplateBuilder
+                .setConnectTimeout(properties.getConnectTimeout())
+                .setReadTimeout(properties.getReadTimeout())
+                .build();
     }
 
     /**

@@ -12,6 +12,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 import java.time.Duration;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -32,7 +33,7 @@ class AiForecastClientTest {
         properties.setReadTimeout(Duration.ofSeconds(5));
         properties.setCircuitBreakerFailureThreshold(3);
         properties.setCircuitBreakerCooldown(Duration.ofSeconds(30));
-        client = new AiForecastClient(properties);
+        client = new AiForecastClient(properties, new RestTemplateBuilder());
         mockServer = MockRestServiceServer.createServer(extractRestTemplate(client));
     }
 

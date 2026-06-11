@@ -38,6 +38,18 @@
             <artifactId>micrometer-registry-prometheus</artifactId>
             <version>1.12.12</version>
         </dependency>
+
+        <!-- OpenTelemetry distributed tracing via Micrometer Tracing (Phase 1: traces only).
+             Metrics continue to flow through micrometer-registry-prometheus (pull).
+             Versions are managed by the Spring Boot 3.2.x BOM — do NOT pin them. -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-tracing-bridge-otel</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-exporter-otlp</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa</artifactId>

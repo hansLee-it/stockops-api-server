@@ -42,6 +42,16 @@ management:
     tags:
       application: ${spring.application.name}
       environment: ${STOCKOPS_ENVIRONMENT:local}
+  # OpenTelemetry tracing (Phase 1: traces only; metrics stay on Prometheus).
+  # Sampling and endpoint are env-driven; the default localhost endpoint is safe
+  # to commit and harmless if no collector is listening (exporter just logs and drops).
+  tracing:
+    enabled: ${STOCKOPS_TRACING_ENABLED:true}
+    sampling:
+      probability: ${STOCKOPS_TRACING_SAMPLING_PROBABILITY:1.0}
+  otlp:
+    tracing:
+      endpoint: ${STOCKOPS_OTLP_TRACING_ENDPOINT:http://localhost:4318/v1/traces}
 
 springdoc:
   api-docs:
