@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.stockops.ai.forecast.AiForecastClient;
 import com.stockops.dto.AIRecommendationDTO;
 import com.stockops.dto.InventoryDTO;
 import com.stockops.entity.PurchaseOrderShipment;
@@ -35,6 +36,8 @@ class AgentToolDispatcherTest {
     private AISuggestionService aiSuggestionService;
     @Mock
     private PurchaseOrderShipmentRepository shipmentRepository;
+    @Mock
+    private AiForecastClient aiForecastClient;
 
     private AgentToolDispatcher dispatcher;
 
@@ -45,7 +48,53 @@ class AgentToolDispatcherTest {
                 recommendationService,
                 environmentQueryService,
                 aiSuggestionService,
-                shipmentRepository);
+                shipmentRepository,
+                aiForecastClient);
+    }
+
+    @Test
+    void dispatch_getProphetForecast_mapsForecastPoints() {
+        when(aiForecastClient.getForecast(1L, 7)).thenReturn(new AiForecastClient.AiForecastResponse(
+                1L, 7, List.of(new AiForecastClient.AiForecastResponse.ForecastPoint("2026-06-12", 12.4))));
+
+        final AgentToolResult result = dispatcher.dispatch("getProphetForecast", "{\"productId\": 1, \"days\": 7}");
+
+        assertThat(result.success()).isTrue();
+        assertThat(result.toolName()).isEqualTo("getProphetForecast");
+        assertThat(result.resultJson()).contains("\"provider\":\"prophet\"");
+        assertThat(result.resultJson()).contains("\"date\":\"2026-06-12\"");
+        assertThat(result.resultJson()).contains("\"predictedQuantity\":12.4");
+        assertThat(result.resultJson()).contains("\"fallbackUsed\":false");
+    }
+
+    @Test
+    void dispatch_getProphetForecast_defaultsAndCapsDays() {
+        when(aiForecastClient.getForecast(1L, 7)).thenReturn(new AiForecastClient.AiForecastResponse(1L, 7, List.of()));
+
+        dispatcher.dispatch("getProphetForecast", "{\"productId\": 1}");
+        verify(aiForecastClient).getForecast(1L, 7);
+
+        when(aiForecastClient.getForecast(1L, 30)).thenReturn(new AiForecastClient.AiForecastResponse(1L, 30, List.of()));
+        dispatcher.dispatch("getProphetForecast", "{\"productId\": 1, \"days\": 90}");
+        verify(aiForecastClient).getForecast(1L, 30);
+    }
+
+    @Test
+    void dispatch_getProphetForecast_withoutProductId_returnsFailure() {
+        final AgentToolResult result = dispatcher.dispatch("getProphetForecast", "{}");
+
+        assertThat(result.success()).isFalse();
+        assertThat(result.errorMessage()).contains("productId");
+    }
+
+    @Test
+    void dispatch_getProphetForecast_serviceUnavailable_returnsFailure() {
+        when(aiForecastClient.getForecast(1L, 7)).thenReturn(null);
+
+        final AgentToolResult result = dispatcher.dispatch("getProphetForecast", "{\"productId\": 1}");
+
+        assertThat(result.success()).isFalse();
+        assertThat(result.errorMessage()).contains("Prophet");
     }
 
     @Test

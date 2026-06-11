@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.stockops.ai.forecast.AiForecastClient;
 import com.stockops.dto.AIRecommendationDTO;
 import com.stockops.entity.PurchaseOrderShipment;
 import com.stockops.entity.ai.AISuggestion;
@@ -32,6 +33,7 @@ import org.springframework.transaction.annotation.Transactional;
  *   <li>{@code getForecastRecommendation} — returns AI recommendations for a given date/scope</li>
  *   <li>{@code getSensorAnomalies} — returns recent sensor alerts</li>
  *   <li>{@code getPurchaseOrderDelaySummary} — returns overdue shipments with days-overdue field</li>
+ *   <li>{@code getProphetForecast} — runs an on-demand Prophet demand forecast for a product</li>
  *   <li>{@code createAISuggestionDraft} — creates a PENDING AISuggestion for human review</li>
  * </ul>
  *
@@ -47,22 +49,28 @@ public class AgentToolDispatcher {
             .registerModule(new JavaTimeModule())
             .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
+    private static final int DEFAULT_FORECAST_DAYS = 7;
+    private static final int MAX_FORECAST_DAYS = 30;
+
     private final InventoryQueryService inventoryQueryService;
     private final AIRecommendationService recommendationService;
     private final EnvironmentQueryService environmentQueryService;
     private final AISuggestionService aiSuggestionService;
     private final PurchaseOrderShipmentRepository shipmentRepository;
+    private final AiForecastClient aiForecastClient;
 
     public AgentToolDispatcher(final InventoryQueryService inventoryQueryService,
                                final AIRecommendationService recommendationService,
                                final EnvironmentQueryService environmentQueryService,
                                final AISuggestionService aiSuggestionService,
-                               final PurchaseOrderShipmentRepository shipmentRepository) {
+                               final PurchaseOrderShipmentRepository shipmentRepository,
+                               final AiForecastClient aiForecastClient) {
         this.inventoryQueryService = inventoryQueryService;
         this.recommendationService = recommendationService;
         this.environmentQueryService = environmentQueryService;
         this.aiSuggestionService = aiSuggestionService;
         this.shipmentRepository = shipmentRepository;
+        this.aiForecastClient = aiForecastClient;
     }
 
     /**
@@ -84,6 +92,7 @@ public class AgentToolDispatcher {
                 case "getForecastRecommendation" -> handleForecastRecommendation(input);
                 case "getSensorAnomalies" -> handleSensorAnomalies(input);
                 case "getPurchaseOrderDelaySummary" -> handlePurchaseOrderDelaySummary(input);
+                case "getProphetForecast" -> handleProphetForecast(input);
                 case "createAISuggestionDraft" -> handleCreateAISuggestionDraft(input);
                 default -> {
                     log.warn("[Agent] Unknown tool: {}", toolName);
@@ -148,6 +157,39 @@ public class AgentToolDispatcher {
                 .toList();
 
         return AgentToolResult.success("getPurchaseOrderDelaySummary", JSON.writeValueAsString(summary));
+    }
+
+    private AgentToolResult handleProphetForecast(final JsonNode input) throws JsonProcessingException {
+        final Long productId = longOrNull(input, "productId");
+        if (productId == null) {
+            return AgentToolResult.failure("getProphetForecast", "productId is required");
+        }
+        final int requestedDays = input.has("days") ? input.get("days").asInt(DEFAULT_FORECAST_DAYS)
+                : DEFAULT_FORECAST_DAYS;
+        final int days = Math.min(Math.max(requestedDays, 1), MAX_FORECAST_DAYS);
+
+        final AiForecastClient.AiForecastResponse forecast = aiForecastClient.getForecast(productId, days);
+        if (forecast == null) {
+            return AgentToolResult.failure("getProphetForecast",
+                    "Prophet 예측 서비스를 사용할 수 없습니다. 통계 모델 기반 추천은 getForecastRecommendation으로 조회하세요.");
+        }
+
+        final Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("productId", forecast.productId());
+        payload.put("days", forecast.days());
+        payload.put("provider", "prophet");
+        payload.put("modelVersion", "prophet");
+        payload.put("forecast", forecast.forecast() == null ? List.of() : forecast.forecast().stream()
+                .map(point -> {
+                    final Map<String, Object> entry = new LinkedHashMap<String, Object>();
+                    entry.put("date", point.ds());
+                    entry.put("predictedQuantity", point.yhat());
+                    return entry;
+                })
+                .toList());
+        payload.put("fallbackUsed", false);
+        payload.put("warnings", List.of());
+        return AgentToolResult.success("getProphetForecast", JSON.writeValueAsString(payload));
     }
 
     private AgentToolResult handleCreateAISuggestionDraft(final JsonNode input) throws JsonProcessingException {
