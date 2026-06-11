@@ -1,5 +1,6 @@
 package com.stockops.ai.forecast;
 
+import io.micrometer.observation.annotation.Observed;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.time.Instant;
@@ -71,6 +72,7 @@ public class AiForecastClient {
      * @param days      number of days to forecast
      * @return forecast response, or {@code null} when the circuit is open or the call fails
      */
+    @Observed(name = "ai.forecast.client", contextualName = "ai-forecast-predict")
     public AiForecastResponse getForecast(final Long productId, final int days) {
         if (isCircuitOpen()) {
             log.warn("AI forecast circuit breaker is OPEN; skipping request for productId={}", productId);
@@ -112,6 +114,7 @@ public class AiForecastClient {
      * @param days       number of days to forecast
      * @return list of forecast responses, or {@code null} when the circuit is open or the call fails
      */
+    @Observed(name = "ai.forecast.client.bulk", contextualName = "ai-forecast-predict-bulk")
     public List<AiForecastResponse> getBulkForecasts(final List<Long> productIds, final int days) {
         if (isCircuitOpen()) {
             log.warn("AI forecast circuit breaker is OPEN; skipping bulk request for {} products", productIds.size());

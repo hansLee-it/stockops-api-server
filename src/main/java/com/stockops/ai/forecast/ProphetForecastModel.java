@@ -3,6 +3,7 @@ package com.stockops.ai.forecast;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.stockops.entity.ai.AIRecommendationStatus;
+import io.micrometer.observation.annotation.Observed;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
@@ -45,6 +46,7 @@ public class ProphetForecastModel implements ForecastModel {
     }
 
     @Override
+    @Observed(name = "forecast.model.prophet", contextualName = "prophet-compute")
     public ForecastResult computeForecast(final ForecastContext context) {
         final AiForecastClient.AiForecastResponse response = aiForecastClient.getForecast(
                 context.productId(),

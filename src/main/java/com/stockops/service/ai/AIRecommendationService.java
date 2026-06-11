@@ -22,6 +22,7 @@ import com.stockops.repository.ai.AIForecastSnapshotRepository;
 import com.stockops.repository.ai.AIRecommendationRepository;
 import com.stockops.security.ScopeGuard;
 import com.stockops.service.PurchaseOrderService;
+import io.micrometer.observation.annotation.Observed;
 import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -129,6 +130,7 @@ public class AIRecommendationService {
      */
     @Transactional
     @CacheEvict(value = "ai::recommendations", allEntries = true)
+    @Observed(name = "ai.recommendations.generate", contextualName = "generate-recommendations")
     public void generateRecommendationsForBusinessDate(final LocalDate businessDate, final ForecastModel forecastModel) {
         final Map<DimensionKey, ProductDimensionContext> contexts = loadDimensionContexts(businessDate);
         final Map<DimensionKey, AIForecastSnapshot> existingForecasts = indexForecasts(forecastSnapshotRepository.findByBusinessDate(businessDate));

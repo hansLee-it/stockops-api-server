@@ -1,6 +1,7 @@
 package com.stockops.ai.forecast;
 
 import com.stockops.entity.ai.AIRecommendationStatus;
+import io.micrometer.observation.annotation.Observed;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
@@ -32,6 +33,7 @@ public class StatisticalForecastModel implements ForecastModel {
     }
 
     @Override
+    @Observed(name = "forecast.model.statistical", contextualName = "statistical-compute")
     public ForecastResult computeForecast(final ForecastContext context) {
         final ForecastContext.ForecastParameters params = context.parameters();
         final LocalDate businessDate = context.businessDate();

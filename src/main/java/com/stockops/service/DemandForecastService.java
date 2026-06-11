@@ -10,6 +10,7 @@ import com.stockops.entity.DemandForecast;
 import com.stockops.entity.InventoryTransaction;
 import com.stockops.repository.DemandForecastRepository;
 import com.stockops.repository.InventoryTransactionRepository;
+import io.micrometer.observation.annotation.Observed;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
@@ -34,6 +35,7 @@ public class DemandForecastService {
         this.statisticalForecastModel = statisticalForecastModel;
     }
 
+    @Observed(name = "demand.forecast.generate", contextualName = "generate-forecast")
     public List<Map<String, Object>> generateForecast(Long productId, int daysAhead) {
         LocalDate today = LocalDate.now();
         LocalDate start = today.minusDays(30);
