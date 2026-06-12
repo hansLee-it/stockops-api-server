@@ -107,6 +107,14 @@ stockops:
     broker-url: ${STOCKOPS_MQTT_INGESTION_BROKER_URL:tcp://localhost:1883}
     qos: ${STOCKOPS_MQTT_INGESTION_QOS:1}
     client-id: ${STOCKOPS_MQTT_INGESTION_CLIENT_ID:}
+  sqs-ingestion:
+    enabled: ${STOCKOPS_SQS_INGESTION_ENABLED:false}
+    queue-url: ${STOCKOPS_SQS_INGESTION_QUEUE_URL:}
+    region: ${STOCKOPS_SQS_INGESTION_REGION:ap-northeast-2}
+    max-messages: ${STOCKOPS_SQS_INGESTION_MAX_MESSAGES:10}
+    wait-time-seconds: ${STOCKOPS_SQS_INGESTION_WAIT_TIME_SECONDS:20}
+    visibility-timeout-seconds: ${STOCKOPS_SQS_INGESTION_VISIBILITY_TIMEOUT_SECONDS:30}
+    error-backoff-millis: ${STOCKOPS_SQS_INGESTION_ERROR_BACKOFF_MILLIS:5000}
   sensor-cache:
     recent-window: ${STOCKOPS_SENSOR_CACHE_RECENT_WINDOW:10m}
     key-ttl: ${STOCKOPS_SENSOR_CACHE_KEY_TTL:15m}
@@ -191,6 +199,10 @@ stockops:
     enabled: false
   ratelimit:
     enabled: false
+  actuator:
+    # Local dev has no reverse proxy in front, so allow unauthenticated scraping.
+    # All other profiles keep the secure default (authenticated).
+    prometheus-public: true
 
 ---
 spring:
