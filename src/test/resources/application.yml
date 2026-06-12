@@ -20,6 +20,15 @@ stockops:
   redis:
     enabled: false
 
+# This file shadows src/main/resources/application.yml entirely, so the prometheus
+# endpoint must be exposed here for SecurityConfigTest to exercise the real endpoint
+# (otherwise a permitAll regression surfaces as 404 instead of 200).
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+
 jwt:
   secret: stockops-test-secret-key-with-at-least-256-bits
   expiration: 86400000
