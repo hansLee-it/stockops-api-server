@@ -184,6 +184,8 @@ public class AgentToolDispatcher {
                     final Map<String, Object> entry = new LinkedHashMap<String, Object>();
                     entry.put("date", point.ds());
                     entry.put("predictedQuantity", point.yhat());
+                    entry.put("lower", point.yhatLower());
+                    entry.put("upper", point.yhatUpper());
                     return entry;
                 })
                 .toList());

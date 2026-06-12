@@ -57,6 +57,18 @@ public class SensorDevice extends BaseEntity {
     @Column(name = "noise_sigma")
     private Double noiseSigma;
 
+    @Column(name = "warn_min")
+    private Double warnMin;
+
+    @Column(name = "warn_max")
+    private Double warnMax;
+
+    @Column(name = "crit_min")
+    private Double critMin;
+
+    @Column(name = "crit_max")
+    private Double critMax;
+
     @Column(name = "deleted", nullable = false)
     private boolean deleted;
 
@@ -144,6 +156,48 @@ public class SensorDevice extends BaseEntity {
 
     public void setNoiseSigma(final Double noiseSigma) {
         this.noiseSigma = noiseSigma;
+    }
+
+    public Double getWarnMin() {
+        return this.warnMin;
+    }
+
+    public void setWarnMin(final Double warnMin) {
+        this.warnMin = warnMin;
+    }
+
+    public Double getWarnMax() {
+        return this.warnMax;
+    }
+
+    public void setWarnMax(final Double warnMax) {
+        this.warnMax = warnMax;
+    }
+
+    public Double getCritMin() {
+        return this.critMin;
+    }
+
+    public void setCritMin(final Double critMin) {
+        this.critMin = critMin;
+    }
+
+    public Double getCritMax() {
+        return this.critMax;
+    }
+
+    public void setCritMax(final Double critMax) {
+        this.critMax = critMax;
+    }
+
+    /**
+     * Returns whether any threshold bound is configured, which switches alert
+     * evaluation from payload-status trust to server-side value comparison.
+     *
+     * @return true when at least one bound is set
+     */
+    public boolean hasThresholds() {
+        return warnMin != null || warnMax != null || critMin != null || critMax != null;
     }
 
     public boolean isDeleted() {

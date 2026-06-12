@@ -19,6 +19,10 @@ spring:
 stockops:
   redis:
     enabled: false
+  environment:
+    alert-outbox:
+      # The scheduled outbox sender must not run during context-loading tests.
+      enabled: false
 
 # This file shadows src/main/resources/application.yml entirely, so the prometheus
 # endpoint must be exposed here for SecurityConfigTest to exercise the real endpoint

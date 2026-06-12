@@ -215,10 +215,26 @@ public class AiForecastClient {
         /**
          * Single daily forecast point from Prophet.
          *
-         * @param ds   date string (ISO-8601)
-         * @param yhat predicted demand
+         * @param ds        date string (ISO-8601)
+         * @param yhat      predicted demand
+         * @param yhatLower lower bound of the prediction interval (may be null on older responses)
+         * @param yhatUpper upper bound of the prediction interval (may be null on older responses)
          */
-        public record ForecastPoint(String ds, double yhat) {
+        public record ForecastPoint(
+                String ds,
+                double yhat,
+                @com.fasterxml.jackson.annotation.JsonProperty("yhat_lower") Double yhatLower,
+                @com.fasterxml.jackson.annotation.JsonProperty("yhat_upper") Double yhatUpper) {
+
+            /**
+             * Convenience constructor for points without prediction bounds.
+             *
+             * @param ds   date string (ISO-8601)
+             * @param yhat predicted demand
+             */
+            public ForecastPoint(final String ds, final double yhat) {
+                this(ds, yhat, null, null);
+            }
         }
     }
 

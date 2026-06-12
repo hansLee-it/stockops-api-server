@@ -177,12 +177,30 @@ public class SensorDeviceService {
             final SensorDevice sensorDevice,
             final SensorDeviceRequest request,
             final String mqttTopic) {
+        validateThresholds(request);
         sensorDevice.setName(request.sensorId());
         sensorDevice.setLocation(request.location());
         sensorDevice.setSensorType(request.sensorType());
         sensorDevice.setExternalSensorId(request.sensorId());
         sensorDevice.setMqttTopic(mqttTopic);
         sensorDevice.setSourceChannel(request.sourceChannel());
+        sensorDevice.setWarnMin(request.warnMin());
+        sensorDevice.setWarnMax(request.warnMax());
+        sensorDevice.setCritMin(request.critMin());
+        sensorDevice.setCritMax(request.critMax());
+    }
+
+    private void validateThresholds(final SensorDeviceRequest request) {
+        requireOrdered(request.warnMin(), request.warnMax(), "경고 하한은 경고 상한보다 작아야 합니다.");
+        requireOrdered(request.critMin(), request.critMax(), "위험 하한은 위험 상한보다 작아야 합니다.");
+        requireOrdered(request.critMin(), request.warnMin(), "위험 하한은 경고 하한보다 작거나 같아야 합니다.");
+        requireOrdered(request.warnMax(), request.critMax(), "경고 상한은 위험 상한보다 작거나 같아야 합니다.");
+    }
+
+    private void requireOrdered(final Double lower, final Double upper, final String message) {
+        if (lower != null && upper != null && lower > upper) {
+            throw new InvalidOperationException(message);
+        }
     }
 
     private String resolveCanonicalTopic(final SensorDeviceRequest request) {
@@ -213,6 +231,10 @@ public class SensorDeviceService {
                 sensorDevice.getSourceChannel(),
                 sensorDevice.isActive(),
                 sensorDevice.isDeleted(),
+                sensorDevice.getWarnMin(),
+                sensorDevice.getWarnMax(),
+                sensorDevice.getCritMin(),
+                sensorDevice.getCritMax(),
                 sensorDevice.getCreatedAt(),
                 sensorDevice.getUpdatedAt());
     }

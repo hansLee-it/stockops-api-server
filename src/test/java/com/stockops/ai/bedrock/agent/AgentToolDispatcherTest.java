@@ -55,7 +55,8 @@ class AgentToolDispatcherTest {
     @Test
     void dispatch_getProphetForecast_mapsForecastPoints() {
         when(aiForecastClient.getForecast(1L, 7)).thenReturn(new AiForecastClient.AiForecastResponse(
-                1L, 7, List.of(new AiForecastClient.AiForecastResponse.ForecastPoint("2026-06-12", 12.4))));
+                1L, 7, List.of(new AiForecastClient.AiForecastResponse.ForecastPoint(
+                        "2026-06-12", 12.4, 8.1, 16.8))));
 
         final AgentToolResult result = dispatcher.dispatch("getProphetForecast", "{\"productId\": 1, \"days\": 7}");
 
@@ -64,6 +65,8 @@ class AgentToolDispatcherTest {
         assertThat(result.resultJson()).contains("\"provider\":\"prophet\"");
         assertThat(result.resultJson()).contains("\"date\":\"2026-06-12\"");
         assertThat(result.resultJson()).contains("\"predictedQuantity\":12.4");
+        assertThat(result.resultJson()).contains("\"lower\":8.1");
+        assertThat(result.resultJson()).contains("\"upper\":16.8");
         assertThat(result.resultJson()).contains("\"fallbackUsed\":false");
     }
 

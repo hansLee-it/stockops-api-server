@@ -115,7 +115,25 @@ class SensorDeviceServiceTest {
                 SensorType.TEMPERATURE,
                 "warehouse-a",
                 "sensimul/sites/site-a/sensors/other-sensor",
-                "site-a");
+                "site-a",
+                null, null, null, null);
+
+        assertThrows(InvalidOperationException.class, () -> sensorDeviceService.createSensorDevice(request));
+    }
+
+    /**
+     * Verifies threshold ordering is validated (crit bounds must contain warn bounds).
+     */
+    @Test
+    void createSensorDeviceRejectsInvertedThresholds() {
+        final SensorDeviceRequest request = new SensorDeviceRequest(
+                "site-a",
+                "sensor-01",
+                SensorType.TEMPERATURE,
+                "warehouse-a",
+                "sensimul/sites/site-a/sensors/sensor-01",
+                "site-a",
+                10.0, 5.0, null, null);
 
         assertThrows(InvalidOperationException.class, () -> sensorDeviceService.createSensorDevice(request));
     }
@@ -270,7 +288,8 @@ class SensorDeviceServiceTest {
                 SensorType.TEMPERATURE,
                 location,
                 "sensimul/sites/" + siteId + "/sensors/" + sensorId,
-                siteId);
+                siteId,
+                null, null, null, null);
     }
 
     private SensorDevice sensorDevice(final Long id, final String mqttTopic, final boolean deleted, final boolean active) {

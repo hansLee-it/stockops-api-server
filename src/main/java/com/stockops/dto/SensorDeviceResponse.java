@@ -16,6 +16,10 @@ import java.time.Instant;
  * @param sourceChannel upstream source channel value
  * @param active whether the sensor is active
  * @param deleted whether the sensor is soft-deleted
+ * @param warnMin warning lower bound (null when unset)
+ * @param warnMax warning upper bound
+ * @param critMin critical lower bound
+ * @param critMax critical upper bound
  * @param createdAt creation timestamp
  * @param updatedAt last update timestamp
  * @author StockOps Team
@@ -32,6 +36,10 @@ public record SensorDeviceResponse(
         String sourceChannel,
         boolean active,
         boolean deleted,
+        Double warnMin,
+        Double warnMax,
+        Double critMin,
+        Double critMax,
         Instant createdAt,
         Instant updatedAt) {
 }

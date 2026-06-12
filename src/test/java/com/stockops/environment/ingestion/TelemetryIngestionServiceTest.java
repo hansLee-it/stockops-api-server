@@ -8,10 +8,11 @@ import static org.mockito.Mockito.when;
 
 import com.stockops.entity.AlertSeverity;
 import com.stockops.entity.EnvironmentAlert;
+import com.stockops.entity.EnvironmentAlertNotification;
 import com.stockops.entity.SensorDevice;
-import com.stockops.environment.EnvironmentAlertNotifier;
 import com.stockops.environment.cache.SensorReadingCacheService;
 import com.stockops.environment.cache.SensorReadingSnapshot;
+import com.stockops.repository.EnvironmentAlertNotificationRepository;
 import com.stockops.repository.EnvironmentAlertRepository;
 import com.stockops.repository.SensorDeviceRepository;
 import java.time.Instant;
@@ -41,13 +42,27 @@ class TelemetryIngestionServiceTest {
     private EnvironmentAlertRepository environmentAlertRepository;
 
     @Mock
-    private EnvironmentAlertNotifier environmentAlertNotifier;
+    private EnvironmentAlertNotificationRepository alertNotificationRepository;
 
     @Mock
     private SensorReadingCacheService sensorReadingCacheService;
 
     @InjectMocks
     private TelemetryIngestionService telemetryIngestionService;
+
+    /**
+     * Stubs the alert repository to assign an id on save (mirrors DB identity generation),
+     * which the service needs to create the notification outbox row.
+     */
+    private void stubAlertSaveAssignsId() {
+        when(environmentAlertRepository.save(any(EnvironmentAlert.class))).thenAnswer(invocation -> {
+            final EnvironmentAlert alert = invocation.getArgument(0);
+            if (alert.getId() == null) {
+                alert.setId(123L);
+            }
+            return alert;
+        });
+    }
 
     /**
      * Verifies a WARNING status opens a new active alert when none exists for the sensor.
@@ -59,6 +74,7 @@ class TelemetryIngestionServiceTest {
         when(environmentAlertRepository
                 .findFirstBySensorDeviceIdAndResolvedAtIsNullAndAcknowledgedFalseOrderByCreatedAtDesc(5L))
                 .thenReturn(Optional.empty());
+        stubAlertSaveAssignsId();
 
         telemetryIngestionService.ingest(payload("WARNING", "2026-04-05T00:00:00Z"));
 
@@ -68,7 +84,14 @@ class TelemetryIngestionServiceTest {
         assertThat(captor.getValue().getSeverity()).isEqualTo(AlertSeverity.WARNING);
         assertThat(captor.getValue().isAcknowledged()).isFalse();
         assertThat(captor.getValue().getResolvedAt()).isNull();
-        verify(environmentAlertNotifier).notifyAlertOpened(any(), any());
+        final ArgumentCaptor<EnvironmentAlertNotification> outboxCaptor =
+                ArgumentCaptor.forClass(EnvironmentAlertNotification.class);
+        verify(alertNotificationRepository).save(outboxCaptor.capture());
+        assertThat(outboxCaptor.getValue().getTriggerType())
+                .isEqualTo(EnvironmentAlertNotification.TriggerType.OPENED);
+        assertThat(outboxCaptor.getValue().getStatus())
+                .isEqualTo(EnvironmentAlertNotification.Status.PENDING);
+        assertThat(outboxCaptor.getValue().getSeverity()).isEqualTo(AlertSeverity.WARNING);
     }
 
     /**
@@ -82,13 +105,37 @@ class TelemetryIngestionServiceTest {
         when(environmentAlertRepository
                 .findFirstBySensorDeviceIdAndResolvedAtIsNullAndAcknowledgedFalseOrderByCreatedAtDesc(5L))
                 .thenReturn(Optional.of(active));
+        stubAlertSaveAssignsId();
 
         telemetryIngestionService.ingest(payload("CRITICAL", "2026-04-05T00:00:00Z"));
 
         final ArgumentCaptor<EnvironmentAlert> captor = ArgumentCaptor.forClass(EnvironmentAlert.class);
         verify(environmentAlertRepository).save(captor.capture());
         assertThat(captor.getValue().getSeverity()).isEqualTo(AlertSeverity.CRITICAL);
-        verify(environmentAlertNotifier).notifyAlertOpened(any(), any());
+        final ArgumentCaptor<EnvironmentAlertNotification> outboxCaptor =
+                ArgumentCaptor.forClass(EnvironmentAlertNotification.class);
+        verify(alertNotificationRepository).save(outboxCaptor.capture());
+        assertThat(outboxCaptor.getValue().getTriggerType())
+                .isEqualTo(EnvironmentAlertNotification.TriggerType.ESCALATED);
+        assertThat(outboxCaptor.getValue().getSeverity()).isEqualTo(AlertSeverity.CRITICAL);
+    }
+
+    /**
+     * Verifies a CRITICAL→WARNING de-escalation updates the alert but does not re-notify.
+     */
+    @Test
+    void ingestDeEscalationDoesNotQueueNotification() {
+        final SensorDevice device = sensorDevice(5L, "Temp-1", "C");
+        final EnvironmentAlert active = activeAlert(5L, AlertSeverity.CRITICAL);
+        when(sensorDeviceRepository.findByMqttTopic(TOPIC)).thenReturn(Optional.of(device));
+        when(environmentAlertRepository
+                .findFirstBySensorDeviceIdAndResolvedAtIsNullAndAcknowledgedFalseOrderByCreatedAtDesc(5L))
+                .thenReturn(Optional.of(active));
+
+        telemetryIngestionService.ingest(payload("WARNING", "2026-04-05T00:00:00Z"));
+
+        verify(environmentAlertRepository).save(any());
+        verify(alertNotificationRepository, never()).save(any());
     }
 
     /**
@@ -124,7 +171,7 @@ class TelemetryIngestionServiceTest {
         final ArgumentCaptor<EnvironmentAlert> captor = ArgumentCaptor.forClass(EnvironmentAlert.class);
         verify(environmentAlertRepository).save(captor.capture());
         assertThat(captor.getValue().getResolvedAt()).isNotNull();
-        verify(environmentAlertNotifier, never()).notifyAlertOpened(any(), any());
+        verify(alertNotificationRepository, never()).save(any());
     }
 
     /**
@@ -141,6 +188,73 @@ class TelemetryIngestionServiceTest {
         telemetryIngestionService.ingest(payload("ok", "2026-04-05T00:00:00Z"));
 
         verify(environmentAlertRepository, never()).save(any());
+    }
+
+    /**
+     * Verifies a configured critical threshold overrides the payload status:
+     * an "ok" reading whose value exceeds critMax opens a CRITICAL alert.
+     */
+    @Test
+    void ingestUsesThresholdsOverPayloadStatusWhenConfigured() {
+        final SensorDevice device = sensorDevice(5L, "Temp-1", "C");
+        device.setWarnMin(0.0);
+        device.setWarnMax(8.0);
+        device.setCritMin(-5.0);
+        device.setCritMax(10.0);
+        when(sensorDeviceRepository.findByMqttTopic(TOPIC)).thenReturn(Optional.of(device));
+        when(environmentAlertRepository
+                .findFirstBySensorDeviceIdAndResolvedAtIsNullAndAcknowledgedFalseOrderByCreatedAtDesc(5L))
+                .thenReturn(Optional.empty());
+        stubAlertSaveAssignsId();
+
+        telemetryIngestionService.ingest(payload("ok", "2026-04-05T00:00:00Z")); // value 12.5 > critMax 10
+
+        final ArgumentCaptor<EnvironmentAlert> captor = ArgumentCaptor.forClass(EnvironmentAlert.class);
+        verify(environmentAlertRepository).save(captor.capture());
+        assertThat(captor.getValue().getSeverity()).isEqualTo(AlertSeverity.CRITICAL);
+    }
+
+    /**
+     * Verifies an in-bounds value resolves the active alert even when the payload claims WARNING.
+     */
+    @Test
+    void ingestThresholdsResolveAlertForInBoundsValueDespitePayloadStatus() {
+        final SensorDevice device = sensorDevice(5L, "Temp-1", "C");
+        device.setWarnMin(0.0);
+        device.setWarnMax(20.0);
+        final EnvironmentAlert active = activeAlert(5L, AlertSeverity.WARNING);
+        when(sensorDeviceRepository.findByMqttTopic(TOPIC)).thenReturn(Optional.of(device));
+        when(environmentAlertRepository
+                .findFirstBySensorDeviceIdAndResolvedAtIsNullAndAcknowledgedFalseOrderByCreatedAtDesc(5L))
+                .thenReturn(Optional.of(active));
+
+        telemetryIngestionService.ingest(payload("WARNING", "2026-04-05T00:00:00Z")); // value 12.5 in [0,20]
+
+        final ArgumentCaptor<EnvironmentAlert> captor = ArgumentCaptor.forClass(EnvironmentAlert.class);
+        verify(environmentAlertRepository).save(captor.capture());
+        assertThat(captor.getValue().getResolvedAt()).isNotNull();
+        verify(alertNotificationRepository, never()).save(any());
+    }
+
+    /**
+     * Verifies a value past the warning bound but inside the critical bound opens a WARNING alert.
+     */
+    @Test
+    void ingestThresholdsOpenWarningBetweenWarnAndCritBounds() {
+        final SensorDevice device = sensorDevice(5L, "Temp-1", "C");
+        device.setWarnMax(10.0);
+        device.setCritMax(20.0);
+        when(sensorDeviceRepository.findByMqttTopic(TOPIC)).thenReturn(Optional.of(device));
+        when(environmentAlertRepository
+                .findFirstBySensorDeviceIdAndResolvedAtIsNullAndAcknowledgedFalseOrderByCreatedAtDesc(5L))
+                .thenReturn(Optional.empty());
+        stubAlertSaveAssignsId();
+
+        telemetryIngestionService.ingest(payload("ok", "2026-04-05T00:00:00Z")); // value 12.5 in (10,20]
+
+        final ArgumentCaptor<EnvironmentAlert> captor = ArgumentCaptor.forClass(EnvironmentAlert.class);
+        verify(environmentAlertRepository).save(captor.capture());
+        assertThat(captor.getValue().getSeverity()).isEqualTo(AlertSeverity.WARNING);
     }
 
     /**

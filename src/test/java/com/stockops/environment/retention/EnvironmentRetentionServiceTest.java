@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.stockops.repository.EnvironmentAlertNotificationRepository;
 import com.stockops.repository.EnvironmentAlertRepository;
 import java.time.Duration;
 import java.time.Instant;
@@ -27,6 +28,9 @@ class EnvironmentRetentionServiceTest {
     @Mock
     private EnvironmentAlertRepository environmentAlertRepository;
 
+    @Mock
+    private EnvironmentAlertNotificationRepository alertNotificationRepository;
+
     private EnvironmentRetentionService environmentRetentionService;
 
     /**
@@ -40,6 +44,7 @@ class EnvironmentRetentionServiceTest {
         retentionProperties.setEnabled(true);
         environmentRetentionService = new EnvironmentRetentionService(
                 environmentAlertRepository,
+                alertNotificationRepository,
                 retentionProperties);
     }
 
@@ -67,13 +72,15 @@ class EnvironmentRetentionServiceTest {
     @Test
     void purgeAllReturnsAlertCountsAndZeroReadings() {
         when(environmentAlertRepository.deleteByCreatedAtBefore(any(Instant.class))).thenReturn(2);
+        when(alertNotificationRepository.deleteTerminalBefore(any(Instant.class))).thenReturn(3);
 
         final PurgeResult result = environmentRetentionService.purgeAll();
 
         final ArgumentCaptor<Instant> alertCutoffCaptor = ArgumentCaptor.forClass(Instant.class);
         verify(environmentAlertRepository).deleteByCreatedAtBefore(alertCutoffCaptor.capture());
+        verify(alertNotificationRepository).deleteTerminalBefore(any(Instant.class));
         assertThat(result.readingsDeleted()).isZero();
-        assertThat(result.alertsDeleted()).isEqualTo(2);
+        assertThat(result.alertsDeleted()).isEqualTo(5);
         assertThat(result.cutoffDate()).isEqualTo(alertCutoffCaptor.getValue());
         assertThat(result.duration()).isGreaterThanOrEqualTo(Duration.ZERO);
     }

@@ -2,10 +2,11 @@ package com.stockops.environment.ingestion;
 
 import com.stockops.entity.AlertSeverity;
 import com.stockops.entity.EnvironmentAlert;
+import com.stockops.entity.EnvironmentAlertNotification;
 import com.stockops.entity.SensorDevice;
-import com.stockops.environment.EnvironmentAlertNotifier;
 import com.stockops.environment.cache.SensorReadingCacheService;
 import com.stockops.environment.cache.SensorReadingSnapshot;
+import com.stockops.repository.EnvironmentAlertNotificationRepository;
 import com.stockops.repository.EnvironmentAlertRepository;
 import com.stockops.repository.SensorDeviceRepository;
 import java.time.Instant;
@@ -28,6 +29,11 @@ import org.springframework.util.StringUtils;
  * An alert stays active until the sensor normalizes or an administrator acknowledges it, which is
  * what drives the dashboard normal/warning/danger view.
  *
+ * <p>Notifications are not sent inline: alert opens (and WARNING→CRITICAL escalations) insert a
+ * PENDING outbox row in the same transaction, and the scheduled outbox sender delivers it. A
+ * PostgreSQL partial unique index allows at most one active alert per sensor, so a concurrent
+ * duplicate open from another instance fails the transaction and is dropped by the subscriber.
+ *
  * @author StockOps Team
  * @since 1.0
  * @see EnvironmentAlertRepository
@@ -39,7 +45,7 @@ public class TelemetryIngestionService {
 
     private final SensorDeviceRepository sensorDeviceRepository;
     private final EnvironmentAlertRepository environmentAlertRepository;
-    private final EnvironmentAlertNotifier environmentAlertNotifier;
+    private final EnvironmentAlertNotificationRepository alertNotificationRepository;
     private final SensorReadingCacheService sensorReadingCacheService;
 
     /**
@@ -47,17 +53,17 @@ public class TelemetryIngestionService {
      *
      * @param sensorDeviceRepository sensor device repository
      * @param environmentAlertRepository environment alert (event) repository
-     * @param environmentAlertNotifier best-effort alert notifier (webhook/email)
+     * @param alertNotificationRepository alert notification outbox repository
      * @param sensorReadingCacheService shared recent reading cache
      */
     public TelemetryIngestionService(
             final SensorDeviceRepository sensorDeviceRepository,
             final EnvironmentAlertRepository environmentAlertRepository,
-            final EnvironmentAlertNotifier environmentAlertNotifier,
+            final EnvironmentAlertNotificationRepository alertNotificationRepository,
             final SensorReadingCacheService sensorReadingCacheService) {
         this.sensorDeviceRepository = sensorDeviceRepository;
         this.environmentAlertRepository = environmentAlertRepository;
-        this.environmentAlertNotifier = environmentAlertNotifier;
+        this.alertNotificationRepository = alertNotificationRepository;
         this.sensorReadingCacheService = sensorReadingCacheService;
     }
 
@@ -90,7 +96,7 @@ public class TelemetryIngestionService {
         final SensorDevice device = sensorDevice.get();
         sensorReadingCacheService.append(toSnapshot(device, payload, recordedAt));
 
-        final AlertSeverity severity = severityFor(payload.status());
+        final AlertSeverity severity = resolveSeverity(device, payload);
         if (severity == null) {
             resolveActiveAlert(device, recordedAt);
         } else {
@@ -113,12 +119,16 @@ public class TelemetryIngestionService {
 
         if (active.isPresent()) {
             final EnvironmentAlert alert = active.get();
-            if (alert.getSeverity() != severity) {
+            final AlertSeverity previousSeverity = alert.getSeverity();
+            if (previousSeverity != severity) {
                 alert.setSeverity(severity);
                 alert.setMessage(message);
                 final EnvironmentAlert escalated = environmentAlertRepository.save(alert);
                 LOGGER.debug("Updated active alert severity for sensorDeviceId={} to {}", device.getId(), severity);
-                environmentAlertNotifier.notifyAlertOpened(escalated, device);
+                if (previousSeverity == AlertSeverity.WARNING && severity == AlertSeverity.CRITICAL) {
+                    alertNotificationRepository.save(EnvironmentAlertNotification.pending(
+                            escalated.getId(), EnvironmentAlertNotification.TriggerType.ESCALATED, severity));
+                }
             }
             return;
         }
@@ -131,7 +141,8 @@ public class TelemetryIngestionService {
         alert.setAcknowledged(false);
         final EnvironmentAlert opened = environmentAlertRepository.save(alert);
         LOGGER.debug("Opened {} alert for sensorDeviceId={}", severity, device.getId());
-        environmentAlertNotifier.notifyAlertOpened(opened, device);
+        alertNotificationRepository.save(EnvironmentAlertNotification.pending(
+                opened.getId(), EnvironmentAlertNotification.TriggerType.OPENED, severity));
     }
 
     /**
@@ -148,6 +159,39 @@ public class TelemetryIngestionService {
                     environmentAlertRepository.save(alert);
                     LOGGER.debug("Auto-resolved active alert for sensorDeviceId={}", device.getId());
                 });
+    }
+
+    /**
+     * Resolves the alert severity for a reading. Sensors with configured threshold bounds are
+     * judged server-side by value (outside critical bounds → CRITICAL, outside warning bounds →
+     * WARNING, inside → normal); sensors without bounds fall back to trusting the payload status.
+     *
+     * @param device sensor device (carries optional threshold bounds)
+     * @param payload live payload
+     * @return resolved severity, or {@code null} for normal states
+     */
+    private AlertSeverity resolveSeverity(final SensorDevice device, final SensimulPayload payload) {
+        if (device.hasThresholds()) {
+            return severityFromThresholds(device, payload.value());
+        }
+        return severityFor(payload.status());
+    }
+
+    private AlertSeverity severityFromThresholds(final SensorDevice device, final double value) {
+        if (outOfBounds(value, device.getCritMin(), device.getCritMax())) {
+            return AlertSeverity.CRITICAL;
+        }
+        if (outOfBounds(value, device.getWarnMin(), device.getWarnMax())) {
+            return AlertSeverity.WARNING;
+        }
+        return null;
+    }
+
+    private boolean outOfBounds(final double value, final Double min, final Double max) {
+        if (min != null && value < min) {
+            return true;
+        }
+        return max != null && value > max;
     }
 
     /**

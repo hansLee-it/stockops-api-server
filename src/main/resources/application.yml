@@ -7,6 +7,11 @@ spring:
       ddl-auto: none
   flyway:
     enabled: true
+    # {vendor} resolves to the active database (postgresql in deployments, h2 in tests).
+    # PostgreSQL-only DDL (e.g. partial indexes) lives under db/vendor/postgresql so the
+    # H2 test database skips it without breaking the shared migration history.
+    locations: classpath:db/migration,classpath:db/vendor/{vendor}
+    fail-on-missing-locations: false
   data:
     redis:
       repositories:
@@ -119,6 +124,12 @@ stockops:
     recent-window: ${STOCKOPS_SENSOR_CACHE_RECENT_WINDOW:10m}
     key-ttl: ${STOCKOPS_SENSOR_CACHE_KEY_TTL:15m}
     key-prefix: ${STOCKOPS_SENSOR_CACHE_KEY_PREFIX:stockops:sensor:readings}
+  environment:
+    alert-outbox:
+      enabled: ${STOCKOPS_ALERT_OUTBOX_ENABLED:true}
+      poll-interval: ${STOCKOPS_ALERT_OUTBOX_POLL_INTERVAL:PT15S}
+      batch-size: ${STOCKOPS_ALERT_OUTBOX_BATCH_SIZE:20}
+      max-attempts: ${STOCKOPS_ALERT_OUTBOX_MAX_ATTEMPTS:5}
   analytics:
     enabled: true
     business-zone: Asia/Seoul
@@ -148,8 +159,9 @@ stockops:
       knowledge-base-id: ${STOCKOPS_BEDROCK_KNOWLEDGE_BASE_ID:}
       agent-id: ${STOCKOPS_BEDROCK_AGENT_ID:}
       agent-alias-id: ${STOCKOPS_BEDROCK_AGENT_ALIAS_ID:}
-      connect-timeout: 5s
-      read-timeout: 20s
+      # read-timeout bounds each streamed agent turn; raise it for long multi-tool agent runs.
+      connect-timeout: ${STOCKOPS_BEDROCK_CONNECT_TIMEOUT:5s}
+      read-timeout: ${STOCKOPS_BEDROCK_READ_TIMEOUT:20s}
       max-output-tokens: 1200
       temperature: 0.2
       ops-summary-schedule:

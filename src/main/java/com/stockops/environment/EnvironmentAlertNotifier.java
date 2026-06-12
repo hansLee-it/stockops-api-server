@@ -19,11 +19,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 /**
- * Sends best-effort notifications (webhook + email) when an environment alert is opened or escalated.
+ * Delivers environment alert notifications (webhook + email).
  *
- * <p>Notification is fired on the state-change event (when a sensor enters or worsens a
- * warning/critical state), not on every reading, and never on auto-resolution. All dispatch is
- * wrapped so a notification failure can never break telemetry ingestion or roll back the alert.
+ * <p>Called by the outbox sender, not by telemetry ingestion: ingestion only records
+ * notification rows, and the scheduled {@code EnvironmentAlertNotificationSender} claims and
+ * delivers them. Failures propagate to the sender so the outbox can retry.
  *
  * @author StockOps Team
  * @since 2.2
@@ -59,20 +59,17 @@ public class EnvironmentAlertNotifier {
     }
 
     /**
-     * Notifies configured channels that an environment alert opened or escalated.
-     * Best-effort: any failure is logged and swallowed.
+     * Delivers the alert to all configured channels. Failures propagate so the outbox
+     * sender can record the attempt and retry later (delivery is at-least-once: a partial
+     * failure re-sends the whole notification on the next attempt).
      *
      * @param alert the opened/escalated alert
      * @param device the related sensor device (may be null)
      */
-    public void notifyAlertOpened(final EnvironmentAlert alert, final SensorDevice device) {
-        try {
-            dispatchWebhooks(alert, device);
-            dispatchEmails(alert, device);
-        } catch (final RuntimeException exception) {
-            LOGGER.warn("Environment alert notification failed (non-fatal) for alertId={}: {}",
-                    alert.getId(), exception.getMessage());
-        }
+    public void dispatch(final EnvironmentAlert alert, final SensorDevice device) {
+        LOGGER.debug("Dispatching environment alert notification for alertId={}", alert.getId());
+        dispatchWebhooks(alert, device);
+        dispatchEmails(alert, device);
     }
 
     private void dispatchWebhooks(final EnvironmentAlert alert, final SensorDevice device) {
