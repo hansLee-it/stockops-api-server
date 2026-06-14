@@ -162,6 +162,11 @@ stockops:
       # read-timeout bounds each streamed agent turn; raise it for long multi-tool agent runs.
       connect-timeout: ${STOCKOPS_BEDROCK_CONNECT_TIMEOUT:5s}
       read-timeout: ${STOCKOPS_BEDROCK_READ_TIMEOUT:20s}
+      # Guardrail attached to Converse requests; applied only when both id and version are set.
+      guardrail-id: ${STOCKOPS_BEDROCK_GUARDRAIL_ID:}
+      guardrail-version: ${STOCKOPS_BEDROCK_GUARDRAIL_VERSION:}
+      # Max tool-use round trips per assistant turn (direct Converse tool-use loop).
+      max-tool-turns: ${STOCKOPS_BEDROCK_MAX_TOOL_TURNS:5}
       max-output-tokens: 1200
       temperature: 0.2
       ops-summary-schedule:

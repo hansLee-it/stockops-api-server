@@ -3,6 +3,8 @@ package com.stockops.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.stockops.ai.bedrock.AiRagRateLimiter;
 import com.stockops.ai.bedrock.BedrockAiFacade;
+import com.stockops.ai.bedrock.BedrockConverseOrchestrator;
+import com.stockops.ai.bedrock.KnowledgeBaseContextProvider;
 import com.stockops.ai.bedrock.dto.BedrockAgentInvokeRequest;
 import com.stockops.ai.bedrock.dto.BedrockAgentInvokeResponse;
 import com.stockops.ai.bedrock.dto.BedrockOpsSummaryResponse;
@@ -41,13 +43,16 @@ class BedrockAiControllerTest {
     @Mock AIRecommendationService recommendationService;
     @Mock BedrockAiFacade bedrockAiFacade;
     @Mock AiRagRateLimiter ragRateLimiter;
+    @Mock BedrockConverseOrchestrator converseOrchestrator;
+    @Mock KnowledgeBaseContextProvider knowledgeBaseContextProvider;
     MockMvc mockMvc;
     final ObjectMapper objectMapper = new ObjectMapper();
 
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders.standaloneSetup(
-                new BedrockAiController(recommendationService, bedrockAiFacade, ragRateLimiter)).build();
+                new BedrockAiController(recommendationService, bedrockAiFacade, ragRateLimiter,
+                        converseOrchestrator, knowledgeBaseContextProvider)).build();
     }
 
     @Test
@@ -76,6 +81,23 @@ class BedrockAiControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.answer").value("재고 보충을 권장합니다."))
                 .andExpect(jsonPath("$.actionSuggested").value(true));
+    }
+
+    @Test
+    void assistant_returns200AndInjectsKnowledgeBaseContext() throws Exception {
+        when(knowledgeBaseContextProvider.retrieveContext(any())).thenReturn("운영 매뉴얼 발췌");
+        when(converseOrchestrator.converse(any(), any())).thenReturn(
+                new BedrockAgentInvokeResponse("창고 2 재고는 충분합니다.", "sess-9", false));
+
+        mockMvc.perform(post("/api/v1/ai/bedrock/assistant")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new BedrockAgentInvokeRequest("창고 2 재고 알려줘", "sess-9", null, null))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.answer").value("창고 2 재고는 충분합니다."));
+
+        verify(knowledgeBaseContextProvider).retrieveContext("창고 2 재고 알려줘");
+        verify(converseOrchestrator).converse(any(), any());
     }
 
     @Test

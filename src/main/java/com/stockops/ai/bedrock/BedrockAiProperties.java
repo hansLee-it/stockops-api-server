@@ -19,6 +19,9 @@ public class BedrockAiProperties {
     private Duration readTimeout = Duration.ofSeconds(20);
     private int maxOutputTokens = 1200;
     private double temperature = 0.2;
+    private String guardrailId = "";
+    private String guardrailVersion = "";
+    private int maxToolTurns = 5;
 
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
@@ -42,8 +45,24 @@ public class BedrockAiProperties {
     public void setMaxOutputTokens(int maxOutputTokens) { this.maxOutputTokens = maxOutputTokens; }
     public double getTemperature() { return temperature; }
     public void setTemperature(double temperature) { this.temperature = temperature; }
+    public String getGuardrailId() { return guardrailId; }
+    public void setGuardrailId(String guardrailId) { this.guardrailId = guardrailId; }
+    public String getGuardrailVersion() { return guardrailVersion; }
+    public void setGuardrailVersion(String guardrailVersion) { this.guardrailVersion = guardrailVersion; }
+    public int getMaxToolTurns() { return maxToolTurns; }
+    public void setMaxToolTurns(int maxToolTurns) { this.maxToolTurns = maxToolTurns; }
 
     public String generationModelReference() {
         return inferenceProfileArn == null || inferenceProfileArn.isBlank() ? modelId : inferenceProfileArn;
+    }
+
+    /**
+     * Returns whether a Bedrock Guardrail is configured (both id and version present).
+     *
+     * @return true when guardrailConfig should be attached to Converse requests
+     */
+    public boolean hasGuardrail() {
+        return guardrailId != null && !guardrailId.isBlank()
+                && guardrailVersion != null && !guardrailVersion.isBlank();
     }
 }

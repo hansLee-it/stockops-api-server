@@ -9,14 +9,23 @@ import static org.mockito.Mockito.when;
 import com.stockops.ai.forecast.AiForecastClient;
 import com.stockops.dto.AIRecommendationDTO;
 import com.stockops.dto.InventoryDTO;
+import com.stockops.dto.RecentSensorReadingsResponse;
+import com.stockops.entity.ExpiryAlert;
 import com.stockops.entity.PurchaseOrderShipment;
+import com.stockops.repository.ExpiryAlertRepository;
 import com.stockops.repository.PurchaseOrderShipmentRepository;
+import com.stockops.report.InventoryTurnoverReportService;
+import com.stockops.service.AbcXyzReportService;
+import com.stockops.service.CenterInventoryAggregationService;
 import com.stockops.service.EnvironmentQueryService;
 import com.stockops.service.InventoryQueryService;
+import com.stockops.service.SensorReadingQueryService;
 import com.stockops.service.ai.AIRecommendationService;
 import com.stockops.service.ai.AISuggestionService;
+import com.stockops.service.analytics.AnalyticsReportingService;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -38,6 +47,18 @@ class AgentToolDispatcherTest {
     private PurchaseOrderShipmentRepository shipmentRepository;
     @Mock
     private AiForecastClient aiForecastClient;
+    @Mock
+    private SensorReadingQueryService sensorReadingQueryService;
+    @Mock
+    private ExpiryAlertRepository expiryAlertRepository;
+    @Mock
+    private CenterInventoryAggregationService centerInventoryAggregationService;
+    @Mock
+    private AbcXyzReportService abcXyzReportService;
+    @Mock
+    private InventoryTurnoverReportService inventoryTurnoverReportService;
+    @Mock
+    private AnalyticsReportingService analyticsReportingService;
 
     private AgentToolDispatcher dispatcher;
 
@@ -49,7 +70,13 @@ class AgentToolDispatcherTest {
                 environmentQueryService,
                 aiSuggestionService,
                 shipmentRepository,
-                aiForecastClient);
+                aiForecastClient,
+                sensorReadingQueryService,
+                expiryAlertRepository,
+                centerInventoryAggregationService,
+                abcXyzReportService,
+                inventoryTurnoverReportService,
+                analyticsReportingService);
     }
 
     @Test
@@ -172,6 +199,82 @@ class AgentToolDispatcherTest {
     }
 
     @Test
+    void dispatch_getRecentSensorReadings_requiresSensorId() {
+        final AgentToolResult result = dispatcher.dispatch("getRecentSensorReadings", "{}");
+
+        assertThat(result.success()).isFalse();
+        assertThat(result.errorMessage()).contains("sensorId");
+    }
+
+    @Test
+    void dispatch_getRecentSensorReadings_callsQueryService() {
+        when(sensorReadingQueryService.getRecentReadings(12L, 10))
+                .thenReturn(new RecentSensorReadingsResponse(12L, 10, List.of()));
+
+        final AgentToolResult result =
+                dispatcher.dispatch("getRecentSensorReadings", "{\"sensorId\": 12, \"minutes\": 10}");
+
+        assertThat(result.success()).isTrue();
+        verify(sensorReadingQueryService).getRecentReadings(12L, 10);
+    }
+
+    @Test
+    void dispatch_getExpiringLots_filtersByDaysAndMaps() {
+        when(expiryAlertRepository.findByAcknowledgedFalse()).thenReturn(List.of(
+                expiryAlert(100L, 7, "WARNING"),
+                expiryAlert(200L, 60, "INFO")));
+
+        final AgentToolResult result = dispatcher.dispatch("getExpiringLots", "{\"days\": 30}");
+
+        assertThat(result.success()).isTrue();
+        assertThat(result.resultJson()).contains("\"lotId\":100").contains("\"daysUntilExpiry\":7");
+        assertThat(result.resultJson()).doesNotContain("\"lotId\":200");
+    }
+
+    @Test
+    void dispatch_getInventoryByLocation_requiresLocationId() {
+        final AgentToolResult result = dispatcher.dispatch("getInventoryByLocation", "{}");
+
+        assertThat(result.success()).isFalse();
+        assertThat(result.errorMessage()).contains("locationId");
+    }
+
+    @Test
+    void dispatch_getCenterInventorySummary_callsService() {
+        when(centerInventoryAggregationService.getCenterInventorySummary(3L))
+                .thenReturn(Map.of("centerId", 3L, "totalQuantity", 500));
+
+        final AgentToolResult result = dispatcher.dispatch("getCenterInventorySummary", "{\"centerId\": 3}");
+
+        assertThat(result.success()).isTrue();
+        verify(centerInventoryAggregationService).getCenterInventorySummary(3L);
+    }
+
+    @Test
+    void dispatch_getInventoryTurnover_defaultsDateWindow() {
+        when(inventoryTurnoverReportService.generateReport(any(), any(), isNull())).thenReturn(List.of());
+
+        final AgentToolResult result = dispatcher.dispatch("getInventoryTurnover", "{}");
+
+        assertThat(result.success()).isTrue();
+        verify(inventoryTurnoverReportService).generateReport(any(), any(), isNull());
+    }
+
+    @Test
+    void dispatch_generateRecommendationSnapshot_generatesAndSummarizes() {
+        when(recommendationService.listRecommendations(any(), isNull(), isNull(), isNull()))
+                .thenReturn(List.of());
+
+        final AgentToolResult result = dispatcher.dispatch(
+                "generateRecommendationSnapshot", "{\"businessDate\": \"2026-06-12\"}");
+
+        assertThat(result.success()).isTrue();
+        assertThat(result.resultJson()).contains("\"generated\":true");
+        assertThat(result.resultJson()).contains("\"recommendationCount\":0");
+        verify(recommendationService).generateRecommendationsForBusinessDate(LocalDate.parse("2026-06-12"));
+    }
+
+    @Test
     void dispatch_unknownTool_returnsFailure() {
         final AgentToolResult result = dispatcher.dispatch("nonExistentTool", "{}");
 
@@ -194,5 +297,16 @@ class AgentToolDispatcherTest {
 
         assertThat(result.success()).isFalse();
         assertThat(result.errorMessage()).isNotNull();
+    }
+
+    private ExpiryAlert expiryAlert(final Long lotId, final int daysUntilExpiry, final String level) {
+        final ExpiryAlert alert = new ExpiryAlert();
+        alert.setLotId(lotId);
+        alert.setProductId(lotId);
+        alert.setDaysUntilExpiry(daysUntilExpiry);
+        alert.setAlertLevel(level);
+        alert.setExpiryDate(LocalDate.parse("2026-06-30"));
+        alert.setQuantity(10);
+        return alert;
     }
 }

@@ -2,6 +2,8 @@ package com.stockops.controller;
 
 import com.stockops.ai.bedrock.AiRagRateLimiter;
 import com.stockops.ai.bedrock.BedrockAiFacade;
+import com.stockops.ai.bedrock.BedrockConverseOrchestrator;
+import com.stockops.ai.bedrock.KnowledgeBaseContextProvider;
 import com.stockops.ai.bedrock.dto.BedrockAgentInvokeRequest;
 import com.stockops.ai.bedrock.dto.BedrockAgentInvokeResponse;
 import com.stockops.ai.bedrock.dto.BedrockOpsSummaryResponse;
@@ -30,13 +32,19 @@ public class BedrockAiController {
     private final AIRecommendationService recommendationService;
     private final BedrockAiFacade bedrockAiFacade;
     private final AiRagRateLimiter ragRateLimiter;
+    private final BedrockConverseOrchestrator converseOrchestrator;
+    private final KnowledgeBaseContextProvider knowledgeBaseContextProvider;
 
     public BedrockAiController(final AIRecommendationService recommendationService,
                                final BedrockAiFacade bedrockAiFacade,
-                               final AiRagRateLimiter ragRateLimiter) {
+                               final AiRagRateLimiter ragRateLimiter,
+                               final BedrockConverseOrchestrator converseOrchestrator,
+                               final KnowledgeBaseContextProvider knowledgeBaseContextProvider) {
         this.recommendationService = recommendationService;
         this.bedrockAiFacade = bedrockAiFacade;
         this.ragRateLimiter = ragRateLimiter;
+        this.converseOrchestrator = converseOrchestrator;
+        this.knowledgeBaseContextProvider = knowledgeBaseContextProvider;
     }
 
     @PostMapping("/recommendations/{recommendationId}/explain")
@@ -74,5 +82,25 @@ public class BedrockAiController {
     public ResponseEntity<BedrockAgentInvokeResponse> invokeAgent(
             @Valid @RequestBody final BedrockAgentInvokeRequest request) {
         return ResponseEntity.ok(bedrockAiFacade.invokeAgent(request));
+    }
+
+    /**
+     * StockOps AI assistant — direct Converse tool-use loop with KB grounding and guardrails.
+     * This is the chosen orchestration path (not the managed Agent at {@code /agent/invoke}).
+     *
+     * @param request user message + optional scope/session
+     * @param authentication current user (for rate limiting)
+     * @return final assistant answer
+     */
+    @PostMapping("/assistant")
+    @PreAuthorize("@permissionChecker.hasPermission('AI_RECOMMENDATION_READ')")
+    public ResponseEntity<BedrockAgentInvokeResponse> assistant(
+            @Valid @RequestBody final BedrockAgentInvokeRequest request,
+            final Authentication authentication) {
+        if (authentication != null) {
+            ragRateLimiter.checkRagLimit(authentication.getName());
+        }
+        final String documentContext = knowledgeBaseContextProvider.retrieveContext(request.message());
+        return ResponseEntity.ok(converseOrchestrator.converse(request, documentContext));
     }
 }
