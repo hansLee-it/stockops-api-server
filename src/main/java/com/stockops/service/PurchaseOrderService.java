@@ -5,6 +5,7 @@ import com.stockops.entity.*;
 import com.stockops.exception.InvalidOperationException;
 import com.stockops.exception.ResourceNotFoundException;
 import com.stockops.repository.*;
+import com.stockops.security.CurrentUserProvider;
 import com.stockops.security.ScopeGuard;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,6 +44,8 @@ public class PurchaseOrderService {
     private final InventoryService inventoryService;
     private final LocationRepository locationRepository;
     private final LotRepository lotRepository;
+    private final StoreRepository storeRepository;
+    private final CurrentUserProvider currentUserProvider;
 
     @Transactional(readOnly = true)
     public List<PurchaseOrder> findAll() {
@@ -71,6 +74,69 @@ public class PurchaseOrderService {
                 .orElseThrow(() -> new ResourceNotFoundException("Purchase Order not found: " + poNumber));
         assertPurchaseOrderAccess(purchaseOrder);
         return purchaseOrder;
+    }
+
+    /**
+     * Creates a store-originated purchase request. The center/warehouse are left unset and are
+     * designated later by an administrator via {@link #approveStoreRequest}. The store is taken
+     * from the requesting user's membership.
+     *
+     * @param currentUser the store user creating the request (must belong to a store)
+     * @return the created DRAFT purchase order
+     */
+    public PurchaseOrder createStoreRequest(final User currentUser) {
+        if (currentUser == null || currentUser.getStoreId() == null) {
+            throw new InvalidOperationException("발주 신청은 지점 소속 사용자만 생성할 수 있습니다");
+        }
+        final Store store = storeRepository.findByIdAndDeletedFalse(currentUser.getStoreId())
+                .orElseThrow(() -> new ResourceNotFoundException("Store not found: " + currentUser.getStoreId()));
+
+        final PurchaseOrder po = new PurchaseOrder();
+        po.setPoNumber(generatePoNumber());
+        po.setRequestingStore(store);
+        po.setRequestedBy(currentUser);
+        po.setStatus(PurchaseOrderStatus.DRAFT);
+        return purchaseOrderRepository.save(po);
+    }
+
+    /**
+     * Approves a store-originated request, designating the requesting center and target warehouse.
+     * Designation is role-constrained automatically: {@link ScopeGuard#assertCenterWarehouseAccess}
+     * allows global admins any center/warehouse, a center manager only their own center, and a
+     * warehouse manager only their own warehouse — so no role branching is needed here.
+     *
+     * @param poId purchase order id
+     * @param centerId designated requesting center
+     * @param warehouseId designated target warehouse (must belong to the center)
+     * @return the approved (ACCEPTED) purchase order
+     */
+    public PurchaseOrder approveStoreRequest(final Long poId, final Long centerId, final Long warehouseId) {
+        final PurchaseOrder po = findById(poId);
+        if (po.getRequestingStore() == null) {
+            throw new InvalidOperationException("지점 발주 신청이 아닙니다");
+        }
+        if (po.getStatus() != PurchaseOrderStatus.REQUESTED) {
+            throw new InvalidOperationException("승인은 REQUESTED 상태에서만 가능합니다");
+        }
+        if (centerId == null || warehouseId == null) {
+            throw new InvalidOperationException("승인 시 출고할 센터와 창고를 지정해야 합니다");
+        }
+        scopeGuard.assertCenterWarehouseAccess(centerId, warehouseId);
+
+        final Center center = centerService.findById(centerId);
+        final Warehouse warehouse = warehouseService.findById(warehouseId);
+        if (warehouse.getCenter() == null || !centerId.equals(warehouse.getCenter().getId())) {
+            throw new InvalidOperationException("지정한 창고는 지정한 센터에 속해야 합니다");
+        }
+
+        po.setRequestingCenter(center);
+        po.setTargetWarehouse(warehouse);
+        po.setStatus(PurchaseOrderStatus.ACCEPTED);
+        po.setErpRespondedAt(LocalDateTime.now());
+
+        final PurchaseOrder saved = purchaseOrderRepository.save(po);
+        notificationService.createPurchaseOrderStatusNotification(saved, saved.getStatus());
+        return saved;
     }
 
     public PurchaseOrder create(Long centerId, Long warehouseId, User currentUser) {
@@ -163,11 +229,24 @@ public class PurchaseOrderService {
 
     public PurchaseOrder cancel(Long poId, String reason) {
         PurchaseOrder po = findById(poId);
-        
+
         if (po.getStatus() == PurchaseOrderStatus.COMPLETED) {
             throw new InvalidOperationException("Cannot cancel a COMPLETED order");
         }
-        
+
+        // Store-originated requests can only be cancelled before approval (ACCEPTED), and only by
+        // a member of the originating store (the order's owner store).
+        if (po.getRequestingStore() != null) {
+            if (po.getStatus() != PurchaseOrderStatus.DRAFT && po.getStatus() != PurchaseOrderStatus.REQUESTED) {
+                throw new InvalidOperationException("승인 완료된 발주는 취소할 수 없습니다");
+            }
+            final User currentUser = currentUserProvider.getCurrentUser();
+            if (currentUser.getStoreId() != null
+                    && !po.getRequestingStore().getId().equals(currentUser.getStoreId())) {
+                throw new InvalidOperationException("다른 지점의 발주 신청은 취소할 수 없습니다");
+            }
+        }
+
         po.setStatus(PurchaseOrderStatus.CANCELLED);
         po.setCancelReason(reason);
 
@@ -477,7 +556,7 @@ public class PurchaseOrderService {
         return quantity == null ? 0 : quantity;
     }
 
-    public PurchaseOrderService(final PurchaseOrderRepository purchaseOrderRepository, final PurchaseOrderItemRepository purchaseOrderItemRepository, final PurchaseOrderShipmentRepository shipmentRepository, final PurchaseOrderShipmentItemRepository shipmentItemRepository, final ProductRepository productRepository, final CenterService centerService, final WarehouseService warehouseService, final NotificationService notificationService, final ScopeGuard scopeGuard, final InboundRepository inboundRepository, final InboundItemRepository inboundItemRepository, final InventoryService inventoryService, final LocationRepository locationRepository, final LotRepository lotRepository) {
+    public PurchaseOrderService(final PurchaseOrderRepository purchaseOrderRepository, final PurchaseOrderItemRepository purchaseOrderItemRepository, final PurchaseOrderShipmentRepository shipmentRepository, final PurchaseOrderShipmentItemRepository shipmentItemRepository, final ProductRepository productRepository, final CenterService centerService, final WarehouseService warehouseService, final NotificationService notificationService, final ScopeGuard scopeGuard, final InboundRepository inboundRepository, final InboundItemRepository inboundItemRepository, final InventoryService inventoryService, final LocationRepository locationRepository, final LotRepository lotRepository, final StoreRepository storeRepository, final CurrentUserProvider currentUserProvider) {
         this.purchaseOrderRepository = purchaseOrderRepository;
         this.purchaseOrderItemRepository = purchaseOrderItemRepository;
         this.shipmentRepository = shipmentRepository;
@@ -492,5 +571,7 @@ public class PurchaseOrderService {
         this.inventoryService = inventoryService;
         this.locationRepository = locationRepository;
         this.lotRepository = lotRepository;
+        this.storeRepository = storeRepository;
+        this.currentUserProvider = currentUserProvider;
     }
 }

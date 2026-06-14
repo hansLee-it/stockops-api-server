@@ -25,13 +25,20 @@ public class PurchaseOrder extends BaseEntity {
     @Column(name = "po_number", nullable = false, unique = true)
     private String poNumber;
 
+    // Nullable: store-originated requests have no center until an administrator approves and
+    // designates one. Supplier-procurement orders set it at creation.
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "requesting_center_id", nullable = false)
+    @JoinColumn(name = "requesting_center_id")
     private Center requestingCenter;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "target_warehouse_id")
     private Warehouse targetWarehouse;
+
+    // Set when a retail store originates the request; null for supplier-procurement orders.
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "requesting_store_id")
+    private Store requestingStore;
 
     @Column(name = "supplier_name")
     private String supplierName;
@@ -83,6 +90,14 @@ public class PurchaseOrder extends BaseEntity {
 
     public void setId(final Long id) {
         this.id = id;
+    }
+
+    public Store getRequestingStore() {
+        return this.requestingStore;
+    }
+
+    public void setRequestingStore(final Store requestingStore) {
+        this.requestingStore = requestingStore;
     }
 
     public String getPoNumber() {

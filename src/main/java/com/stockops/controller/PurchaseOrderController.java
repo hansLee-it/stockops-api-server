@@ -59,6 +59,30 @@ public class PurchaseOrderController {
         return purchaseOrderService.create(centerId, warehouseId, currentUser);
     }
 
+    /**
+     * Creates a store-originated purchase request (client-web). The store comes from the caller's
+     * membership; the center/warehouse are designated later by an administrator at approval.
+     */
+    @PostMapping("/store-request")
+    @PreAuthorize("@permissionChecker.hasPermission('PURCHASE_ORDER_CREATE')")
+    public PurchaseOrder createStoreRequest(Principal principal) {
+        final User currentUser = userService.getUserByEmail(principal.getName());
+        return purchaseOrderService.createStoreRequest(currentUser);
+    }
+
+    /**
+     * Approves a store request, designating the requesting center and target warehouse.
+     * The pickable center/warehouse is constrained to the approver's scope by the service.
+     */
+    @PostMapping("/{id}/approve")
+    @PreAuthorize("@permissionChecker.hasPermission('PURCHASE_ORDER_MANAGE')")
+    public PurchaseOrder approveStoreRequest(
+            @PathVariable Long id,
+            @RequestParam Long centerId,
+            @RequestParam Long warehouseId) {
+        return purchaseOrderService.approveStoreRequest(id, centerId, warehouseId);
+    }
+
     @PostMapping("/{id}/items")
     @PreAuthorize("@permissionChecker.hasPermission('PURCHASE_ORDER_CREATE')")
     public PurchaseOrder addItem(
@@ -90,8 +114,11 @@ public class PurchaseOrderController {
         return purchaseOrderService.reject(id, reason);
     }
 
+    // MANAGE cancels any order (admins); CREATE lets a store cancel its own pre-approval request.
+    // The service enforces store ownership and the before-ACCEPTED rule for store requests.
     @PostMapping("/{id}/cancel")
-    @PreAuthorize("@permissionChecker.hasPermission('PURCHASE_ORDER_MANAGE')")
+    @PreAuthorize("@permissionChecker.hasPermission('PURCHASE_ORDER_MANAGE') "
+            + "or @permissionChecker.hasPermission('PURCHASE_ORDER_CREATE')")
     public PurchaseOrder cancelPurchaseOrder(
             @PathVariable Long id,
             @RequestParam String reason) {
