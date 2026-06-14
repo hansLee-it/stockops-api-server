@@ -124,6 +124,15 @@ stockops:
     recent-window: ${STOCKOPS_SENSOR_CACHE_RECENT_WINDOW:10m}
     key-ttl: ${STOCKOPS_SENSOR_CACHE_KEY_TTL:15m}
     key-prefix: ${STOCKOPS_SENSOR_CACHE_KEY_PREFIX:stockops:sensor:readings}
+  command-messaging:
+    # When false (default) controller commands use the legacy HTTP path to Sensimul.
+    # When true they publish to the broker (Mosquitto on-prem / AWS IoT Core endpoint) and are
+    # finalized by the ACK subscriber. Works on every load-balanced instance (ACK is idempotent).
+    enabled: ${STOCKOPS_COMMAND_MESSAGING_ENABLED:false}
+    broker-url: ${STOCKOPS_COMMAND_MESSAGING_BROKER_URL:tcp://localhost:1883}
+    qos: ${STOCKOPS_COMMAND_MESSAGING_QOS:1}
+    client-id: ${STOCKOPS_COMMAND_MESSAGING_CLIENT_ID:}
+    ack-timeout: ${STOCKOPS_COMMAND_MESSAGING_ACK_TIMEOUT:30s}
   environment:
     alert-outbox:
       enabled: ${STOCKOPS_ALERT_OUTBOX_ENABLED:true}

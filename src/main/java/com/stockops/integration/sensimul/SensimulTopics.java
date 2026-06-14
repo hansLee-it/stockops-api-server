@@ -47,6 +47,37 @@ public final class SensimulTopics {
     }
 
     /**
+     * Builds the controller command topic (api-server publishes here, Sensimul subscribes).
+     *
+     * @param siteId site identifier
+     * @param controllerId controller identifier
+     * @return controller command topic
+     */
+    public static String controllerCommand(final String siteId, final String controllerId) {
+        return liveController(siteId, controllerId) + "/commands";
+    }
+
+    /**
+     * Builds the controller command ACK topic (Sensimul publishes here, api-server subscribes).
+     *
+     * @param siteId site identifier
+     * @param controllerId controller identifier
+     * @return controller command ACK topic
+     */
+    public static String controllerAck(final String siteId, final String controllerId) {
+        return liveController(siteId, controllerId) + "/acks";
+    }
+
+    /**
+     * Returns the controller command ACK topic filter.
+     *
+     * @return ACK filter
+     */
+    public static String controllerAckFilter() {
+        return TOPIC_BASE + "/sites/+/controllers/+/acks";
+    }
+
+    /**
      * Builds the one-shot test request topic.
      *
      * @param siteId site identifier

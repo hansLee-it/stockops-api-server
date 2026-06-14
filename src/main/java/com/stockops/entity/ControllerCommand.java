@@ -43,7 +43,22 @@ public class ControllerCommand extends BaseEntity {
     @Column(name = "sensimul_response_code", length = 100)
     private String sensimulResponseCode;
 
+    /**
+     * Correlation id published with the command and echoed back in the ACK, used to match an
+     * incoming ACK to its command. Null for the legacy HTTP path.
+     */
+    @Column(name = "correlation_id", length = 64)
+    private String correlationId;
+
     public ControllerCommand() {
+    }
+
+    public String getCorrelationId() {
+        return this.correlationId;
+    }
+
+    public void setCorrelationId(final String correlationId) {
+        this.correlationId = correlationId;
     }
 
     public Long getId() {

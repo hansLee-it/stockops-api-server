@@ -18,6 +18,9 @@ import com.stockops.entity.EnvironmentAxis;
 import com.stockops.entity.EnvironmentController;
 import com.stockops.exception.InvalidOperationException;
 import com.stockops.exception.ResourceNotFoundException;
+import com.stockops.environment.command.CommandMessagingProperties;
+import com.stockops.environment.command.ControllerCommandMessage;
+import com.stockops.environment.command.ControllerCommandPublisher;
 import com.stockops.integration.sensimul.ControllerUpdateRequest;
 import com.stockops.integration.sensimul.SensimulControllerClient;
 import com.stockops.integration.sensimul.SensimulIntegrationException;
@@ -27,10 +30,10 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageRequest;
@@ -53,8 +56,24 @@ class ControllerCommandServiceTest {
     @Mock
     private SensimulControllerClient sensimulControllerClient;
 
-    @InjectMocks
+    @Mock
+    private ControllerCommandPublisher commandPublisher;
+
+    private final CommandMessagingProperties messagingProperties = new CommandMessagingProperties();
+
     private ControllerCommandService controllerCommandService;
+
+    @BeforeEach
+    void setUp() {
+        // Messaging disabled by default -> legacy HTTP path (existing tests). Individual messaging
+        // tests flip messagingProperties.setEnabled(true).
+        controllerCommandService = new ControllerCommandService(
+                environmentControllerRepository,
+                controllerCommandRepository,
+                sensimulControllerClient,
+                messagingProperties,
+                Optional.of(commandPublisher));
+    }
 
     /**
      * Verifies that successful forwarding persists both the accepted and applied command states.
@@ -249,6 +268,63 @@ class ControllerCommandServiceTest {
                 .updateController(any(), any(), any(ControllerUpdateRequest.class));
         assertThat(savedCommands).hasSize(2);
         assertThat(savedCommands.get(1).getResultStatus()).isEqualTo(ControllerCommandResultStatus.FAILED_RETRYABLE);
+    }
+
+    /**
+     * Verifies the messaging path publishes a command and persists PENDING -> SENT with a
+     * correlation id, without calling the HTTP client.
+     */
+    @Test
+    void sendCommandViaMessagingPublishesAndMarksSent() {
+        messagingProperties.setEnabled(true);
+        final EnvironmentController controller = activeController(10L, "sensimul/sites/site-a/controllers/controller-01");
+        when(environmentControllerRepository.findByIdAndDeletedFalse(10L)).thenReturn(Optional.of(controller));
+        when(controllerCommandRepository.save(any(ControllerCommand.class))).thenAnswer(invocation -> {
+            final ControllerCommand saved = invocation.getArgument(0);
+            if (saved.getId() == null) {
+                saved.setId(200L);
+                saved.setCreatedAt(Instant.parse("2026-06-12T00:00:00Z"));
+            }
+            return saved;
+        });
+
+        final ControllerCommandResponse response =
+                controllerCommandService.sendCommand(10L, new ControllerCommandRequest("on", 65));
+
+        assertThat(response.resultStatus()).isEqualTo(ControllerCommandResultStatus.SENT);
+        final ArgumentCaptor<ControllerCommandMessage> captor = ArgumentCaptor.forClass(ControllerCommandMessage.class);
+        verify(commandPublisher).publish(captor.capture());
+        assertThat(captor.getValue().siteId()).isEqualTo("site-a");
+        assertThat(captor.getValue().controllerId()).isEqualTo("controller-01");
+        assertThat(captor.getValue().status()).isEqualTo("on");
+        assertThat(captor.getValue().outputLevel()).isEqualTo(65);
+        assertThat(captor.getValue().correlationId()).isNotBlank();
+        verify(sensimulControllerClient, org.mockito.Mockito.never())
+                .updateController(any(), any(), any(ControllerUpdateRequest.class));
+    }
+
+    /**
+     * Verifies a publish failure on the messaging path marks the command FAILED.
+     */
+    @Test
+    void sendCommandViaMessagingMarksFailedOnPublishError() {
+        messagingProperties.setEnabled(true);
+        final EnvironmentController controller = activeController(10L, "sensimul/sites/site-a/controllers/controller-01");
+        final List<ControllerCommand> savedCommands = new ArrayList<>();
+        when(environmentControllerRepository.findByIdAndDeletedFalse(10L)).thenReturn(Optional.of(controller));
+        when(controllerCommandRepository.save(any(ControllerCommand.class))).thenAnswer(invocation -> {
+            final ControllerCommand saved = invocation.getArgument(0);
+            savedCommands.add(copyCommand(saved));
+            return saved;
+        });
+        org.mockito.Mockito.doThrow(new IllegalStateException("broker down"))
+                .when(commandPublisher).publish(any(ControllerCommandMessage.class));
+
+        final ControllerCommandResponse response =
+                controllerCommandService.sendCommand(10L, new ControllerCommandRequest("off", 0));
+
+        assertThat(response.resultStatus()).isEqualTo(ControllerCommandResultStatus.FAILED);
+        assertThat(savedCommands.get(savedCommands.size() - 1).getResultMessage()).contains("broker down");
     }
 
     private EnvironmentController activeController(final Long id, final String topic) {

@@ -10,5 +10,10 @@ public enum ControllerCommandResultStatus {
     PENDING,
     FORWARDED,
     APPLIED,
-    FAILED_RETRYABLE
+    FAILED_RETRYABLE,
+    // Messaging flow (stockops.command-messaging): PENDING -> SENT -> ACKED | FAILED | TIMEOUT
+    SENT,
+    ACKED,
+    FAILED,
+    TIMEOUT
 }
