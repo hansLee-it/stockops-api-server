@@ -17,6 +17,8 @@ import java.time.Instant;
  * @param status controller status
  * @param outputLevel controller output level
  * @param mqttTopic canonical controller topic
+ * @param warehouseId warehouse the controller is installed in (null for legacy unmapped controllers)
+ * @param warehouseName warehouse display name (null when warehouseId is unset or missing)
  * @param active whether the controller is active
  * @param deleted whether the controller is soft-deleted
  * @param createdAt creation timestamp
@@ -34,6 +36,8 @@ public record EnvironmentControllerResponse(
         ControllerStatus status,
         Integer outputLevel,
         String mqttTopic,
+        Long warehouseId,
+        String warehouseName,
         boolean active,
         boolean deleted,
         Instant createdAt,

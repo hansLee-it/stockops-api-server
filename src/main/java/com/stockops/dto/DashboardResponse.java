@@ -30,7 +30,7 @@ public record DashboardResponse(
      * @param sensorId sensor device identifier
      * @param sensorName sensor display name
      * @param sensorType sensor type
-     * @param location sensor location description
+     * @param warehouseName warehouse the sensor is installed in (null when unmapped)
      * @param value latest measured value
      * @param valueKind measured value kind
      * @param unit measured unit
@@ -41,7 +41,7 @@ public record DashboardResponse(
             Long sensorId,
             String sensorName,
             SensorType sensorType,
-            String location,
+            String warehouseName,
             Double value,
             String valueKind,
             String unit,
