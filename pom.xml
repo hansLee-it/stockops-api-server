@@ -181,6 +181,12 @@
             <artifactId>sqs</artifactId>
             <version>${aws.sdk.version}</version>
         </dependency>
+        <!-- Required for IRSA (AssumeRoleWithWebIdentity) credential resolution on EKS -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>sts</artifactId>
+            <version>${aws.sdk.version}</version>
+        </dependency>
         <dependency>
             <groupId>com.google.genai</groupId>
             <artifactId>google-genai</artifactId>

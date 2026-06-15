@@ -1,5 +1,7 @@
 package com.stockops.environment.ingestion;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 /**
  * Immutable Sensimul live telemetry payload.
  * Mirrors the simulator's JSON schema for MQTT sensor messages.
@@ -18,14 +20,14 @@ package com.stockops.environment.ingestion;
  * @since 1.0
  */
 public record SensimulPayload(
-        String siteId,
-        String sensorId,
-        String sensorType,
-        String valueKind,
+        @JsonProperty("site_id") String siteId,
+        @JsonProperty("sensor_id") String sensorId,
+        @JsonProperty("sensor_type") String sensorType,
+        @JsonProperty("value_kind") String valueKind,
         double value,
         String unit,
         String status,
         String timestamp,
-        long sequenceId,
-        String schemaVersion) {
+        @JsonProperty("sequence_id") long sequenceId,
+        @JsonProperty("schema_version") String schemaVersion) {
 }
