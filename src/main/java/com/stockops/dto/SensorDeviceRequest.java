@@ -11,7 +11,7 @@ import jakarta.validation.constraints.Pattern;
  * @param siteId Sensimul site identifier
  * @param sensorId Sensimul sensor identifier
  * @param sensorType sensor type
- * @param location business location description
+ * @param warehouseId warehouse the sensor is installed in (required); drives center/warehouse alert routing
  * @param mqttTopic canonical Sensimul MQTT topic for the sensor
  * @param sourceChannel upstream source channel value
  * @param warnMin warning lower bound; when any bound is set, severity is derived from values
@@ -25,7 +25,7 @@ public record SensorDeviceRequest(
         @NotBlank String siteId,
         @NotBlank String sensorId,
         @NotNull SensorType sensorType,
-        @NotBlank String location,
+        @NotNull Long warehouseId,
         @NotBlank @Pattern(regexp = "^sensimul/sites/[^/]+/sensors/[^/]+$") String mqttTopic,
         @NotBlank String sourceChannel,
         Double warnMin,

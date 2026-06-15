@@ -6,9 +6,11 @@ import com.stockops.entity.SensorDevice;
 import com.stockops.exception.ConflictException;
 import com.stockops.exception.InvalidOperationException;
 import com.stockops.exception.ResourceNotFoundException;
+import com.stockops.entity.Warehouse;
 import com.stockops.integration.sensimul.ParsedSensorTopic;
 import com.stockops.integration.sensimul.SensimulTopics;
 import com.stockops.repository.SensorDeviceRepository;
+import com.stockops.repository.WarehouseRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -24,14 +26,18 @@ import org.springframework.transaction.annotation.Transactional;
 public class SensorDeviceService {
 
     private final SensorDeviceRepository sensorDeviceRepository;
+    private final WarehouseRepository warehouseRepository;
 
     /**
      * Creates the service.
      *
      * @param sensorDeviceRepository sensor device repository
+     * @param warehouseRepository warehouse repository (validates the registered warehouse)
      */
-    public SensorDeviceService(final SensorDeviceRepository sensorDeviceRepository) {
+    public SensorDeviceService(final SensorDeviceRepository sensorDeviceRepository,
+            final WarehouseRepository warehouseRepository) {
         this.sensorDeviceRepository = sensorDeviceRepository;
+        this.warehouseRepository = warehouseRepository;
     }
 
     /**
@@ -178,8 +184,9 @@ public class SensorDeviceService {
             final SensorDeviceRequest request,
             final String mqttTopic) {
         validateThresholds(request);
+        requireWarehouse(request.warehouseId());
         sensorDevice.setName(request.sensorId());
-        sensorDevice.setLocation(request.location());
+        sensorDevice.setWarehouseId(request.warehouseId());
         sensorDevice.setSensorType(request.sensorType());
         sensorDevice.setExternalSensorId(request.sensorId());
         sensorDevice.setMqttTopic(mqttTopic);
@@ -188,6 +195,12 @@ public class SensorDeviceService {
         sensorDevice.setWarnMax(request.warnMax());
         sensorDevice.setCritMin(request.critMin());
         sensorDevice.setCritMax(request.critMax());
+    }
+
+    private void requireWarehouse(final Long warehouseId) {
+        if (!warehouseRepository.existsById(warehouseId)) {
+            throw new ResourceNotFoundException("Warehouse not found: " + warehouseId);
+        }
     }
 
     private void validateThresholds(final SensorDeviceRequest request) {
@@ -220,13 +233,17 @@ public class SensorDeviceService {
     private SensorDeviceResponse toResponse(final SensorDevice sensorDevice) {
         final ParsedSensorTopic parsedTopic = SensimulTopics.parseLiveTopic(sensorDevice.getMqttTopic())
                 .orElseGet(() -> new ParsedSensorTopic(sensorDevice.getSourceChannel(), sensorDevice.getExternalSensorId()));
+        final Long warehouseId = sensorDevice.getWarehouseId();
+        final String warehouseName = warehouseId == null ? null
+                : warehouseRepository.findById(warehouseId).map(Warehouse::getName).orElse(null);
         return new SensorDeviceResponse(
                 sensorDevice.getId(),
                 sensorDevice.getName(),
                 parsedTopic.siteId(),
                 parsedTopic.sensorId(),
                 sensorDevice.getSensorType(),
-                sensorDevice.getLocation(),
+                warehouseId,
+                warehouseName,
                 sensorDevice.getMqttTopic(),
                 sensorDevice.getSourceChannel(),
                 sensorDevice.isActive(),

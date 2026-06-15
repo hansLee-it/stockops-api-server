@@ -11,7 +11,8 @@ import java.time.Instant;
  * @param siteId Sensimul site identifier
  * @param sensorId Sensimul sensor identifier
  * @param sensorType sensor type
- * @param location business location description
+ * @param warehouseId warehouse the sensor is installed in (null for legacy unmapped sensors)
+ * @param warehouseName warehouse display name (null when warehouseId is unset or missing)
  * @param mqttTopic canonical Sensimul MQTT topic
  * @param sourceChannel upstream source channel value
  * @param active whether the sensor is active
@@ -31,7 +32,8 @@ public record SensorDeviceResponse(
         String siteId,
         String sensorId,
         SensorType sensorType,
-        String location,
+        Long warehouseId,
+        String warehouseName,
         String mqttTopic,
         String sourceChannel,
         boolean active,

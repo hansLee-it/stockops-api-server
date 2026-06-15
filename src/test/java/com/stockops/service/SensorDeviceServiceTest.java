@@ -14,6 +14,7 @@ import com.stockops.exception.ConflictException;
 import com.stockops.exception.InvalidOperationException;
 import com.stockops.exception.ResourceNotFoundException;
 import com.stockops.repository.SensorDeviceRepository;
+import com.stockops.repository.WarehouseRepository;
 import java.time.Instant;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -38,6 +39,9 @@ class SensorDeviceServiceTest {
     @Mock
     private SensorDeviceRepository sensorDeviceRepository;
 
+    @Mock
+    private WarehouseRepository warehouseRepository;
+
     @InjectMocks
     private SensorDeviceService sensorDeviceService;
 
@@ -46,7 +50,8 @@ class SensorDeviceServiceTest {
      */
     @Test
     void createSensorDeviceCreatesNewActiveSensor() {
-        final SensorDeviceRequest request = request("site-a", "sensor-01", "warehouse-a");
+        final SensorDeviceRequest request = request("site-a", "sensor-01", 1L);
+        when(warehouseRepository.existsById(1L)).thenReturn(true);
         when(sensorDeviceRepository.findByMqttTopicAndDeletedFalse(request.mqttTopic())).thenReturn(Optional.empty());
         when(sensorDeviceRepository.findByMqttTopic(request.mqttTopic())).thenReturn(Optional.empty());
         when(sensorDeviceRepository.save(any(SensorDevice.class))).thenAnswer(invocation -> {
@@ -76,10 +81,10 @@ class SensorDeviceServiceTest {
      */
     @Test
     void createSensorDeviceReactivatesSoftDeletedSensor() {
-        final SensorDeviceRequest request = request("site-a", "sensor-01", "warehouse-b");
+        final SensorDeviceRequest request = request("site-a", "sensor-01", 2L);
         final SensorDevice deletedSensor = sensorDevice(7L, request.mqttTopic(), true, false);
-        deletedSensor.setLocation("old-location");
 
+        when(warehouseRepository.existsById(2L)).thenReturn(true);
         when(sensorDeviceRepository.findByMqttTopicAndDeletedFalse(request.mqttTopic())).thenReturn(Optional.empty());
         when(sensorDeviceRepository.findByMqttTopic(request.mqttTopic())).thenReturn(Optional.of(deletedSensor));
         when(sensorDeviceRepository.save(any(SensorDevice.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -87,7 +92,7 @@ class SensorDeviceServiceTest {
         final SensorDeviceResponse response = sensorDeviceService.createSensorDevice(request);
 
         assertThat(response.id()).isEqualTo(7L);
-        assertThat(response.location()).isEqualTo("warehouse-b");
+        assertThat(response.warehouseId()).isEqualTo(2L);
         assertThat(response.active()).isTrue();
         assertThat(response.deleted()).isFalse();
     }
@@ -97,7 +102,7 @@ class SensorDeviceServiceTest {
      */
     @Test
     void createSensorDeviceRejectsDuplicateActiveTopic() {
-        final SensorDeviceRequest request = request("site-a", "sensor-01", "warehouse-a");
+        final SensorDeviceRequest request = request("site-a", "sensor-01", 1L);
         when(sensorDeviceRepository.findByMqttTopicAndDeletedFalse(request.mqttTopic()))
                 .thenReturn(Optional.of(sensorDevice(1L, request.mqttTopic(), false, true)));
 
@@ -113,7 +118,7 @@ class SensorDeviceServiceTest {
                 "site-a",
                 "sensor-01",
                 SensorType.TEMPERATURE,
-                "warehouse-a",
+                1L,
                 "sensimul/sites/site-a/sensors/other-sensor",
                 "site-a",
                 null, null, null, null);
@@ -130,7 +135,7 @@ class SensorDeviceServiceTest {
                 "site-a",
                 "sensor-01",
                 SensorType.TEMPERATURE,
-                "warehouse-a",
+                1L,
                 "sensimul/sites/site-a/sensors/sensor-01",
                 "site-a",
                 10.0, 5.0, null, null);
@@ -153,7 +158,7 @@ class SensorDeviceServiceTest {
      */
     @Test
     void updateSensorDeviceRejectsDuplicateActiveTopicFromDifferentSensor() {
-        final SensorDeviceRequest request = request("site-a", "sensor-01", "warehouse-a");
+        final SensorDeviceRequest request = request("site-a", "sensor-01", 1L);
         final SensorDevice current = sensorDevice(10L, "sensimul/sites/site-a/sensors/current", false, true);
         final SensorDevice duplicate = sensorDevice(11L, request.mqttTopic(), false, true);
 
@@ -168,8 +173,9 @@ class SensorDeviceServiceTest {
      */
     @Test
     void updateSensorDeviceUpdatesActiveSensor() {
-        final SensorDeviceRequest request = request("site-a", "sensor-02", "warehouse-b");
+        final SensorDeviceRequest request = request("site-a", "sensor-02", 2L);
         final SensorDevice current = sensorDevice(10L, "sensimul/sites/site-a/sensors/sensor-01", false, true);
+        when(warehouseRepository.existsById(2L)).thenReturn(true);
         when(sensorDeviceRepository.findByIdAndDeletedFalse(10L)).thenReturn(Optional.of(current));
         when(sensorDeviceRepository.findByMqttTopicAndDeletedFalse(request.mqttTopic())).thenReturn(Optional.empty());
         when(sensorDeviceRepository.save(any(SensorDevice.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -177,7 +183,7 @@ class SensorDeviceServiceTest {
         final SensorDeviceResponse response = sensorDeviceService.updateSensorDevice(10L, request);
 
         assertThat(response.sensorId()).isEqualTo("sensor-02");
-        assertThat(response.location()).isEqualTo("warehouse-b");
+        assertThat(response.warehouseId()).isEqualTo(2L);
         assertThat(response.mqttTopic()).isEqualTo(request.mqttTopic());
     }
 
@@ -281,12 +287,12 @@ class SensorDeviceServiceTest {
         assertThrows(NullPointerException.class, () -> sensorDeviceService.createSensorDevice(null));
     }
 
-    private SensorDeviceRequest request(final String siteId, final String sensorId, final String location) {
+    private SensorDeviceRequest request(final String siteId, final String sensorId, final Long warehouseId) {
         return new SensorDeviceRequest(
                 siteId,
                 sensorId,
                 SensorType.TEMPERATURE,
-                location,
+                warehouseId,
                 "sensimul/sites/" + siteId + "/sensors/" + sensorId,
                 siteId,
                 null, null, null, null);
@@ -296,7 +302,7 @@ class SensorDeviceServiceTest {
         final SensorDevice sensorDevice = new SensorDevice();
         sensorDevice.setId(id);
         sensorDevice.setName("sensor-name");
-        sensorDevice.setLocation("warehouse-a");
+        sensorDevice.setWarehouseId(1L);
         sensorDevice.setSensorType(SensorType.TEMPERATURE);
         sensorDevice.setExternalSensorId("sensor-01");
         sensorDevice.setSourceChannel("site-a");

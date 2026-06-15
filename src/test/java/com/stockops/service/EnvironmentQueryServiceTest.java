@@ -14,6 +14,7 @@ import com.stockops.environment.cache.SensorReadingCacheService;
 import com.stockops.environment.cache.SensorReadingSnapshot;
 import com.stockops.repository.EnvironmentAlertRepository;
 import com.stockops.repository.SensorDeviceRepository;
+import com.stockops.repository.WarehouseRepository;
 import com.stockops.security.CurrentUserProvider;
 import java.time.Duration;
 import java.time.Instant;
@@ -46,6 +47,9 @@ class EnvironmentQueryServiceTest {
 
     @Mock
     private SensorReadingCacheService sensorReadingCacheService;
+
+    @Mock
+    private WarehouseRepository warehouseRepository;
 
     @InjectMocks
     private EnvironmentQueryService environmentQueryService;
@@ -203,7 +207,7 @@ class EnvironmentQueryServiceTest {
         final SensorDevice sensor = new SensorDevice();
         sensor.setId(id);
         sensor.setName(name);
-        sensor.setLocation("warehouse-a");
+        sensor.setWarehouseId(1L);
         sensor.setSensorType(sensorType);
         sensor.setActive(active);
         sensor.setDeleted(false);
