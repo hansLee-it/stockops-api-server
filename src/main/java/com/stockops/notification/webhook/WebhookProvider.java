@@ -4,18 +4,13 @@ import java.util.Map;
 
 /**
  * Contract for webhook providers. Each implementation formats the payload
- * for a specific external service (Slack, Discord, Teams, Notion, etc.)
- * and sends it via HTTP POST.
+ * for a specific external service (e.g. Teams) and sends it via HTTP POST.
  *
  * <p>Implementations must be safe for concurrent use.</p>
  *
  * @author StockOps Team
  * @since 1.0
- * @see SlackWebhookProvider
- * @see DiscordWebhookProvider
  * @see TeamsWebhookProvider
- * @see NotionWebhookProvider
- * @see GenericWebhookProvider
  */
 public interface WebhookProvider {
 
@@ -23,7 +18,7 @@ public interface WebhookProvider {
      * Returns the unique provider type identifier.
      * Used by {@link WebhookProviderRegistry} to look up the correct provider.
      *
-     * @return provider type string (e.g. "SLACK", "DISCORD", "TEAMS", "NOTION", "GENERIC")
+     * @return provider type string (e.g. "TEAMS")
      */
     String getProviderType();
 

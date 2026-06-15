@@ -3,23 +3,18 @@ package com.stockops.environment;
 import com.stockops.entity.AlertSeverity;
 import com.stockops.entity.EnvironmentAlert;
 import com.stockops.entity.SensorDevice;
-import com.stockops.notification.email.EmailService;
 import com.stockops.notification.webhook.WebhookEndpointConfig;
 import com.stockops.notification.webhook.WebhookEndpointConfigRepository;
 import com.stockops.notification.webhook.WebhookPayload;
 import com.stockops.notification.webhook.WebhookService;
 import java.time.Instant;
-import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
 
 /**
- * Delivers environment alert notifications (webhook + email).
+ * Delivers environment alert notifications via webhook.
  *
  * <p>Called by the outbox sender, not by telemetry ingestion: ingestion only records
  * notification rows, and the scheduled {@code EnvironmentAlertNotificationSender} claims and
@@ -36,30 +31,22 @@ public class EnvironmentAlertNotifier {
 
     private final WebhookService webhookService;
     private final WebhookEndpointConfigRepository webhookEndpointConfigRepository;
-    private final Optional<EmailService> emailService;
-    private final List<String> emailRecipients;
 
     /**
      * Creates the notifier.
      *
      * @param webhookService webhook dispatch service
      * @param webhookEndpointConfigRepository enabled webhook endpoint lookup
-     * @param emailService optional email service (absent when mail is not configured)
-     * @param emailRecipients comma-separated admin recipients for environment alert emails
      */
     public EnvironmentAlertNotifier(
             final WebhookService webhookService,
-            final WebhookEndpointConfigRepository webhookEndpointConfigRepository,
-            final Optional<EmailService> emailService,
-            @Value("${stockops.environment.alert-email-recipients:}") final String emailRecipients) {
+            final WebhookEndpointConfigRepository webhookEndpointConfigRepository) {
         this.webhookService = webhookService;
         this.webhookEndpointConfigRepository = webhookEndpointConfigRepository;
-        this.emailService = emailService;
-        this.emailRecipients = parseRecipients(emailRecipients);
     }
 
     /**
-     * Delivers the alert to all configured channels. Failures propagate so the outbox
+     * Delivers the alert to all configured webhook endpoints. Failures propagate so the outbox
      * sender can record the attempt and retry later (delivery is at-least-once: a partial
      * failure re-sends the whole notification on the next attempt).
      *
@@ -69,7 +56,6 @@ public class EnvironmentAlertNotifier {
     public void dispatch(final EnvironmentAlert alert, final SensorDevice device) {
         LOGGER.debug("Dispatching environment alert notification for alertId={}", alert.getId());
         dispatchWebhooks(alert, device);
-        dispatchEmails(alert, device);
     }
 
     private void dispatchWebhooks(final EnvironmentAlert alert, final SensorDevice device) {
@@ -90,32 +76,11 @@ public class EnvironmentAlertNotifier {
         }
     }
 
-    private void dispatchEmails(final EnvironmentAlert alert, final SensorDevice device) {
-        if (emailService.isEmpty() || emailRecipients.isEmpty()) {
-            return;
-        }
-        final String sensorName = device == null ? "센서" : device.getName();
-        final String subject = String.format("[%s] 환경 센서 알림 - %s", alert.getSeverity(), sensorName);
-        for (final String recipient : emailRecipients) {
-            emailService.get().sendAlert(recipient, subject, alert.getMessage(), alert.getSeverity().name());
-        }
-    }
-
     private WebhookPayload.Severity toWebhookSeverity(final AlertSeverity severity) {
         return switch (severity) {
             case CRITICAL -> WebhookPayload.Severity.CRITICAL;
             case WARNING -> WebhookPayload.Severity.WARNING;
             default -> WebhookPayload.Severity.INFO;
         };
-    }
-
-    private List<String> parseRecipients(final String raw) {
-        if (!StringUtils.hasText(raw)) {
-            return List.of();
-        }
-        return Arrays.stream(raw.split(","))
-                .map(String::trim)
-                .filter(StringUtils::hasText)
-                .toList();
     }
 }

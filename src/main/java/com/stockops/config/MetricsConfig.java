@@ -56,7 +56,7 @@ public class MetricsConfig {
     /**
      * Records a notification sent counter increment.
      *
-     * @param channel the notification channel: in_app, email, sms, webhook, or kakao
+     * @param channel the notification channel: in_app, webhook, or kakao
      */
     public void recordNotificationSent(final String channel) {
         registry.counter(METRIC_NOTIFICATIONS_SENT, TAG_CHANNEL, channel.toLowerCase()).increment();

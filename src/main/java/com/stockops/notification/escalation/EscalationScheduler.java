@@ -2,9 +2,6 @@ package com.stockops.notification.escalation;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import com.stockops.entity.Role;
-import com.stockops.entity.User;
-import com.stockops.repository.UserRepository;
 import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
@@ -37,7 +34,6 @@ public class EscalationScheduler {
     private final PendingAlertRepository pendingAlertRepository;
     private final EscalationService escalationService;
     private final EscalationDispatcher escalationDispatcher;
-    private final UserRepository userRepository;
     private final TransactionTemplate transactionTemplate;
 
     @Scheduled(fixedDelay = 60_000)
@@ -122,8 +118,7 @@ public class EscalationScheduler {
 
     private void dispatchAndAdvance(final PendingAlert alert, final EscalationRule rule) {
         transactionTemplate.executeWithoutResult(status -> {
-            final List<String> phoneNumbers = resolvePhoneNumbers(rule.getNotifyRoles());
-            escalationDispatcher.dispatch(alert, rule, phoneNumbers);
+            escalationDispatcher.dispatch(alert, rule);
 
             alert.setCurrentLevel(alert.getCurrentLevel() + 1);
             pendingAlertRepository.save(alert);
@@ -140,26 +135,12 @@ public class EscalationScheduler {
         });
     }
 
-    private List<String> resolvePhoneNumbers(final List<String> roleNames) {
-        if (roleNames == null || roleNames.isEmpty()) {
-            return List.of();
-        }
-
-        return userRepository.findAll().stream()
-                .filter(user -> user.getRole() != null && roleNames.contains(user.getRole().getName()))
-                .filter(user -> user.getPhone() != null && !user.getPhone().isBlank())
-                .map(User::getPhone)
-                .distinct()
-                .toList();
-    }
-
     private static final Logger log = LoggerFactory.getLogger(EscalationScheduler.class);
 
-    public EscalationScheduler(final PendingAlertRepository pendingAlertRepository, final EscalationService escalationService, final EscalationDispatcher escalationDispatcher, final UserRepository userRepository, final TransactionTemplate transactionTemplate) {
+    public EscalationScheduler(final PendingAlertRepository pendingAlertRepository, final EscalationService escalationService, final EscalationDispatcher escalationDispatcher, final TransactionTemplate transactionTemplate) {
         this.pendingAlertRepository = pendingAlertRepository;
         this.escalationService = escalationService;
         this.escalationDispatcher = escalationDispatcher;
-        this.userRepository = userRepository;
         this.transactionTemplate = transactionTemplate;
     }
 }
