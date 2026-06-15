@@ -18,7 +18,7 @@ import org.hibernate.type.SqlTypes;
  * Configuration for which notification channels are used per alert type
  * per center/warehouse scope.
  *
- * <p>Each config row defines the enabled channels (SMS, EMAIL, WEBHOOK)
+ * <p>Each config row defines the enabled channels (WEBHOOK)
  * and optional webhook provider selection for a specific alert type
  * within a center or warehouse.</p>
  *
@@ -50,7 +50,7 @@ public class NotificationChannelConfig extends BaseEntity {
 
     /**
      * JSON array of channel configurations.
-     * Each entry: {"type": "SMS"|"EMAIL"|"WEBHOOK", "enabled": true/false, "webhookProvider": "SLACK"|...}
+     * Each entry: {"type": "WEBHOOK", "enabled": true/false, "webhookProvider": "TEAMS"|...}
      * Stored as JSONB for flexible schema.
      */
     @JdbcTypeCode(SqlTypes.JSON)
@@ -63,14 +63,14 @@ public class NotificationChannelConfig extends BaseEntity {
 
     /**
      * Single channel entry within a NotificationChannelConfig.
-     * Represents one notification channel (SMS, EMAIL, or WEBHOOK)
+     * Represents one notification channel (WEBHOOK)
      * with its enabled status and optional webhook provider.
      *
      * @author StockOps Team
      * @since 2.0
      */
     public static class ChannelEntry {
-        /** Channel type: SMS, EMAIL, or WEBHOOK. */
+        /** Channel type: WEBHOOK. */
         @Enumerated(EnumType.STRING)
         private ChannelType type;
 
@@ -113,10 +113,11 @@ public class NotificationChannelConfig extends BaseEntity {
 
     /**
      * Supported notification channel types.
+     *
+     * <p>SMS and email channels were removed; webhook (e.g. Teams) is the only
+     * supported delivery channel.
      */
     public enum ChannelType {
-        SMS,
-        EMAIL,
         WEBHOOK
     }
 

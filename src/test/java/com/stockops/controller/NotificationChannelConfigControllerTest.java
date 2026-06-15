@@ -92,7 +92,7 @@ class NotificationChannelConfigControllerTest {
         config.setActive(true);
         config.setChannels(List.of(
                 new NotificationChannelConfig.ChannelEntry(
-                        NotificationChannelConfig.ChannelType.EMAIL, true, null)));
+                        NotificationChannelConfig.ChannelType.WEBHOOK, true, "TEAMS")));
         return configRepository.save(config);
     }
 
@@ -155,7 +155,7 @@ class NotificationChannelConfigControllerTest {
     void createConfigReturns200() throws Exception {
         stubPermissions();
         String json = """
-                {"centerId":%d,"warehouseId":null,"alertType":"HUMIDITY","active":true,"channels":[{"type":"EMAIL","enabled":true,"webhookProvider":null}]}
+                {"centerId":%d,"warehouseId":null,"alertType":"HUMIDITY","active":true,"channels":[{"type":"WEBHOOK","enabled":true,"webhookProvider":null}]}
                 """.formatted(centerId);
 
         mockMvc.perform(post("/api/v1/notification-channel-configs")
