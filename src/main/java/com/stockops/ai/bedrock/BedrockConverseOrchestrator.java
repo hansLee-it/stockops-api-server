@@ -21,6 +21,7 @@ import software.amazon.awssdk.services.bedrockruntime.model.ConversationRole;
 import software.amazon.awssdk.services.bedrockruntime.model.ConverseRequest;
 import software.amazon.awssdk.services.bedrockruntime.model.ConverseResponse;
 import software.amazon.awssdk.services.bedrockruntime.model.GuardrailConfiguration;
+import software.amazon.awssdk.services.bedrockruntime.model.InferenceConfiguration;
 import software.amazon.awssdk.services.bedrockruntime.model.Message;
 import software.amazon.awssdk.services.bedrockruntime.model.StopReason;
 import software.amazon.awssdk.services.bedrockruntime.model.SystemContentBlock;
@@ -49,15 +50,28 @@ public class BedrockConverseOrchestrator {
 
     private static final ObjectMapper JSON = new ObjectMapper();
 
-    private static final String SYSTEM_PROMPT = """
+    /**
+     * Built-in system prompt. Overridable at runtime via {@code stockops.ai.bedrock.system-prompt}
+     * so the assistant's tone/format can be tuned without a redeploy. The {@code [응답 형식]} block
+     * keeps answers concise and free of filler.
+     */
+    static final String DEFAULT_SYSTEM_PROMPT = """
             당신은 StockOps 재고·환경 운영 어시스턴트입니다.
-            - 한국어로 간결하고 정확하게 답합니다.
-            - 수치(재고량, 예측값, 추천 수량 등)는 반드시 제공된 도구 결과를 인용하고, 임의로 만들지 않습니다.
-            - 데이터가 필요하면 적절한 도구를 호출하되, 필요한 도구만 최소한으로 호출합니다.
-            - 데이터가 없으면 없다고 분명히 말합니다.
-            - 발주 승인, 알림 확인, 제어기 명령, 입출고 실행 같은 실제 운영 변경은 직접 수행하지 않고,
+
+            [근거·안전]
+            - 한국어로 답합니다.
+            - 모든 수치(재고량·예측값·추천 수량 등)는 도구 결과 또는 제공된 운영 문서를 근거로 인용하고, 임의로 만들지 않습니다.
+            - 필요한 도구만 최소한으로 호출합니다. 데이터가 없으면 "없음"이라고 분명히 말합니다.
+            - 발주 승인·알림 확인·제어기 명령·입출고 실행 등 실제 운영 변경은 직접 수행하지 않고,
               사용자가 웹에서 승인/실행하도록 안내합니다.
-            - 제공된 운영 문서 컨텍스트가 있으면 그것을 근거로 답합니다.""";
+
+            [응답 형식]
+            - 결론을 1~2문장으로 먼저 제시하고, 필요한 근거만 덧붙입니다.
+            - 항목이 여러 개면 최대 5개 불릿, 각 불릿은 한 줄로 짧게 씁니다.
+            - 인사말·사과·"도와드리겠습니다" 같은 군더더기 없이 본론만 답합니다.
+            - 수치는 단위와 함께 표기합니다(예: 120개, 3일분).
+            - 표는 비교가 명확히 도움이 될 때만 간단히 사용합니다.
+            - 모르거나 권한 밖이면 추측하지 말고 한계를 밝힙니다.""";
 
     private final BedrockRuntimeClientFactory clientFactory;
     private final BedrockAiProperties properties;
@@ -91,7 +105,7 @@ public class BedrockConverseOrchestrator {
         }
 
         final List<SystemContentBlock> system = new ArrayList<>();
-        system.add(SystemContentBlock.builder().text(SYSTEM_PROMPT).build());
+        system.add(SystemContentBlock.builder().text(resolveSystemPrompt()).build());
         if (documentContext != null && !documentContext.isBlank()) {
             system.add(SystemContentBlock.builder()
                     .text("참고 운영 문서:\n" + documentContext).build());
@@ -128,12 +142,24 @@ public class BedrockConverseOrchestrator {
         }
     }
 
+    /**
+     * Returns the runtime-overridden system prompt when configured, otherwise the built-in default.
+     */
+    private String resolveSystemPrompt() {
+        final String configured = properties.getSystemPrompt();
+        return configured != null && !configured.isBlank() ? configured : DEFAULT_SYSTEM_PROMPT;
+    }
+
     private ConverseRequest buildRequest(final String modelReference, final List<SystemContentBlock> system,
                                          final List<Message> messages) {
         final ConverseRequest.Builder builder = ConverseRequest.builder()
                 .modelId(modelReference)
                 .system(system)
                 .messages(messages)
+                .inferenceConfig(InferenceConfiguration.builder()
+                        .temperature((float) properties.getTemperature())
+                        .maxTokens(properties.getMaxOutputTokens())
+                        .build())
                 .toolConfig(toolCatalog.toolConfiguration());
         if (properties.hasGuardrail()) {
             builder.guardrailConfig(GuardrailConfiguration.builder()

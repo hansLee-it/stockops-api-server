@@ -122,6 +122,35 @@ class BedrockConverseOrchestratorTest {
     }
 
     @Test
+    void converseAppliesInferenceConfigFromProperties() {
+        properties.setTemperature(0.2);
+        properties.setMaxOutputTokens(1200);
+        when(clientFactory.create(anyString())).thenReturn(client);
+        when(client.converse(any(ConverseRequest.class))).thenReturn(textResponse("답변"));
+
+        orchestrator.converse(new BedrockAgentInvokeRequest("질문", "s1", null, null), null);
+
+        final ArgumentCaptor<ConverseRequest> captor = ArgumentCaptor.forClass(ConverseRequest.class);
+        verify(client).converse(captor.capture());
+        assertThat(captor.getValue().inferenceConfig()).isNotNull();
+        assertThat(captor.getValue().inferenceConfig().temperature()).isEqualTo(0.2f);
+        assertThat(captor.getValue().inferenceConfig().maxTokens()).isEqualTo(1200);
+    }
+
+    @Test
+    void converseUsesOverriddenSystemPromptWhenConfigured() {
+        properties.setSystemPrompt("CUSTOM PROMPT");
+        when(clientFactory.create(anyString())).thenReturn(client);
+        when(client.converse(any(ConverseRequest.class))).thenReturn(textResponse("답변"));
+
+        orchestrator.converse(new BedrockAgentInvokeRequest("질문", "s1", null, null), null);
+
+        final ArgumentCaptor<ConverseRequest> captor = ArgumentCaptor.forClass(ConverseRequest.class);
+        verify(client).converse(captor.capture());
+        assertThat(captor.getValue().system().get(0).text()).isEqualTo("CUSTOM PROMPT");
+    }
+
+    @Test
     void converseStopsAfterMaxToolTurns() {
         properties.setMaxToolTurns(2);
         when(clientFactory.create(anyString())).thenReturn(client);

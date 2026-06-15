@@ -177,8 +177,12 @@ stockops:
       guardrail-version: ${STOCKOPS_BEDROCK_GUARDRAIL_VERSION:}
       # Max tool-use round trips per assistant turn (direct Converse tool-use loop).
       max-tool-turns: ${STOCKOPS_BEDROCK_MAX_TOOL_TURNS:5}
-      max-output-tokens: 1200
-      temperature: 0.2
+      # Applied to every Converse request via inferenceConfig: low temperature => deterministic,
+      # max-output-tokens caps verbosity. Tune these for response cleanliness.
+      max-output-tokens: ${STOCKOPS_BEDROCK_MAX_OUTPUT_TOKENS:1200}
+      temperature: ${STOCKOPS_BEDROCK_TEMPERATURE:0.2}
+      # Optional system-prompt override; blank => built-in DEFAULT_SYSTEM_PROMPT is used.
+      system-prompt: ${STOCKOPS_BEDROCK_SYSTEM_PROMPT:}
       ops-summary-schedule:
         enabled: ${STOCKOPS_AI_OPS_SUMMARY_SCHEDULE_ENABLED:false}
         cron: ${STOCKOPS_AI_OPS_SUMMARY_CRON:0 0 8 * * ?}

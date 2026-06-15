@@ -22,6 +22,7 @@ public class BedrockAiProperties {
     private String guardrailId = "";
     private String guardrailVersion = "";
     private int maxToolTurns = 5;
+    private String systemPrompt = "";
 
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
@@ -51,6 +52,8 @@ public class BedrockAiProperties {
     public void setGuardrailVersion(String guardrailVersion) { this.guardrailVersion = guardrailVersion; }
     public int getMaxToolTurns() { return maxToolTurns; }
     public void setMaxToolTurns(int maxToolTurns) { this.maxToolTurns = maxToolTurns; }
+    public String getSystemPrompt() { return systemPrompt; }
+    public void setSystemPrompt(String systemPrompt) { this.systemPrompt = systemPrompt; }
 
     public String generationModelReference() {
         return inferenceProfileArn == null || inferenceProfileArn.isBlank() ? modelId : inferenceProfileArn;
