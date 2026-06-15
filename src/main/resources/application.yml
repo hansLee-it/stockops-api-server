@@ -134,6 +134,7 @@ stockops:
     client-id: ${STOCKOPS_COMMAND_MESSAGING_CLIENT_ID:}
     ack-timeout: ${STOCKOPS_COMMAND_MESSAGING_ACK_TIMEOUT:30s}
   environment:
+    door-open-warning-duration: ${STOCKOPS_DOOR_OPEN_WARNING_DURATION:PT5M}
     alert-outbox:
       enabled: ${STOCKOPS_ALERT_OUTBOX_ENABLED:true}
       poll-interval: ${STOCKOPS_ALERT_OUTBOX_POLL_INTERVAL:PT15S}

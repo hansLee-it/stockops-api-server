@@ -10,12 +10,14 @@ import com.stockops.entity.AlertSeverity;
 import com.stockops.entity.EnvironmentAlert;
 import com.stockops.entity.EnvironmentAlertNotification;
 import com.stockops.entity.SensorDevice;
+import com.stockops.entity.SensorType;
 import com.stockops.environment.cache.SensorReadingCacheService;
 import com.stockops.environment.cache.SensorReadingSnapshot;
 import com.stockops.repository.EnvironmentAlertNotificationRepository;
 import com.stockops.repository.EnvironmentAlertRepository;
 import com.stockops.repository.SensorDeviceRepository;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -286,6 +288,68 @@ class TelemetryIngestionServiceTest {
     }
 
     /**
+     * Verifies a door sensor opens a warning alert when it remains open past the configured window.
+     */
+    @Test
+    void ingestOpensDoorTooLongAlertWhenDoorStaysOpen() {
+        final SensorDevice device = doorSensorDevice();
+        when(sensorDeviceRepository.findByMqttTopic(TOPIC)).thenReturn(Optional.of(device));
+        when(sensorReadingCacheService.readRecent(any(), any())).thenReturn(List.of(new SensorReadingSnapshot(
+                5L, "site-a", "sensor-01", "door_open", "bool", 1.0, null, "OPEN",
+                Instant.parse("2026-04-05T00:00:00Z"), 9L)));
+        when(environmentAlertRepository
+                .findFirstBySensorDeviceIdAndResolvedAtIsNullAndAcknowledgedFalseOrderByCreatedAtDesc(5L))
+                .thenReturn(Optional.empty());
+        stubAlertSaveAssignsId();
+
+        telemetryIngestionService.ingest(doorPayload(1.0, "OPEN", "2026-04-05T00:06:00Z"));
+
+        final ArgumentCaptor<EnvironmentAlert> captor = ArgumentCaptor.forClass(EnvironmentAlert.class);
+        verify(environmentAlertRepository).save(captor.capture());
+        assertThat(captor.getValue().getAlertType()).isEqualTo("DOOR_OPEN_TOO_LONG");
+        assertThat(captor.getValue().getSeverity()).isEqualTo(AlertSeverity.WARNING);
+    }
+
+    /**
+     * Verifies short door openings do not create warning alerts.
+     */
+    @Test
+    void ingestIgnoresDoorOpenShorterThanWarningDuration() {
+        final SensorDevice device = doorSensorDevice();
+        when(sensorDeviceRepository.findByMqttTopic(TOPIC)).thenReturn(Optional.of(device));
+        when(sensorReadingCacheService.readRecent(any(), any())).thenReturn(List.of(new SensorReadingSnapshot(
+                5L, "site-a", "sensor-01", "door_open", "bool", 1.0, null, "OPEN",
+                Instant.parse("2026-04-05T00:00:00Z"), 9L)));
+
+        telemetryIngestionService.ingest(doorPayload(1.0, "OPEN", "2026-04-05T00:04:00Z"));
+
+        verify(environmentAlertRepository, never()).save(any());
+    }
+
+    /**
+     * Verifies door close readings resolve the active door alert.
+     */
+    @Test
+    void ingestResolvesDoorAlertWhenDoorCloses() {
+        final SensorDevice device = doorSensorDevice();
+        final EnvironmentAlert active = activeAlert(5L, AlertSeverity.WARNING);
+        active.setAlertType("DOOR_OPEN_TOO_LONG");
+        when(sensorDeviceRepository.findByMqttTopic(TOPIC)).thenReturn(Optional.of(device));
+        when(sensorReadingCacheService.readRecent(any(), any())).thenReturn(List.of(new SensorReadingSnapshot(
+                5L, "site-a", "sensor-01", "door_open", "bool", 1.0, null, "OPEN",
+                Instant.parse("2026-04-05T00:00:00Z"), 9L)));
+        when(environmentAlertRepository
+                .findFirstBySensorDeviceIdAndResolvedAtIsNullAndAcknowledgedFalseOrderByCreatedAtDesc(5L))
+                .thenReturn(Optional.of(active));
+
+        telemetryIngestionService.ingest(doorPayload(0.0, "CLOSED", "2026-04-05T00:03:00Z"));
+
+        final ArgumentCaptor<EnvironmentAlert> captor = ArgumentCaptor.forClass(EnvironmentAlert.class);
+        verify(environmentAlertRepository).save(captor.capture());
+        assertThat(captor.getValue().getResolvedAt()).isEqualTo(Instant.parse("2026-04-05T00:03:00Z"));
+    }
+
+    /**
      * Verifies readings for unknown sensors are not cached.
      */
     @Test
@@ -338,6 +402,11 @@ class TelemetryIngestionServiceTest {
                 timestamp, 10L, "1.0");
     }
 
+    private SensimulPayload doorPayload(final double value, final String status, final String timestamp) {
+        return new SensimulPayload("site-a", "sensor-01", "door_open", "bool", value, null, status,
+                timestamp, 10L, "1.0");
+    }
+
     private SensorDevice sensorDevice(final Long id, final String name, final String unit) {
         final SensorDevice sensorDevice = new SensorDevice();
         sensorDevice.setId(id);
@@ -346,6 +415,13 @@ class TelemetryIngestionServiceTest {
         sensorDevice.setUnit(unit);
         sensorDevice.setDeleted(false);
         sensorDevice.setActive(true);
+        return sensorDevice;
+    }
+
+    private SensorDevice doorSensorDevice() {
+        final SensorDevice sensorDevice = sensorDevice(5L, "Door-1", null);
+        sensorDevice.setSensorType(SensorType.DOOR);
+        sensorDevice.setSourceChannel("door_open");
         return sensorDevice;
     }
 

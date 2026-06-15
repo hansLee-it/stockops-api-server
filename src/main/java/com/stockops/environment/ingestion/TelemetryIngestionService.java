@@ -4,15 +4,19 @@ import com.stockops.entity.AlertSeverity;
 import com.stockops.entity.EnvironmentAlert;
 import com.stockops.entity.EnvironmentAlertNotification;
 import com.stockops.entity.SensorDevice;
+import com.stockops.entity.SensorType;
 import com.stockops.environment.cache.SensorReadingCacheService;
 import com.stockops.environment.cache.SensorReadingSnapshot;
 import com.stockops.repository.EnvironmentAlertNotificationRepository;
 import com.stockops.repository.EnvironmentAlertRepository;
 import com.stockops.repository.SensorDeviceRepository;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
+import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import org.springframework.beans.factory.annotation.Value;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -47,6 +51,9 @@ public class TelemetryIngestionService {
     private final EnvironmentAlertRepository environmentAlertRepository;
     private final EnvironmentAlertNotificationRepository alertNotificationRepository;
     private final SensorReadingCacheService sensorReadingCacheService;
+
+    @Value("${stockops.environment.door-open-warning-duration:PT5M}")
+    private Duration doorOpenWarningDuration = Duration.ofMinutes(5);
 
     /**
      * Creates the telemetry ingestion service.
@@ -94,7 +101,16 @@ public class TelemetryIngestionService {
         }
 
         final SensorDevice device = sensorDevice.get();
+        final boolean doorSensor = isDoorSensor(device, payload);
+        final List<SensorReadingSnapshot> recentReadings = doorSensor
+                ? sensorReadingCacheService.readRecent(device.getId(), doorOpenWarningDuration.plusMinutes(1))
+                : List.of();
         sensorReadingCacheService.append(toSnapshot(device, payload, recordedAt));
+
+        if (doorSensor) {
+            handleDoorReading(device, payload, recordedAt, recentReadings);
+            return;
+        }
 
         final AlertSeverity severity = resolveSeverity(device, payload);
         if (severity == null) {
@@ -102,6 +118,45 @@ public class TelemetryIngestionService {
         } else {
             openOrEscalateAlert(device, severity, payload);
         }
+    }
+
+    private void handleDoorReading(final SensorDevice device, final SensimulPayload payload,
+                                   final Instant recordedAt,
+                                   final List<SensorReadingSnapshot> recentReadings) {
+        if (!isDoorOpen(payload)) {
+            resolveActiveAlert(device, recordedAt);
+            return;
+        }
+
+        final Instant openedAt = findCurrentOpenStartedAt(recentReadings, recordedAt);
+        if (openedAt == null) {
+            return;
+        }
+
+        final Duration openDuration = Duration.between(openedAt, recordedAt);
+        if (openDuration.compareTo(doorOpenWarningDuration) >= 0) {
+            openOrEscalateAlert(device, AlertSeverity.WARNING, "DOOR_OPEN_TOO_LONG",
+                    String.format(Locale.ROOT, "%s: door open for %d seconds",
+                            device.getName(), openDuration.toSeconds()));
+        }
+    }
+
+    private Instant findCurrentOpenStartedAt(final List<SensorReadingSnapshot> recentReadings,
+                                             final Instant recordedAt) {
+        Instant openedAt = null;
+        for (final SensorReadingSnapshot reading : recentReadings) {
+            if (reading.recordedAt().isAfter(recordedAt)) {
+                continue;
+            }
+            if (isDoorOpen(reading)) {
+                if (openedAt == null) {
+                    openedAt = reading.recordedAt();
+                }
+            } else {
+                openedAt = null;
+            }
+        }
+        return openedAt;
     }
 
     /**
@@ -113,9 +168,13 @@ public class TelemetryIngestionService {
      */
     private void openOrEscalateAlert(final SensorDevice device, final AlertSeverity severity,
                                      final SensimulPayload payload) {
+        openOrEscalateAlert(device, severity, resolveAlertType(payload), buildMessage(device, payload));
+    }
+
+    private void openOrEscalateAlert(final SensorDevice device, final AlertSeverity severity,
+                                     final String alertType, final String message) {
         final Optional<EnvironmentAlert> active = environmentAlertRepository
                 .findFirstBySensorDeviceIdAndResolvedAtIsNullAndAcknowledgedFalseOrderByCreatedAtDesc(device.getId());
-        final String message = buildMessage(device, payload);
 
         if (active.isPresent()) {
             final EnvironmentAlert alert = active.get();
@@ -135,7 +194,7 @@ public class TelemetryIngestionService {
 
         final EnvironmentAlert alert = new EnvironmentAlert();
         alert.setSensorDeviceId(device.getId());
-        alert.setAlertType(resolveAlertType(payload));
+        alert.setAlertType(alertType);
         alert.setSeverity(severity);
         alert.setMessage(message);
         alert.setAcknowledged(false);
@@ -241,6 +300,43 @@ public class TelemetryIngestionService {
                 payload.value(),
                 StringUtils.hasText(unit) ? unit : "",
                 payload.status());
+    }
+
+    private boolean isDoorSensor(final SensorDevice device, final SensimulPayload payload) {
+        if (device.getSensorType() == SensorType.DOOR) {
+            return true;
+        }
+        if ("door_open".equalsIgnoreCase(device.getSourceChannel())) {
+            return true;
+        }
+        return StringUtils.hasText(payload.sensorType())
+                && payload.sensorType().toLowerCase(Locale.ROOT).contains("door");
+    }
+
+    private boolean isDoorOpen(final SensimulPayload payload) {
+        if (StringUtils.hasText(payload.status())) {
+            final String normalized = payload.status().trim().toUpperCase(Locale.ROOT);
+            if ("OPEN".equals(normalized) || "OPENED".equals(normalized)) {
+                return true;
+            }
+            if ("CLOSED".equals(normalized) || "CLOSE".equals(normalized) || "OK".equals(normalized)) {
+                return false;
+            }
+        }
+        return payload.value() >= 0.5d;
+    }
+
+    private boolean isDoorOpen(final SensorReadingSnapshot snapshot) {
+        if (StringUtils.hasText(snapshot.status())) {
+            final String normalized = snapshot.status().trim().toUpperCase(Locale.ROOT);
+            if ("OPEN".equals(normalized) || "OPENED".equals(normalized)) {
+                return true;
+            }
+            if ("CLOSED".equals(normalized) || "CLOSE".equals(normalized) || "OK".equals(normalized)) {
+                return false;
+            }
+        }
+        return snapshot.value() != null && snapshot.value() >= 0.5d;
     }
 
     private boolean isPayloadValid(final SensimulPayload payload) {
