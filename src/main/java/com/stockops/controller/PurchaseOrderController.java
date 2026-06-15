@@ -116,12 +116,13 @@ public class PurchaseOrderController {
 
     // MANAGE cancels any order (admins); CREATE lets a store cancel its own pre-approval request.
     // The service enforces store ownership and the before-ACCEPTED rule for store requests.
+    // reason is optional: store users (client-web) cancel without one; admins may still pass it.
     @PostMapping("/{id}/cancel")
     @PreAuthorize("@permissionChecker.hasPermission('PURCHASE_ORDER_MANAGE') "
             + "or @permissionChecker.hasPermission('PURCHASE_ORDER_CREATE')")
     public PurchaseOrder cancelPurchaseOrder(
             @PathVariable Long id,
-            @RequestParam String reason) {
+            @RequestParam(required = false) String reason) {
         return purchaseOrderService.cancel(id, reason);
     }
 
