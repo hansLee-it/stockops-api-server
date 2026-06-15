@@ -5,10 +5,12 @@ import com.stockops.dto.SensorAlertResponse;
 import com.stockops.entity.AlertSeverity;
 import com.stockops.entity.EnvironmentAlert;
 import com.stockops.entity.SensorDevice;
+import com.stockops.entity.Warehouse;
 import com.stockops.environment.cache.SensorReadingCacheService;
 import com.stockops.exception.ResourceNotFoundException;
 import com.stockops.repository.EnvironmentAlertRepository;
 import com.stockops.repository.SensorDeviceRepository;
+import com.stockops.repository.WarehouseRepository;
 import com.stockops.security.CurrentUserProvider;
 import java.time.Duration;
 import java.time.Instant;
@@ -44,6 +46,8 @@ public class EnvironmentQueryService {
 
     private final SensorReadingCacheService sensorReadingCacheService;
 
+    private final WarehouseRepository warehouseRepository;
+
     /**
      * Creates the service.
      *
@@ -51,16 +55,19 @@ public class EnvironmentQueryService {
      * @param environmentAlertRepository environment alert (event) repository
      * @param currentUserProvider current authenticated user provider
      * @param sensorReadingCacheService shared recent reading cache
+     * @param warehouseRepository warehouse repository (resolves sensor warehouse display names)
      */
     public EnvironmentQueryService(
             final SensorDeviceRepository sensorDeviceRepository,
             final EnvironmentAlertRepository environmentAlertRepository,
             final CurrentUserProvider currentUserProvider,
-            final SensorReadingCacheService sensorReadingCacheService) {
+            final SensorReadingCacheService sensorReadingCacheService,
+            final WarehouseRepository warehouseRepository) {
         this.sensorDeviceRepository = sensorDeviceRepository;
         this.environmentAlertRepository = environmentAlertRepository;
         this.currentUserProvider = currentUserProvider;
         this.sensorReadingCacheService = sensorReadingCacheService;
+        this.warehouseRepository = warehouseRepository;
     }
 
     /**
@@ -94,9 +101,12 @@ public class EnvironmentQueryService {
         final long warningCount = warningSensors.size();
         final long normalCount = Math.max(0L, activeSensors - dangerCount - warningCount);
 
+        final Map<Long, String> warehouseNames = warehouseRepository.findAll().stream()
+                .collect(Collectors.toMap(Warehouse::getId, Warehouse::getName));
+
         final List<DashboardResponse.LatestReadingSummary> latestReadings = sensors.stream()
                 .filter(SensorDevice::isActive)
-                .map(this::toLatestReadingSummary)
+                .map(sensor -> toLatestReadingSummary(sensor, warehouseNames))
                 .filter(Objects::nonNull)
                 .toList();
 
@@ -104,13 +114,16 @@ public class EnvironmentQueryService {
                 latestReadings);
     }
 
-    private DashboardResponse.LatestReadingSummary toLatestReadingSummary(final SensorDevice sensor) {
+    private DashboardResponse.LatestReadingSummary toLatestReadingSummary(
+            final SensorDevice sensor, final Map<Long, String> warehouseNames) {
+        final String warehouseName = sensor.getWarehouseId() == null ? null
+                : warehouseNames.get(sensor.getWarehouseId());
         return sensorReadingCacheService.latest(sensor.getId())
                 .map(reading -> new DashboardResponse.LatestReadingSummary(
                         sensor.getId(),
                         sensor.getName(),
                         sensor.getSensorType(),
-                        sensor.getLocation(),
+                        warehouseName,
                         reading.value(),
                         reading.valueKind(),
                         reading.unit(),

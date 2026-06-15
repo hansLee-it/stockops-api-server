@@ -110,7 +110,7 @@ class SensorReadingQueryServiceTest {
         final SensorDevice sensor = new SensorDevice();
         sensor.setId(id);
         sensor.setName("Temp-1");
-        sensor.setLocation("warehouse-a");
+        sensor.setWarehouseId(1L);
         sensor.setSensorType(SensorType.TEMPERATURE);
         sensor.setActive(true);
         sensor.setDeleted(false);

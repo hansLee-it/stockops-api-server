@@ -5,11 +5,13 @@ import com.stockops.dto.EnvironmentControllerResponse;
 import com.stockops.entity.ControllerType;
 import com.stockops.entity.EnvironmentAxis;
 import com.stockops.entity.EnvironmentController;
+import com.stockops.entity.Warehouse;
 import com.stockops.exception.ConflictException;
 import com.stockops.exception.ResourceNotFoundException;
 import com.stockops.integration.sensimul.ParsedControllerTopic;
 import com.stockops.integration.sensimul.SensimulTopics;
 import com.stockops.repository.EnvironmentControllerRepository;
+import com.stockops.repository.WarehouseRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -25,14 +27,18 @@ import org.springframework.transaction.annotation.Transactional;
 public class EnvironmentControllerService {
 
     private final EnvironmentControllerRepository environmentControllerRepository;
+    private final WarehouseRepository warehouseRepository;
 
     /**
      * Creates the service.
      *
      * @param environmentControllerRepository environment controller repository
+     * @param warehouseRepository warehouse repository (validates the registered warehouse)
      */
-    public EnvironmentControllerService(final EnvironmentControllerRepository environmentControllerRepository) {
+    public EnvironmentControllerService(final EnvironmentControllerRepository environmentControllerRepository,
+            final WarehouseRepository warehouseRepository) {
         this.environmentControllerRepository = environmentControllerRepository;
+        this.warehouseRepository = warehouseRepository;
     }
 
     /**
@@ -185,12 +191,20 @@ public class EnvironmentControllerService {
             final EnvironmentController controller,
             final EnvironmentControllerRequest request,
             final String mqttTopic) {
+        requireWarehouse(request.warehouseId());
         controller.setName(request.name());
+        controller.setWarehouseId(request.warehouseId());
         controller.setExternalControllerId(mqttTopic);
         controller.setControllerType(request.controllerType());
         controller.setTargetAxis(resolveTargetAxis(request.controllerType()));
         controller.setStatus(request.status());
         controller.setOutputLevel(request.outputLevel());
+    }
+
+    private void requireWarehouse(final Long warehouseId) {
+        if (!warehouseRepository.existsById(warehouseId)) {
+            throw new ResourceNotFoundException("Warehouse not found: " + warehouseId);
+        }
     }
 
     private EnvironmentController findActiveById(final Long id) {
@@ -201,6 +215,9 @@ public class EnvironmentControllerService {
     private EnvironmentControllerResponse toResponse(final EnvironmentController controller) {
         final ParsedControllerTopic parsedTopic = SensimulTopics.parseLiveControllerTopic(controller.getExternalControllerId())
                 .orElseGet(() -> new ParsedControllerTopic(null, controller.getExternalControllerId()));
+        final Long warehouseId = controller.getWarehouseId();
+        final String warehouseName = warehouseId == null ? null
+                : warehouseRepository.findById(warehouseId).map(Warehouse::getName).orElse(null);
         return new EnvironmentControllerResponse(
                 controller.getId(),
                 controller.getName(),
@@ -211,6 +228,8 @@ public class EnvironmentControllerService {
                 controller.getStatus(),
                 controller.getOutputLevel(),
                 controller.getExternalControllerId(),
+                warehouseId,
+                warehouseName,
                 controller.isActive(),
                 controller.isDeleted(),
                 controller.getCreatedAt(),

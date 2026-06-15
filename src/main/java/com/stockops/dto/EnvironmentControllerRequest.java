@@ -16,6 +16,7 @@ import jakarta.validation.constraints.NotNull;
  * @param controllerType controller type
  * @param status controller status
  * @param outputLevel output level from 0 to 100
+ * @param warehouseId warehouse the controller is installed in (required)
  * @author StockOps Team
  * @since 1.0
  */
@@ -25,5 +26,6 @@ public record EnvironmentControllerRequest(
         @NotBlank String name,
         @NotNull ControllerType controllerType,
         @NotNull ControllerStatus status,
-        @NotNull @Min(0) @Max(100) Integer outputLevel) {
+        @NotNull @Min(0) @Max(100) Integer outputLevel,
+        @NotNull Long warehouseId) {
 }

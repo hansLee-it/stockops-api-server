@@ -3,10 +3,12 @@ package com.stockops.environment;
 import com.stockops.entity.AlertSeverity;
 import com.stockops.entity.EnvironmentAlert;
 import com.stockops.entity.SensorDevice;
+import com.stockops.entity.Warehouse;
 import com.stockops.notification.webhook.WebhookEndpointConfig;
 import com.stockops.notification.webhook.WebhookEndpointConfigRepository;
 import com.stockops.notification.webhook.WebhookPayload;
 import com.stockops.notification.webhook.WebhookService;
+import com.stockops.repository.WarehouseRepository;
 import java.time.Instant;
 import java.util.List;
 import org.slf4j.Logger;
@@ -31,18 +33,22 @@ public class EnvironmentAlertNotifier {
 
     private final WebhookService webhookService;
     private final WebhookEndpointConfigRepository webhookEndpointConfigRepository;
+    private final WarehouseRepository warehouseRepository;
 
     /**
      * Creates the notifier.
      *
      * @param webhookService webhook dispatch service
      * @param webhookEndpointConfigRepository enabled webhook endpoint lookup
+     * @param warehouseRepository warehouse repository (resolves the sensor's warehouse name for the payload)
      */
     public EnvironmentAlertNotifier(
             final WebhookService webhookService,
-            final WebhookEndpointConfigRepository webhookEndpointConfigRepository) {
+            final WebhookEndpointConfigRepository webhookEndpointConfigRepository,
+            final WarehouseRepository warehouseRepository) {
         this.webhookService = webhookService;
         this.webhookEndpointConfigRepository = webhookEndpointConfigRepository;
+        this.warehouseRepository = warehouseRepository;
     }
 
     /**
@@ -67,13 +73,22 @@ public class EnvironmentAlertNotifier {
                 .eventType(EVENT_TYPE)
                 .message(alert.getMessage())
                 .severity(toWebhookSeverity(alert.getSeverity()))
-                .location(device == null ? null : device.getLocation())
+                .location(resolveWarehouseName(device))
                 .alertType(alert.getAlertType())
                 .timestamp(Instant.now())
                 .build();
         for (final WebhookEndpointConfig endpoint : endpoints) {
             webhookService.send(endpoint.getProviderType().name(), endpoint.getWebhookUrl(), payload);
         }
+    }
+
+    private String resolveWarehouseName(final SensorDevice device) {
+        if (device == null || device.getWarehouseId() == null) {
+            return null;
+        }
+        return warehouseRepository.findById(device.getWarehouseId())
+                .map(Warehouse::getName)
+                .orElse(null);
     }
 
     private WebhookPayload.Severity toWebhookSeverity(final AlertSeverity severity) {

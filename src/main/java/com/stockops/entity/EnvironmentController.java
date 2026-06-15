@@ -29,6 +29,11 @@ public class EnvironmentController extends BaseEntity {
     @Column(name = "name", nullable = false)
     private String name;
 
+    /** Warehouse this controller is installed in (FK to warehouses). Nullable for legacy rows;
+     *  required for new registrations. */
+    @Column(name = "warehouse_id")
+    private Long warehouseId;
+
     @Column(name = "external_controller_id", nullable = false)
     private String externalControllerId;
 
@@ -65,6 +70,14 @@ public class EnvironmentController extends BaseEntity {
 
     public void setId(final Long id) {
         this.id = id;
+    }
+
+    public Long getWarehouseId() {
+        return this.warehouseId;
+    }
+
+    public void setWarehouseId(final Long warehouseId) {
+        this.warehouseId = warehouseId;
     }
 
     public String getName() {

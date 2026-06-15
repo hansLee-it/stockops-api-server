@@ -31,8 +31,10 @@ public class SensorDevice extends BaseEntity {
     @Column(name = "name", nullable = false)
     private String name;
 
-    @Column(name = "location", nullable = false)
-    private String location;
+    /** Warehouse this sensor is installed in (FK to warehouses). Nullable for legacy rows
+     *  registered before warehouse association existed; required for new registrations. */
+    @Column(name = "warehouse_id")
+    private Long warehouseId;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "sensor_type", nullable = false, length = 100)
@@ -94,12 +96,12 @@ public class SensorDevice extends BaseEntity {
         this.name = name;
     }
 
-    public String getLocation() {
-        return this.location;
+    public Long getWarehouseId() {
+        return this.warehouseId;
     }
 
-    public void setLocation(final String location) {
-        this.location = location;
+    public void setWarehouseId(final Long warehouseId) {
+        this.warehouseId = warehouseId;
     }
 
     public SensorType getSensorType() {

@@ -15,6 +15,7 @@ import com.stockops.entity.EnvironmentController;
 import com.stockops.exception.ConflictException;
 import com.stockops.exception.ResourceNotFoundException;
 import com.stockops.repository.EnvironmentControllerRepository;
+import com.stockops.repository.WarehouseRepository;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -37,6 +38,9 @@ class EnvironmentControllerServiceTest {
     @Mock
     private EnvironmentControllerRepository environmentControllerRepository;
 
+    @Mock
+    private WarehouseRepository warehouseRepository;
+
     @InjectMocks
     private EnvironmentControllerService environmentControllerService;
 
@@ -46,6 +50,7 @@ class EnvironmentControllerServiceTest {
     @Test
     void createEnvironmentControllerCreatesNewActiveController() {
         final EnvironmentControllerRequest request = request("site-a", "controller-01", ControllerType.COOLING, 42);
+        when(warehouseRepository.existsById(1L)).thenReturn(true);
         when(environmentControllerRepository.findByExternalControllerIdAndDeletedFalse("sensimul/sites/site-a/controllers/controller-01"))
                 .thenReturn(Optional.empty());
         when(environmentControllerRepository.findByExternalControllerId("sensimul/sites/site-a/controllers/controller-01"))
@@ -63,10 +68,12 @@ class EnvironmentControllerServiceTest {
         assertThat(captor.getValue().getExternalControllerId())
                 .isEqualTo("sensimul/sites/site-a/controllers/controller-01");
         assertThat(captor.getValue().getTargetAxis()).isEqualTo(EnvironmentAxis.TEMPERATURE);
+        assertThat(captor.getValue().getWarehouseId()).isEqualTo(1L);
         assertThat(captor.getValue().isDeleted()).isFalse();
         assertThat(captor.getValue().isActive()).isTrue();
         assertThat(response.siteId()).isEqualTo("site-a");
         assertThat(response.controllerId()).isEqualTo("controller-01");
+        assertThat(response.warehouseId()).isEqualTo(1L);
     }
 
     /**
@@ -81,6 +88,7 @@ class EnvironmentControllerServiceTest {
                 ControllerType.COOLING,
                 true,
                 false);
+        when(warehouseRepository.existsById(1L)).thenReturn(true);
         when(environmentControllerRepository.findByExternalControllerIdAndDeletedFalse(deletedController.getExternalControllerId()))
                 .thenReturn(Optional.empty());
         when(environmentControllerRepository.findByExternalControllerId(deletedController.getExternalControllerId()))
@@ -133,6 +141,7 @@ class EnvironmentControllerServiceTest {
     void updateEnvironmentControllerUpdatesActiveController() {
         final EnvironmentControllerRequest request = request("site-a", "controller-02", ControllerType.AIR_PURIFIER, 65);
         final EnvironmentController current = controller(20L, "sensimul/sites/site-a/controllers/controller-01", ControllerType.COOLING, false, true);
+        when(warehouseRepository.existsById(1L)).thenReturn(true);
         when(environmentControllerRepository.findByIdAndDeletedFalse(20L)).thenReturn(Optional.of(current));
         when(environmentControllerRepository.findByExternalControllerIdAndDeletedFalse("sensimul/sites/site-a/controllers/controller-02"))
                 .thenReturn(Optional.empty());
@@ -275,7 +284,8 @@ class EnvironmentControllerServiceTest {
                 "controller-name",
                 controllerType,
                 ControllerStatus.READY,
-                outputLevel);
+                outputLevel,
+                1L);
     }
 
     private EnvironmentController controller(
