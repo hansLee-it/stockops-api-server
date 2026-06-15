@@ -78,6 +78,25 @@ class AiForecastClientTest {
     }
 
     @Test
+    void getBulkForecasts_sendsProductsArrayMatchingAiModuleSchema() {
+        mockServer.expect(requestTo("http://localhost:8000/predict/bulk"))
+                .andExpect(method(HttpMethod.POST))
+                // ai-module BulkPredictRequest expects {"products":[{"product_id","days"}]}, not a flat id list.
+                .andExpect(content().json("{\"products\":[{\"product_id\":1,\"days\":7},{\"product_id\":2,\"days\":7}]}"))
+                .andRespond(withSuccess(
+                        """
+                        [{"product_id":1,"days":7,"forecast":[]},{"product_id":2,"days":7,"forecast":[]}]
+                        """,
+                        MediaType.APPLICATION_JSON));
+
+        final var responses = client.getBulkForecasts(java.util.List.of(1L, 2L), 7);
+
+        assertThat(responses).hasSize(2);
+        assertThat(responses.get(0).productId()).isEqualTo(1L);
+        mockServer.verify();
+    }
+
+    @Test
     void getForecast_returnsNullOn401() {
         mockServer.expect(requestTo("http://localhost:8000/predict"))
                 .andExpect(method(HttpMethod.POST))

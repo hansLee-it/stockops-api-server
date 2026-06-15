@@ -127,7 +127,11 @@ public class AiForecastClient {
         if (properties.getApiKey() != null && !properties.getApiKey().isBlank()) {
             headers.set("X-API-Key", properties.getApiKey());
         }
-        final HttpEntity<AiBulkForecastRequest> request = new HttpEntity<>(new AiBulkForecastRequest(productIds, days), headers);
+        final List<AiForecastRequest> products = productIds.stream()
+                .map(id -> new AiForecastRequest(id, days))
+                .toList();
+        final HttpEntity<AiBulkForecastRequest> request =
+                new HttpEntity<>(new AiBulkForecastRequest(products), headers);
 
         try {
             final ResponseEntity<List<AiForecastResponse>> responseEntity = restTemplate.exchange(
@@ -247,12 +251,14 @@ public class AiForecastClient {
     }
 
     /**
-     * Request payload for {@code POST /predict/bulk}.
+     * Request payload for {@code POST /predict/bulk}. The ai-module expects a {@code products}
+     * array of per-product {@code {product_id, days}} items (not a flat id list), so model it that
+     * way and reuse {@link AiForecastRequest} (which already maps {@code product_id}).
      *
-     * @param productIds list of product identifiers
-     * @param days       number of days to forecast
+     * @param products per-product forecast requests
      */
-    public record AiBulkForecastRequest(List<Long> productIds, int days) {
+    public record AiBulkForecastRequest(
+            @com.fasterxml.jackson.annotation.JsonProperty("products") List<AiForecastRequest> products) {
     }
 
     private static final Logger log = LoggerFactory.getLogger(AiForecastClient.class);
