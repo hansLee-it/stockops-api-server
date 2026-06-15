@@ -37,9 +37,20 @@ public class AISuggestionController {
     @PreAuthorize("@permissionChecker.hasPermission('AI_SUGGESTION_READ')")
     public ResponseEntity<List<AISuggestionResponse>> listSuggestions(
             @RequestParam(required = false) final com.stockops.entity.ai.AISuggestionStatus status,
+            @RequestParam(required = false) final String type,
+            @RequestParam(required = false) final String severity,
+            @RequestParam(required = false) final String targetType,
+            @RequestParam(required = false) final Long targetId,
+            @RequestParam(required = false) final String sourceType,
+            @RequestParam(required = false) final String visibleToApp,
+            @RequestParam(required = false) final String approvalMode,
             @RequestParam(required = false) final String targetScopeType,
-            @RequestParam(required = false) final Long targetScopeId) {
-        final var query = new AISuggestionService.ListQuery(status, targetScopeType, targetScopeId);
+            @RequestParam(required = false) final Long targetScopeId,
+            @RequestParam(required = false) final Integer page,
+            @RequestParam(required = false) final Integer size) {
+        final var query = new AISuggestionService.ListQuery(
+                status, type, severity, targetType, targetId, sourceType,
+                visibleToApp, approvalMode, targetScopeType, targetScopeId, page, size);
         return ResponseEntity.ok(aiSuggestionService.list(query).stream().map(AISuggestionResponse::from).toList());
     }
 

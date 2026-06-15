@@ -214,6 +214,43 @@ class AISuggestionServiceTest {
     }
 
     @Test
+    void listAppliesAdditionalInMemoryFiltersAfterLoad() {
+        final AISuggestion high = suggestion(AISuggestionStatus.PENDING);
+        final AISuggestion low = suggestion(AISuggestionStatus.PENDING);
+        low.setId(2L);
+        low.setSeverity("LOW");
+        when(permissionChecker.hasPermission(AISuggestionPermissions.READ)).thenReturn(true);
+        when(aiSuggestionRepository.findAll()).thenReturn(List.of(high, low));
+        when(scopeGuard.filterByCenterWarehouseScope(any(), any(), any()))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        final List<AISuggestion> suggestions = aiSuggestionService.list(
+                new AISuggestionService.ListQuery(
+                        null, null, "LOW", null, null, null, null, null, null, null, null, null));
+
+        assertThat(suggestions).containsExactly(low);
+    }
+
+    @Test
+    void listPaginatesScopedRowsInMemory() {
+        final AISuggestion first = suggestion(AISuggestionStatus.PENDING);
+        final AISuggestion second = suggestion(AISuggestionStatus.PENDING);
+        second.setId(2L);
+        final AISuggestion third = suggestion(AISuggestionStatus.PENDING);
+        third.setId(3L);
+        when(permissionChecker.hasPermission(AISuggestionPermissions.READ)).thenReturn(true);
+        when(aiSuggestionRepository.findAll()).thenReturn(List.of(first, second, third));
+        when(scopeGuard.filterByCenterWarehouseScope(any(), any(), any()))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        final List<AISuggestion> secondPage = aiSuggestionService.list(
+                new AISuggestionService.ListQuery(
+                        null, null, null, null, null, null, null, null, null, null, 1, 2));
+
+        assertThat(secondPage).containsExactly(third);
+    }
+
+    @Test
     void listRejectsPersistedLegacyBranchScopeRows() {
         final AISuggestion legacySuggestion = suggestion(AISuggestionStatus.PENDING);
         legacySuggestion.setTargetScopeType("BRANCH");

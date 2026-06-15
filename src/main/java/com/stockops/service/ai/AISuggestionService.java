@@ -77,10 +77,12 @@ public class AISuggestionService {
 
         final List<AISuggestion> suggestions = loadSuggestions(query);
         validateLoadedSuggestionScopes(suggestions);
-        return scopeGuard.filterByCenterWarehouseScope(
-                suggestions,
+        final List<AISuggestion> filtered = applyAdditionalFilters(suggestions, query);
+        final List<AISuggestion> scoped = scopeGuard.filterByCenterWarehouseScope(
+                filtered,
                 AISuggestionService::centerIdForScope,
                 AISuggestionService::warehouseIdForScope);
+        return applyPaging(scoped, query);
     }
 
     @Transactional(readOnly = true)
@@ -204,6 +206,43 @@ public class AISuggestionService {
             return aiSuggestionRepository.findByStatusOrderByIdAsc(query.status());
         }
         return aiSuggestionRepository.findAll();
+    }
+
+    /**
+     * Narrows the loaded rows by the optional non-scope filters (type, severity, target, source,
+     * visibility, approval mode). These are applied in memory after the indexed status/scope load so
+     * the existing scope-secured load path is preserved. Blank/null filters are ignored.
+     */
+    private static List<AISuggestion> applyAdditionalFilters(final List<AISuggestion> rows, final ListQuery query) {
+        if (query == null) {
+            return rows;
+        }
+        return rows.stream()
+                .filter(suggestion -> matchesFilter(query.type(), suggestion.getType()))
+                .filter(suggestion -> matchesFilter(query.severity(), suggestion.getSeverity()))
+                .filter(suggestion -> matchesFilter(query.targetType(), suggestion.getTargetType()))
+                .filter(suggestion -> query.targetId() == null || query.targetId().equals(suggestion.getTargetId()))
+                .filter(suggestion -> matchesFilter(query.sourceType(), suggestion.getSourceType()))
+                .filter(suggestion -> matchesFilter(query.visibleToApp(), suggestion.getVisibleToApp()))
+                .filter(suggestion -> matchesFilter(query.approvalMode(), suggestion.getApprovalMode()))
+                .toList();
+    }
+
+    private static boolean matchesFilter(final String filterValue, final String actualValue) {
+        return filterValue == null || filterValue.isBlank() || filterValue.equals(actualValue);
+    }
+
+    /**
+     * Applies optional in-memory pagination after scope filtering, so a page reflects only the rows
+     * the caller is allowed to see. Returns the full list when size is absent or non-positive.
+     */
+    private static List<AISuggestion> applyPaging(final List<AISuggestion> rows, final ListQuery query) {
+        if (query == null || query.size() == null || query.size() <= 0) {
+            return rows;
+        }
+        final int size = query.size();
+        final int page = query.page() == null || query.page() < 0 ? 0 : query.page();
+        return rows.stream().skip((long) page * size).limit(size).toList();
     }
 
     private AISuggestion getSuggestion(final Long suggestionId) {
@@ -403,7 +442,26 @@ public class AISuggestionService {
         return copy;
     }
 
-    public record ListQuery(AISuggestionStatus status, String targetScopeType, Long targetScopeId) {
+    public record ListQuery(
+            AISuggestionStatus status,
+            String type,
+            String severity,
+            String targetType,
+            Long targetId,
+            String sourceType,
+            String visibleToApp,
+            String approvalMode,
+            String targetScopeType,
+            Long targetScopeId,
+            Integer page,
+            Integer size) {
+
+        /**
+         * Backward-compatible constructor for callers that only filter by status and scope.
+         */
+        public ListQuery(final AISuggestionStatus status, final String targetScopeType, final Long targetScopeId) {
+            this(status, null, null, null, null, null, null, null, targetScopeType, targetScopeId, null, null);
+        }
     }
 
     public record CreateCommand(
