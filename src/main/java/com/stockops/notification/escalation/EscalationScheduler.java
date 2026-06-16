@@ -6,6 +6,7 @@ import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -37,6 +38,7 @@ public class EscalationScheduler {
     private final TransactionTemplate transactionTemplate;
 
     @Scheduled(fixedDelay = 60_000)
+    @SchedulerLock(name = "alertEscalation", lockAtMostFor = "PT5M")
     public void checkAndEscalate() {
         log.debug("Starting escalation check cycle");
 
