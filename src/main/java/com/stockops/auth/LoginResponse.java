@@ -24,6 +24,8 @@ public class LoginResponse {
      * @param email user email
      * @param name user display name
      * @param role role name
+     * @param storeId affiliated store id, or {@code null} when the user is not store-bound
+     *               (only store-bound users may create store purchase requests)
      * @param permissions granted permission codes
      * @param scopeMetadata effective visibility metadata for scoped filtering
      */
@@ -32,6 +34,7 @@ public class LoginResponse {
             String email,
             String name,
             String role,
+            Long storeId,
             List<String> permissions,
             ScopeMetadataDTO scopeMetadata
     ) {

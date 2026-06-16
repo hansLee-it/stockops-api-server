@@ -110,6 +110,7 @@ public class AuthService {
                         user.getEmail(),
                         user.getName(),
                         user.getRole().getName(),
+                        user.getStoreId(),
                         rolePermissionRepository.findPermissionCodesByRoleId(user.getRole().getId()),
                         scopeMetadata));
     }
