@@ -3,6 +3,7 @@ package com.stockops.dto;
 import com.stockops.entity.Notice;
 import com.stockops.entity.NoticeType;
 import java.time.Instant;
+import java.util.List;
 
 public record NoticeResponse(
         Long id,
@@ -12,6 +13,7 @@ public record NoticeResponse(
         boolean active,
         Long createdBy,
         Instant noticeAt,
+        List<String> targetRoles,
         Instant createdAt,
         Instant updatedAt
 ) {
@@ -24,6 +26,7 @@ public record NoticeResponse(
                 Boolean.TRUE.equals(notice.getActive()),
                 notice.getCreatedBy(),
                 notice.getNoticeAt(),
+                notice.getTargetRoles(),
                 notice.getCreatedAt(),
                 notice.getUpdatedAt());
     }

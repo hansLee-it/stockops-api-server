@@ -1,8 +1,11 @@
 package com.stockops.entity;
 
 import jakarta.persistence.*;
-import org.hibernate.annotations.SQLRestriction;
 import java.time.Instant;
+import java.util.List;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.annotations.SQLRestriction;
+import org.hibernate.type.SqlTypes;
 
 /**
  * System notice entity for admin announcements.
@@ -34,6 +37,11 @@ public class Notice extends BaseEntity {
 
     @Column(name = "notice_at")
     private Instant noticeAt;
+
+    /** Roles this notice is delivered to (webhook routing). Empty = broadcast to all role channels. */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "target_roles", nullable = false, columnDefinition = "jsonb DEFAULT '[]'")
+    private List<String> targetRoles = List.of();
 
     public Notice() {
     }
@@ -92,5 +100,13 @@ public class Notice extends BaseEntity {
 
     public void setNoticeAt(final Instant noticeAt) {
         this.noticeAt = noticeAt;
+    }
+
+    public List<String> getTargetRoles() {
+        return this.targetRoles;
+    }
+
+    public void setTargetRoles(final List<String> targetRoles) {
+        this.targetRoles = targetRoles == null ? List.of() : targetRoles;
     }
 }
