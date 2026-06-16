@@ -2,6 +2,7 @@ package com.stockops.ai.bedrock;
 
 import java.time.LocalDate;
 import java.time.ZoneId;
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -41,6 +42,7 @@ public class AiOpsSummaryScheduler {
     @Scheduled(
             cron = "${stockops.ai.bedrock.ops-summary-schedule.cron:0 0 8 * * ?}",
             zone = "${stockops.ai.bedrock.ops-summary-schedule.zone:Asia/Seoul}")
+    @SchedulerLock(name = "aiOpsSummaryPrewarm", lockAtMostFor = "PT15M", lockAtLeastFor = "PT1M")
     public void generateDailyOpsSummaries() {
         final LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
         log.info("[AI] Daily ops summary batch started for {}", today);

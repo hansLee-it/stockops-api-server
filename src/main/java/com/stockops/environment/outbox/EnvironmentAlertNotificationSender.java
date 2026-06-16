@@ -70,6 +70,10 @@ public class EnvironmentAlertNotificationSender {
 
     /**
      * Claims and delivers a batch of pending notifications.
+     *
+     * <p>Intentionally NOT {@code @SchedulerLock}-guarded: {@link EnvironmentAlertNotificationRepository#claimPending}
+     * uses {@code FOR UPDATE SKIP LOCKED}, so concurrent instances each claim disjoint rows. A ShedLock
+     * here would serialize delivery to one instance and throttle the outbox drain.
      */
     @Scheduled(fixedDelayString = "${stockops.environment.alert-outbox.poll-interval:PT15S}")
     @Transactional

@@ -12,6 +12,7 @@ import com.stockops.config.MetricsConfig;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -44,6 +45,7 @@ public class ExpiryAlertService {
      * Existing unacknowledged alerts are replaced so the alert list always reflects current stock.
      */
     @Scheduled(cron = "0 0 1 * * ?")
+    @SchedulerLock(name = "expiryAlertCalculation", lockAtMostFor = "PT15M", lockAtLeastFor = "PT1M")
     @Transactional
     public void calculateExpiryAlerts() {
         log.info("Starting expiry alert calculation");

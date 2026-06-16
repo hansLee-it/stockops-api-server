@@ -5,6 +5,7 @@ import com.stockops.entity.ControllerCommandResultStatus;
 import com.stockops.repository.ControllerCommandRepository;
 import java.time.Instant;
 import java.util.List;
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -69,6 +70,7 @@ public class ControllerCommandAckService {
      * threshold itself is {@code stockops.command-messaging.ack-timeout}.
      */
     @Scheduled(fixedDelay = 30_000L)
+    @SchedulerLock(name = "controllerCommandTimeoutSweep", lockAtMostFor = "PT2M")
     @Transactional
     public void sweepTimeouts() {
         if (!properties.isEnabled()) {

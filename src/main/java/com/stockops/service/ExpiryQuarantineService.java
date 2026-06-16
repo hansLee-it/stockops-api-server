@@ -14,6 +14,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -47,6 +48,7 @@ public class ExpiryQuarantineService {
      * Each lot is processed in its own transaction so one failure does not roll back the full batch.
      */
     @Scheduled(cron = "0 0 0 * * ?", zone = "Asia/Seoul")
+    @SchedulerLock(name = "expiryQuarantineBatch", lockAtMostFor = "PT30M", lockAtLeastFor = "PT1M")
     public void autoQuarantineExpiredLots() {
         log.info("Starting expiry quarantine batch job");
 

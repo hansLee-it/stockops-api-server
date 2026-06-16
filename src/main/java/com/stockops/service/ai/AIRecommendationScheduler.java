@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -24,6 +25,7 @@ public class AIRecommendationScheduler {
      * Runs the daily AI reorder recommendation batch for the current business date.
      */
     @Scheduled(cron = "${stockops.ai.daily-cron:0 45 1 * * ?}", zone = "${stockops.ai.business-zone:Asia/Seoul}")
+    @SchedulerLock(name = "aiDailyRecommendations", lockAtMostFor = "PT30M", lockAtLeastFor = "PT1M")
     public void generateDailyRecommendations() {
         if (!properties.isEnabled()) {
             log.info("Skipping AI recommendation batch because stockops.ai.enabled=false");
