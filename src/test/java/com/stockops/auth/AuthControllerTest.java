@@ -101,6 +101,7 @@ class AuthControllerTest {
                         "admin@stockops.test",
                         "Admin User",
                         role,
+                        null,
                         List.of("AI_SUGGESTION_READ"),
                         null));
     }
