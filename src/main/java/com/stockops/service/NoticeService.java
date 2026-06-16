@@ -4,6 +4,7 @@ import com.stockops.dto.NoticeRequest;
 import com.stockops.entity.Notice;
 import com.stockops.entity.NoticeType;
 import com.stockops.exception.ResourceNotFoundException;
+import com.stockops.notification.role.NoticeNotifier;
 import com.stockops.repository.NoticeRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -17,6 +18,7 @@ import java.util.List;
 public class NoticeService {
 
     private final NoticeRepository noticeRepository;
+    private final NoticeNotifier noticeNotifier;
 
     @Transactional(readOnly = true)
     public List<Notice> getActiveNotices() {
@@ -37,7 +39,10 @@ public class NoticeService {
         notice.setCreatedBy(request.createdBy());
         notice.setActive(request.active() != null ? request.active() : true);
         notice.setNoticeAt(request.noticeAt());
-        return noticeRepository.save(notice);
+        notice.setTargetRoles(request.targetRoles());
+        final Notice saved = noticeRepository.save(notice);
+        noticeNotifier.dispatch(saved);
+        return saved;
     }
 
     @Transactional
@@ -77,8 +82,9 @@ public class NoticeService {
         return noticeRepository.findAll(effectivePageable);
     }
 
-    public NoticeService(final NoticeRepository noticeRepository) {
+    public NoticeService(final NoticeRepository noticeRepository, final NoticeNotifier noticeNotifier) {
         this.noticeRepository = noticeRepository;
+        this.noticeNotifier = noticeNotifier;
     }
 
 }
