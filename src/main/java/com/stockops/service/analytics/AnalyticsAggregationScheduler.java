@@ -3,6 +3,7 @@ package com.stockops.service.analytics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.stockops.config.MetricsConfig;
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -24,6 +25,7 @@ public class AnalyticsAggregationScheduler {
      * Refreshes the rolling analytics window used by BI and AI consumers.
      */
     @Scheduled(cron = "${stockops.analytics.refresh-cron:0 15 1 * * ?}", zone = "${stockops.analytics.business-zone:Asia/Seoul}")
+    @SchedulerLock(name = "analyticsIncrementalRefresh", lockAtMostFor = "PT30M", lockAtLeastFor = "PT1M")
     public void refreshIncrementalAnalytics() {
         if (!properties.isEnabled()) {
             log.info("Skipping analytics incremental refresh because stockops.analytics.enabled=false");
@@ -46,6 +48,7 @@ public class AnalyticsAggregationScheduler {
      * Rebuilds the longer analytics history window on a slower cadence to support cold starts and drift correction.
      */
     @Scheduled(cron = "${stockops.analytics.backfill-cron:0 0 2 * * SUN}", zone = "${stockops.analytics.business-zone:Asia/Seoul}")
+    @SchedulerLock(name = "analyticsBackfill", lockAtMostFor = "PT2H", lockAtLeastFor = "PT1M")
     public void backfillAnalyticsHistory() {
         if (!properties.isEnabled()) {
             log.info("Skipping analytics backfill because stockops.analytics.enabled=false");

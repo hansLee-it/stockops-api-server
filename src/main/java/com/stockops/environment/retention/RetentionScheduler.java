@@ -1,5 +1,6 @@
 package com.stockops.environment.retention;
 
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -23,6 +24,7 @@ public class RetentionScheduler {
      * Runs the daily retention purge at 03:00 UTC.
      */
     @Scheduled(cron = "0 0 3 * * ?", zone = "UTC")
+    @SchedulerLock(name = "environmentRetentionPurge", lockAtMostFor = "PT1H", lockAtLeastFor = "PT1M")
     public void purgeRetainedEnvironmentHistory() {
         if (!retentionProperties.isEnabled()) {
             log.info("Skipping environment retention batch job because stockops.retention.enabled=false");

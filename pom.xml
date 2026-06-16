@@ -26,6 +26,7 @@
         <aws.sdk.version>2.44.13</aws.sdk.version>
         <google.genai.version>1.5.0</google.genai.version>
         <resilience4j.version>2.2.0</resilience4j.version>
+        <shedlock.version>5.16.0</shedlock.version>
     </properties>
 
     <dependencies>
@@ -178,6 +179,18 @@
             <groupId>com.google.genai</groupId>
             <artifactId>google-genai</artifactId>
             <version>${google.genai.version}</version>
+        </dependency>
+
+        <!-- ShedLock: single-instance execution of cron batch jobs behind a load balancer -->
+        <dependency>
+            <groupId>net.javacrumbs.shedlock</groupId>
+            <artifactId>shedlock-spring</artifactId>
+            <version>${shedlock.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>net.javacrumbs.shedlock</groupId>
+            <artifactId>shedlock-provider-jdbc-template</artifactId>
+            <version>${shedlock.version}</version>
         </dependency>
 
         <dependency>
