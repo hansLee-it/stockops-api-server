@@ -18,6 +18,9 @@ class WebhookServiceTest {
     @Mock
     private WebhookProviderRegistry registry;
 
+    @Mock
+    private NotificationDeliveryLogger deliveryLogger;
+
     @InjectMocks
     private WebhookService webhookService;
 
