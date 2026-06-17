@@ -18,7 +18,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
-import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.bedrockagentruntime.BedrockAgentRuntimeAsyncClient;
 import software.amazon.awssdk.services.bedrockagentruntime.BedrockAgentRuntimeClient;
 import software.amazon.awssdk.services.bedrockagentruntime.model.ContentBody;
@@ -83,9 +82,7 @@ public class BedrockAgentRuntimeClientAdapter {
         }
 
         final String modelArn = properties.generationModelReference();
-        try (BedrockAgentRuntimeClient client = BedrockAgentRuntimeClient.builder()
-                .region(Region.of(properties.getRegion()))
-                .build()) {
+        try (BedrockAgentRuntimeClient client = clientFactory.createSyncClient(properties.getRegion())) {
             final RetrieveAndGenerateRequest ragRequest = RetrieveAndGenerateRequest.builder()
                     .input(RetrieveAndGenerateInput.builder().text(request.question()).build())
                     .retrieveAndGenerateConfiguration(RetrieveAndGenerateConfiguration.builder()
