@@ -23,6 +23,7 @@ import java.util.Map;
 public class WebhookService {
 
     private final WebhookProviderRegistry registry;
+    private final NotificationDeliveryLogger deliveryLogger;
 
     /**
      * Sends a webhook notification using the specified provider type.
@@ -48,6 +49,8 @@ public class WebhookService {
                      final WebhookPayload payload, final Map<String, String> headers) {
         if (webhookUrl == null || webhookUrl.isBlank()) {
             log.info("[WEBHOOK MOCK] providerType={}, payload={}", providerType, payload);
+            deliveryLogger.record(providerType, webhookUrl, payload,
+                    NotificationDeliveryLog.Status.SKIPPED, "blank webhook URL (mock mode)");
             return;
         }
 
@@ -55,6 +58,8 @@ public class WebhookService {
         if (providerOpt.isEmpty()) {
             log.error("[WEBHOOK] Unknown provider type '{}'. Available: {}",
                     providerType, registry.getRegisteredTypes());
+            deliveryLogger.record(providerType, webhookUrl, payload,
+                    NotificationDeliveryLog.Status.SKIPPED, "unknown provider type");
             return;
         }
 
@@ -62,16 +67,22 @@ public class WebhookService {
         try {
             provider.send(webhookUrl, payload, headers);
             log.info("[WEBHOOK] Sent via {}: eventType={}", providerType, payload.eventType());
+            deliveryLogger.record(providerType, webhookUrl, payload,
+                    NotificationDeliveryLog.Status.SENT, null);
         } catch (Exception e) {
             log.error("[WEBHOOK] Failed to send via {}: eventType={}, error={}",
                     providerType, payload.eventType(), e.getMessage(), e);
+            deliveryLogger.record(providerType, webhookUrl, payload,
+                    NotificationDeliveryLog.Status.FAILED, e.getMessage());
         }
     }
 
     private static final Logger log = LoggerFactory.getLogger(WebhookService.class);
 
-    public WebhookService(final WebhookProviderRegistry registry) {
+    public WebhookService(final WebhookProviderRegistry registry,
+                          final NotificationDeliveryLogger deliveryLogger) {
         this.registry = registry;
+        this.deliveryLogger = deliveryLogger;
     }
 
 }

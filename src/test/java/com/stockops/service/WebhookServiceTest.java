@@ -6,6 +6,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.stockops.notification.webhook.NotificationDeliveryLogger;
 import com.stockops.notification.webhook.WebhookPayload;
 import com.stockops.notification.webhook.WebhookProvider;
 import com.stockops.notification.webhook.WebhookProviderRegistry;
@@ -26,6 +27,9 @@ class WebhookServiceTest {
 
     @Mock
     private WebhookProvider provider;
+
+    @Mock
+    private NotificationDeliveryLogger deliveryLogger;
 
     @InjectMocks
     private WebhookService webhookService;
