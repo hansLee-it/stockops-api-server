@@ -186,7 +186,10 @@ public class TeamsWebhookProvider implements WebhookProvider {
             extraHeaders.forEach(headers::set);
 
             HttpEntity<String> entity = new HttpEntity<>(json, headers);
-            restTemplate.postForEntity(webhookUrl, entity, String.class);
+            // Pass a URI, not a String: a String URL is treated as a UriTemplate and re-encoded,
+            // which corrupts already-encoded SAS query params (e.g. Power Automate's sp=%2F.../sig)
+            // and yields 401 AuthorizationFailed. URI.create keeps the URL verbatim.
+            restTemplate.postForEntity(java.net.URI.create(webhookUrl), entity, String.class);
             log.info("[TEAMS] Webhook sent successfully: eventType={}", body.get("title"));
         } catch (RestClientException e) {
             log.error("[TEAMS] Webhook send failed: {}", e.getMessage(), e);
