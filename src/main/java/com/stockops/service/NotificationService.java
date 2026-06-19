@@ -11,6 +11,7 @@ import com.stockops.entity.PurchaseOrder;
 import com.stockops.entity.PurchaseOrderStatus;
 import com.stockops.entity.User;
 import com.stockops.exception.ResourceNotFoundException;
+import com.stockops.notification.lowstock.LowStockRule;
 import com.stockops.repository.ExpiryAlertRepository;
 import com.stockops.repository.InventoryRepository;
 import com.stockops.repository.LocationRepository;
@@ -167,14 +168,10 @@ public class NotificationService {
 
         for (final Inventory inventory : inventories) {
             final Product product = productsById.get(inventory.getProductId());
-            if (product == null || product.getSafetyStockQuantity() == null || product.getSafetyStockQuantity() <= 0) {
+            if (!LowStockRule.isLow(inventory, product)) {
                 continue;
             }
-
-            final int availableQuantity = Math.max(0, safeInt(inventory.getQuantity()) - safeInt(inventory.getReservedQuantity()));
-            if (availableQuantity > product.getSafetyStockQuantity()) {
-                continue;
-            }
+            final int availableQuantity = LowStockRule.availableQuantity(inventory);
 
             final Location location = locationsById.get(inventory.getLocationId());
             final String eventKey = "LOW_STOCK:" + inventory.getId();
