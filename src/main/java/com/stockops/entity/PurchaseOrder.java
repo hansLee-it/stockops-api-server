@@ -3,6 +3,7 @@ package com.stockops.entity;
 import jakarta.persistence.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -74,6 +75,10 @@ public class PurchaseOrder extends BaseEntity {
 
     @Column(name = "notes")
     private String notes;
+
+    /** Requested delivery date for store-originated requests (희망 입고일); null otherwise. */
+    @Column(name = "expected_date")
+    private LocalDate expectedDate;
 
     @OneToMany(mappedBy = "purchaseOrder", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<PurchaseOrderItem> items = new ArrayList<>();
@@ -210,6 +215,14 @@ public class PurchaseOrder extends BaseEntity {
 
     public void setNotes(final String notes) {
         this.notes = notes;
+    }
+
+    public LocalDate getExpectedDate() {
+        return this.expectedDate;
+    }
+
+    public void setExpectedDate(final LocalDate expectedDate) {
+        this.expectedDate = expectedDate;
     }
 
     public List<PurchaseOrderItem> getItems() {

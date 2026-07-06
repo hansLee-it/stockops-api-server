@@ -82,9 +82,11 @@ public class PurchaseOrderService {
      * from the requesting user's membership.
      *
      * @param currentUser the store user creating the request (must belong to a store)
+     * @param reason free-text request reason stored on the order's notes (nullable)
+     * @param expectedDate requested delivery date (nullable)
      * @return the created DRAFT purchase order
      */
-    public PurchaseOrder createStoreRequest(final User currentUser) {
+    public PurchaseOrder createStoreRequest(final User currentUser, final String reason, final LocalDate expectedDate) {
         if (currentUser == null || currentUser.getStoreId() == null) {
             throw new InvalidOperationException("발주 신청은 지점 소속 사용자만 생성할 수 있습니다");
         }
@@ -96,6 +98,10 @@ public class PurchaseOrderService {
         po.setRequestingStore(store);
         po.setRequestedBy(currentUser);
         po.setStatus(PurchaseOrderStatus.DRAFT);
+        if (reason != null && !reason.isBlank()) {
+            po.setNotes(reason);
+        }
+        po.setExpectedDate(expectedDate);
         return purchaseOrderRepository.save(po);
     }
 

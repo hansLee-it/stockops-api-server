@@ -25,6 +25,7 @@ import com.stockops.repository.PurchaseOrderShipmentRepository;
 import com.stockops.repository.StoreRepository;
 import com.stockops.security.CurrentUserProvider;
 import com.stockops.security.ScopeGuard;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -120,7 +121,7 @@ class PurchaseOrderServiceTest {
         final User noStore = new User();
         noStore.setId(5L);
 
-        assertThatThrownBy(() -> purchaseOrderService.createStoreRequest(noStore))
+        assertThatThrownBy(() -> purchaseOrderService.createStoreRequest(noStore, null, null))
                 .isInstanceOf(InvalidOperationException.class);
         verify(purchaseOrderRepository, never()).save(org.mockito.ArgumentMatchers.any());
     }
@@ -137,11 +138,32 @@ class PurchaseOrderServiceTest {
         when(purchaseOrderRepository.save(org.mockito.ArgumentMatchers.any(PurchaseOrder.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        final PurchaseOrder created = purchaseOrderService.createStoreRequest(storeUser);
+        final PurchaseOrder created = purchaseOrderService.createStoreRequest(
+                storeUser, "긴급 결품", LocalDate.of(2026, 7, 10));
 
         assertThat(created.getRequestingStore()).isSameAs(store);
         assertThat(created.getStatus()).isEqualTo(PurchaseOrderStatus.DRAFT);
         assertThat(created.getRequestingCenter()).isNull();
+        assertThat(created.getNotes()).isEqualTo("긴급 결품");
+        assertThat(created.getExpectedDate()).isEqualTo(LocalDate.of(2026, 7, 10));
+    }
+
+    @Test
+    void createStoreRequestLeavesNotesUnsetWithoutReason() {
+        final User storeUser = new User();
+        storeUser.setId(5L);
+        storeUser.setStoreId(3L);
+        final Store store = new Store();
+        store.setId(3L);
+        when(storeRepository.findByIdAndDeletedFalse(3L)).thenReturn(Optional.of(store));
+        when(purchaseOrderRepository.countByPoNumberStartingWith(org.mockito.ArgumentMatchers.anyString())).thenReturn(0L);
+        when(purchaseOrderRepository.save(org.mockito.ArgumentMatchers.any(PurchaseOrder.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        final PurchaseOrder created = purchaseOrderService.createStoreRequest(storeUser, " ", null);
+
+        assertThat(created.getNotes()).isNull();
+        assertThat(created.getExpectedDate()).isNull();
     }
 
     @Test

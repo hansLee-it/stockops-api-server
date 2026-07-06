@@ -1,5 +1,6 @@
 package com.stockops.controller;
 
+import com.stockops.dto.CreateStoreRequestBody;
 import com.stockops.dto.PartialAcceptItem;
 import com.stockops.entity.PurchaseOrder;
 import com.stockops.entity.PurchaseOrderShipment;
@@ -62,12 +63,17 @@ public class PurchaseOrderController {
     /**
      * Creates a store-originated purchase request (client-web). The store comes from the caller's
      * membership; the center/warehouse are designated later by an administrator at approval.
+     * The body carries the optional request reason and expected delivery date.
      */
     @PostMapping("/store-request")
     @PreAuthorize("@permissionChecker.hasPermission('PURCHASE_ORDER_CREATE')")
-    public PurchaseOrder createStoreRequest(Principal principal) {
+    public PurchaseOrder createStoreRequest(Principal principal,
+                                            @RequestBody(required = false) CreateStoreRequestBody body) {
         final User currentUser = userService.getUserByEmail(principal.getName());
-        return purchaseOrderService.createStoreRequest(currentUser);
+        return purchaseOrderService.createStoreRequest(
+                currentUser,
+                body == null ? null : body.reason(),
+                body == null ? null : body.expectedDate());
     }
 
     /**
