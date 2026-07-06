@@ -86,7 +86,12 @@ public class AuthService {
             final Long userId = jwtTokenProvider.extractRefreshUserId(refreshToken);
             final User user = userRepository.findById(userId)
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
+            if (!user.isEnabled()) {
+                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Account is disabled");
+            }
             return buildResult(user);
+        } catch (ResponseStatusException exception) {
+            throw exception;
         } catch (RuntimeException exception) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid refresh token", exception);
         }

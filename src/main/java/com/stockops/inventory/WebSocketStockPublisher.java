@@ -3,6 +3,9 @@ package com.stockops.inventory;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
+
+import com.stockops.entity.Location;
+import com.stockops.repository.LocationRepository;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
@@ -11,8 +14,10 @@ import org.springframework.stereotype.Service;
  * Messages are sent after a successful database commit so callers always invoke
  * this <b>after</b> the transactional service method returns.
  *
- * <p>The topic destination is {@code /topic/stock}. Clients subscribe to receive
- * real-time notifications for inbound, outbound, and adjustment mutations.
+ * <p>Every event is sent to the firehose topic {@code /topic/stock} (subscribable only by
+ * global-scope users) and, when the affected location resolves to a warehouse, also to the
+ * per-warehouse topic {@code /topic/stock/{warehouseId}}. Scoped users may only subscribe to
+ * warehouses within their scope (both rules enforced by {@code WebSocketAuthInterceptor}).
  *
  * <p>Payload schema:
  * <pre>
@@ -36,12 +41,15 @@ import org.springframework.stereotype.Service;
 public class WebSocketStockPublisher {
 
     private static final String TOPIC_STOCK = "/topic/stock";
+    private static final String TOPIC_STOCK_PREFIX = "/topic/stock/";
     private static final String EVENT_TYPE_STOCK_CHANGE = "STOCK_CHANGE";
 
     private final SimpMessagingTemplate simpMessagingTemplate;
+    private final LocationRepository locationRepository;
 
     /**
-     * Broadcasts a stock-change event to all subscribers of {@code /topic/stock}.
+     * Broadcasts a stock-change event to the global firehose topic and to the affected
+     * warehouse's topic.
      *
      * @param changeType source of the change: {@code INBOUND}, {@code OUTBOUND}, or {@code ADJUSTMENT}
      * @param productId product that was mutated
@@ -64,10 +72,27 @@ public class WebSocketStockPublisher {
         payload.put("timestamp", Instant.now().toString());
 
         simpMessagingTemplate.convertAndSend(TOPIC_STOCK, payload);
+
+        final Long warehouseId = resolveWarehouseId(locationId);
+        if (warehouseId != null) {
+            simpMessagingTemplate.convertAndSend(TOPIC_STOCK_PREFIX + warehouseId, payload);
+        }
     }
 
-    public WebSocketStockPublisher(final SimpMessagingTemplate simpMessagingTemplate) {
+    private Long resolveWarehouseId(final Long locationId) {
+        if (locationId == null) {
+            return null;
+        }
+        return locationRepository.findById(locationId)
+                .map(Location::getWarehouse)
+                .map(warehouse -> warehouse == null ? null : warehouse.getId())
+                .orElse(null);
+    }
+
+    public WebSocketStockPublisher(final SimpMessagingTemplate simpMessagingTemplate,
+                                   final LocationRepository locationRepository) {
         this.simpMessagingTemplate = simpMessagingTemplate;
+        this.locationRepository = locationRepository;
     }
 
 }

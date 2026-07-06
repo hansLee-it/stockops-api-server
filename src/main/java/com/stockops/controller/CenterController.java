@@ -1,7 +1,9 @@
 package com.stockops.controller;
 
+import com.stockops.dto.CenterRequest;
 import com.stockops.entity.Center;
 import com.stockops.service.CenterService;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -40,14 +42,23 @@ public class CenterController {
 
     @PostMapping
     @PreAuthorize("@permissionChecker.hasPermission('CENTER_CREATE')")
-    public Center createCenter(@RequestBody Center center) {
-        return centerService.create(center);
+    public Center createCenter(@Valid @RequestBody CenterRequest request) {
+        return centerService.create(toEntity(request));
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("@permissionChecker.hasPermission('CENTER_UPDATE')")
-    public Center updateCenter(@PathVariable Long id, @RequestBody Center center) {
-        return centerService.update(id, center);
+    public Center updateCenter(@PathVariable Long id, @Valid @RequestBody CenterRequest request) {
+        return centerService.update(id, toEntity(request));
+    }
+
+    private Center toEntity(final CenterRequest request) {
+        final Center center = new Center();
+        center.setCode(request.code());
+        center.setName(request.name());
+        center.setAddress(request.address());
+        center.setPhone(request.phone());
+        return center;
     }
 
     @DeleteMapping("/{id}")

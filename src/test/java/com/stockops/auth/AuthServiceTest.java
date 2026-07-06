@@ -18,7 +18,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
+
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 
 /**
@@ -92,5 +96,35 @@ class AuthServiceTest {
         final LoginResponse response = authService().authenticate(loginRequest(user.getEmail())).loginResponse();
 
         assertThat(response.getUser().storeId()).isNull();
+    }
+
+    @Test
+    void refreshSessionRejectsDisabledAccount() {
+        final User user = userWithStore(55L);
+        user.setEnabled(false);
+        when(jwtTokenProvider.extractRefreshUserId("refresh-token")).thenReturn(user.getId());
+        when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> authService().refreshSession("refresh-token"))
+                .isInstanceOf(ResponseStatusException.class)
+                .satisfies(ex -> assertThat(((ResponseStatusException) ex).getStatusCode())
+                        .isEqualTo(HttpStatus.UNAUTHORIZED));
+    }
+
+    @Test
+    void refreshSessionSucceedsForEnabledAccount() {
+        final User user = userWithStore(55L);
+        when(jwtTokenProvider.extractRefreshUserId("refresh-token")).thenReturn(user.getId());
+        when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+        when(rolePermissionRepository.findPermissionCodesByRoleId(3L))
+                .thenReturn(List.of("PURCHASE_ORDER_CREATE"));
+        when(jwtTokenProvider.generateAccessToken(user)).thenReturn("access");
+        when(jwtTokenProvider.generateRefreshToken(user)).thenReturn("refresh");
+        when(scopeAccessService.buildUserProfile(user))
+                .thenReturn(new ScopeAccessProfile(true, List.of(ScopeAssignment.admin()), Set.of(), Set.of()));
+
+        final LoginResponse response = authService().refreshSession("refresh-token").loginResponse();
+
+        assertThat(response.getAccessToken()).isEqualTo("access");
     }
 }

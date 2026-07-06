@@ -157,8 +157,20 @@ class AuthDataLoaderTest {
         assertThat(users.getValue().getStoreId()).isEqualTo(LINKED_STORE_ID);
     }
 
+    @Test
+    void skipsAdminSeedWhenAdminSeedPasswordIsBlank() {
+        AuthDataLoader loader = new AuthDataLoader(userRepository, roleRepository, storeRepository,
+                passwordEncoder, "", "");
+        loader.run(null);
+
+        verify(userRepository, never()).save(any(User.class));
+        verify(userRepository, never()).findByEmail("admin@stockops.com");
+        verify(storeRepository, never()).save(any(Store.class));
+    }
+
     private AuthDataLoader loader(final String testAccountPassword) {
-        return new AuthDataLoader(userRepository, roleRepository, storeRepository, passwordEncoder, testAccountPassword);
+        return new AuthDataLoader(userRepository, roleRepository, storeRepository, passwordEncoder,
+                "admin-seed-password", testAccountPassword);
     }
 
     private static Role role(final String name) {
