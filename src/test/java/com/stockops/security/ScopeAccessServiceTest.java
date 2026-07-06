@@ -39,8 +39,25 @@ class ScopeAccessServiceTest {
     }
 
     @Test
-    void buildUserProfileReturnsGlobalWhenNoAssignmentsExist() {
+    void buildUserProfileFailsClosedWhenNonAdminHasNoAssignments() {
         Role role = new Role();
+        role.setName("CENTER_MANAGER");
+        User user = new User();
+        user.setRole(role);
+
+        ScopeAccessProfile profile = scopeAccessService.buildUserProfile(user);
+
+        assertThat(profile.global()).isFalse();
+        assertThat(profile.assignments()).isEmpty();
+        assertThat(profile.centerIds()).isEmpty();
+        assertThat(profile.warehouseIds()).isEmpty();
+        assertThat(profile.canAccessCenter(1L)).isFalse();
+    }
+
+    @Test
+    void buildUserProfileReturnsGlobalForAdminRole() {
+        Role role = new Role();
+        role.setName("ADMIN");
         User user = new User();
         user.setRole(role);
 
@@ -49,6 +66,28 @@ class ScopeAccessServiceTest {
         assertThat(profile.global()).isTrue();
         assertThat(profile.toDto().assignments()).hasSize(1);
         assertThat(profile.toDto().assignments().get(0).scope()).isEqualTo(ScopeType.ADMIN);
+    }
+
+    @Test
+    void buildUserProfileConstrainsAdminRoleWithExplicitAssignment() {
+        Role role = new Role();
+        role.setName("ADMIN");
+        User user = new User();
+        user.setRole(role);
+        user.setScopeAssignments(Set.of(new ScopeAssignment(ScopeType.WAREHOUSE, 1L, 10L)));
+
+        Warehouse warehouse = new Warehouse();
+        warehouse.setId(10L);
+        Center center = new Center();
+        center.setId(1L);
+        warehouse.setCenter(center);
+        when(warehouseRepository.findById(10L)).thenReturn(Optional.of(warehouse));
+
+        ScopeAccessProfile profile = scopeAccessService.buildUserProfile(user);
+
+        assertThat(profile.global()).isFalse();
+        assertThat(profile.warehouseIds()).containsExactly(10L);
+        assertThat(profile.canAccessWarehouse(11L)).isFalse();
     }
 
     @Test

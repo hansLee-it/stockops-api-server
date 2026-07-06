@@ -13,22 +13,27 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
 /**
- * Seeds the default administrator account required for first-time access, plus dev/demo fixtures
- * (sample store master data and per-role test accounts) when {@code stockops.test-accounts.password}
- * is configured. Production leaves that property blank, so only the administrator is created and no
- * sample stores are inserted.
+ * Seeds the default administrator account (only when {@code stockops.admin-seed.password} is
+ * configured), plus dev/demo fixtures (sample store master data and per-role test accounts) when
+ * {@code stockops.test-accounts.password} is configured. Production leaves both properties blank, so
+ * nothing is seeded automatically.
  *
  * @author StockOps Team
  * @since 1.0
  */
 @Component
 public class AuthDataLoader implements ApplicationRunner {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(AuthDataLoader.class);
 
     private static final String ADMIN_EMAIL = "admin@stockops.com";
     private static final String ADMIN_ROLE = "ADMIN";
@@ -53,6 +58,7 @@ public class AuthDataLoader implements ApplicationRunner {
     private final RoleRepository roleRepository;
     private final StoreRepository storeRepository;
     private final PasswordEncoder passwordEncoder;
+    private final String adminSeedPassword;
     private final String testAccountPassword;
 
     /**
@@ -62,17 +68,20 @@ public class AuthDataLoader implements ApplicationRunner {
      * @param roleRepository role repository
      * @param storeRepository store repository
      * @param passwordEncoder password encoder
+     * @param adminSeedPassword password for the default administrator; blank disables admin seeding
      * @param testAccountPassword shared password for dev/demo fixtures; blank disables them
      */
     public AuthDataLoader(final UserRepository userRepository,
                           final RoleRepository roleRepository,
                           final StoreRepository storeRepository,
                           final PasswordEncoder passwordEncoder,
+                          @Value("${stockops.admin-seed.password:}") final String adminSeedPassword,
                           @Value("${stockops.test-accounts.password:}") final String testAccountPassword) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.storeRepository = storeRepository;
         this.passwordEncoder = passwordEncoder;
+        this.adminSeedPassword = adminSeedPassword;
         this.testAccountPassword = testAccountPassword;
     }
 
@@ -85,7 +94,11 @@ public class AuthDataLoader implements ApplicationRunner {
     @Override
     @Transactional
     public void run(final ApplicationArguments args) {
-        seedAccount(new SeedAccount(ADMIN_EMAIL, "StockOps Admin", ADMIN_ROLE), "admin123", null);
+        if (!adminSeedPassword.isBlank()) {
+            seedAccount(new SeedAccount(ADMIN_EMAIL, "StockOps Admin", ADMIN_ROLE), adminSeedPassword, null);
+        } else {
+            LOGGER.warn("stockops.admin-seed.password is not set; skipping default administrator seeding.");
+        }
 
         if (!testAccountPassword.isBlank()) {
             seedStores();

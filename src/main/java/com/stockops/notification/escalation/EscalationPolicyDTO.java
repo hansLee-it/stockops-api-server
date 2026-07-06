@@ -1,5 +1,7 @@
 package com.stockops.notification.escalation;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import java.time.Instant;
 import java.util.List;
 
@@ -41,9 +43,9 @@ record EscalationRuleDTO(
  * @since 2.0
  */
 record EscalationPolicyRequest(
-        Long centerId,
+        @NotNull Long centerId,
         Long warehouseId,
-        String alertType,
+        @NotBlank String alertType,
         Boolean active,
         List<EscalationRuleRequest> rules
 ) {}

@@ -78,7 +78,6 @@ public class WarehouseService {
         existing.setName(warehouse.getName());
         existing.setAddress(warehouse.getAddress());
         existing.setPhone(warehouse.getPhone());
-        existing.setStatus(warehouse.getStatus());
         return warehouseRepository.save(existing);
     }
 

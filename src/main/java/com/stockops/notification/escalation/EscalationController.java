@@ -1,5 +1,6 @@
 package com.stockops.notification.escalation;
 
+import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -61,14 +62,14 @@ public class EscalationController {
 
     @PostMapping
     @PreAuthorize("@permissionChecker.hasPermission('CENTER_CREATE')")
-    public EscalationPolicyDTO createPolicy(@RequestBody EscalationPolicyRequest request) {
+    public EscalationPolicyDTO createPolicy(@Valid @RequestBody EscalationPolicyRequest request) {
         return toDto(escalationService.create(request));
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("@permissionChecker.hasPermission('CENTER_UPDATE')")
     public EscalationPolicyDTO updatePolicy(@PathVariable Long id,
-                                             @RequestBody EscalationPolicyRequest request) {
+                                             @Valid @RequestBody EscalationPolicyRequest request) {
         return toDto(escalationService.update(id, request));
     }
 

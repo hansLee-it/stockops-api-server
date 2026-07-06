@@ -139,7 +139,8 @@ public class PermissionChecker {
     private ScopeAccessProfile currentScopeProfile() {
         final Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !(authentication.getPrincipal() instanceof ScopedUserDetails userDetails)) {
-            return new ScopeAccessProfile(true, java.util.List.of(ScopeAssignment.global()), java.util.Set.of(), java.util.Set.of());
+            // Fail-closed: without scoped principal metadata, grant no data visibility.
+            return new ScopeAccessProfile(false, java.util.List.of(), java.util.Set.of(), java.util.Set.of());
         }
         return userDetails.getScopeAccessProfile();
     }

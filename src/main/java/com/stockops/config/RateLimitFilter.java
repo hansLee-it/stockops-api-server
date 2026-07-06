@@ -11,6 +11,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -60,6 +61,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private final Bandwidth authenticatedBandwidth;
     private final Bandwidth anonymousBandwidth;
     private final Bandwidth loginBandwidth;
+    private final boolean trustForwardedFor;
 
     /**
      * Creates the rate limit filter.
@@ -68,15 +70,19 @@ public class RateLimitFilter extends OncePerRequestFilter {
      * @param authenticatedBandwidth bandwidth for authenticated users
      * @param anonymousBandwidth bandwidth for anonymous users
      * @param loginBandwidth bandwidth for login endpoint
+     * @param trustForwardedFor whether to derive the client IP from {@code X-Forwarded-For}; only enable
+     *                          when the application sits behind a trusted proxy that sets the header
      */
     public RateLimitFilter(final ProxyManager<String> proxyManager,
                            final Bandwidth authenticatedBandwidth,
                            final Bandwidth anonymousBandwidth,
-                           final Bandwidth loginBandwidth) {
+                           final Bandwidth loginBandwidth,
+                           @Value("${stockops.ratelimit.trust-forwarded-for:false}") final boolean trustForwardedFor) {
         this.proxyManager = proxyManager;
         this.authenticatedBandwidth = authenticatedBandwidth;
         this.anonymousBandwidth = anonymousBandwidth;
         this.loginBandwidth = loginBandwidth;
+        this.trustForwardedFor = trustForwardedFor;
     }
 
     /**
@@ -186,9 +192,11 @@ public class RateLimitFilter extends OncePerRequestFilter {
     }
 
     private String getClientIp(final HttpServletRequest request) {
-        final String xfHeader = request.getHeader("X-Forwarded-For");
-        if (xfHeader != null && !xfHeader.isBlank()) {
-            return xfHeader.split(",")[0].trim();
+        if (trustForwardedFor) {
+            final String xfHeader = request.getHeader("X-Forwarded-For");
+            if (xfHeader != null && !xfHeader.isBlank()) {
+                return xfHeader.split(",")[0].trim();
+            }
         }
         return request.getRemoteAddr();
     }

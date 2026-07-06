@@ -76,36 +76,6 @@ public class JwtTokenProvider {
     }
 
     /**
-     * Generates a fresh access token from a previously issued token.
-     * Expired access tokens are allowed as long as their signature is still valid.
-     *
-     * @param token raw JWT access token
-     * @return newly issued access token
-     */
-    public String refreshAccessToken(final String token) {
-        final Claims claims = extractClaimsAllowExpired(token);
-        final String tokenType = claims.get(TOKEN_TYPE_CLAIM, String.class);
-        final Number userId = claims.get(USER_ID_CLAIM, Number.class);
-
-        if (!ACCESS_TOKEN_TYPE.equals(tokenType) || userId == null) {
-            throw new JwtException("Unsupported token type");
-        }
-
-        final Instant now = Instant.now();
-        final Instant expiresAt = now.plusMillis(expiration);
-
-        return Jwts.builder()
-                .subject(claims.getSubject())
-                .claim(USER_ID_CLAIM, userId.longValue())
-                .claim(ROLE_CLAIM, claims.get(ROLE_CLAIM, String.class))
-                .claim(TOKEN_TYPE_CLAIM, tokenType)
-                .issuedAt(Date.from(now))
-                .expiration(Date.from(expiresAt))
-                .signWith(signingKey)
-                .compact();
-    }
-
-    /**
      * Validates a token signature and expiration.
      *
      * @param token raw JWT token

@@ -26,6 +26,9 @@ import java.util.Set;
 @Service
 public class ScopeAccessService {
 
+    /** Role granted unconstrained (global) data visibility. */
+    private static final String ADMIN_ROLE = "ADMIN";
+
     private final CenterRepository centerRepository;
     private final WarehouseRepository warehouseRepository;
 
@@ -73,13 +76,14 @@ public class ScopeAccessService {
      */
     @Transactional(readOnly = true)
     public ScopeAccessProfile buildRoleProfile(final Role role) {
-        return buildProfile(role.getScopeAssignments());
+        return buildProfile(role.getScopeAssignments(), role);
     }
 
     /**
      * Builds effective scope metadata for a user.
-     * Role and user scope assignments are merged, with empty assignments defaulting to global access
-     * so existing permission-only users keep current visibility until constrained explicitly.
+     * Role and user scope assignments are merged. Global (unconstrained) access is granted only to the
+     * ADMIN role or an explicit ADMIN scope assignment; any other user with no assignments is treated as
+     * having no scope (fail-closed) rather than global visibility.
      *
      * @param user user entity
      * @return effective user scope profile
@@ -93,10 +97,10 @@ public class ScopeAccessService {
         if (user.getScopeAssignments() != null) {
             mergedAssignments.addAll(user.getScopeAssignments());
         }
-        return buildProfile(mergedAssignments);
+        return buildProfile(mergedAssignments, user.getRole());
     }
 
-    private ScopeAccessProfile buildProfile(final Collection<ScopeAssignment> persistedAssignments) {
+    private ScopeAccessProfile buildProfile(final Collection<ScopeAssignment> persistedAssignments, final Role role) {
         final LinkedHashSet<ScopeAssignment> normalizedAssignments = new LinkedHashSet<>();
         if (!CollectionUtils.isEmpty(persistedAssignments)) {
             persistedAssignments.stream()
@@ -104,9 +108,17 @@ public class ScopeAccessService {
                     .forEach(assignment -> normalizedAssignments.add(normalizeStoredAssignment(assignment)));
         }
 
-        if (normalizedAssignments.isEmpty()
-                || normalizedAssignments.stream().anyMatch(assignment -> assignment.getScope() == ScopeType.ADMIN)) {
-            return new ScopeAccessProfile(true, List.of(ScopeAssignment.admin()), Set.of(), Set.of());
+        if (normalizedAssignments.stream().anyMatch(assignment -> assignment.getScope() == ScopeType.ADMIN)) {
+            return globalProfile();
+        }
+
+        if (normalizedAssignments.isEmpty()) {
+            // ADMIN role with no explicit scope keeps global visibility; any other role fails closed
+            // (no assignments means no data visibility). Explicit assignments always constrain, even ADMIN.
+            if (isAdminRole(role)) {
+                return globalProfile();
+            }
+            return new ScopeAccessProfile(false, List.of(), Set.of(), Set.of());
         }
 
         final LinkedHashSet<Long> centerIds = new LinkedHashSet<>();
@@ -122,6 +134,14 @@ public class ScopeAccessService {
         }
 
         return new ScopeAccessProfile(false, List.copyOf(normalizedAssignments), centerIds, warehouseIds);
+    }
+
+    private ScopeAccessProfile globalProfile() {
+        return new ScopeAccessProfile(true, List.of(ScopeAssignment.admin()), Set.of(), Set.of());
+    }
+
+    private boolean isAdminRole(final Role role) {
+        return role != null && ADMIN_ROLE.equals(role.getName());
     }
 
     private ScopeAssignment normalizeStoredAssignment(final ScopeAssignment assignment) {

@@ -2,8 +2,10 @@ package com.stockops.controller;
 
 import com.stockops.dto.CloseWarehouseRequest;
 import com.stockops.dto.WarehouseCanCloseResponse;
+import com.stockops.dto.WarehouseRequest;
 import com.stockops.entity.Warehouse;
 import com.stockops.service.WarehouseService;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -48,14 +50,23 @@ public class WarehouseController {
 
     @PostMapping("/center/{centerId}")
     @PreAuthorize("@permissionChecker.hasPermission('WAREHOUSE_CREATE')")
-    public Warehouse createWarehouse(@PathVariable Long centerId, @RequestBody Warehouse warehouse) {
-        return warehouseService.create(centerId, warehouse);
+    public Warehouse createWarehouse(@PathVariable Long centerId, @Valid @RequestBody WarehouseRequest request) {
+        return warehouseService.create(centerId, toEntity(request));
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("@permissionChecker.hasPermission('WAREHOUSE_UPDATE')")
-    public Warehouse updateWarehouse(@PathVariable Long id, @RequestBody Warehouse warehouse) {
-        return warehouseService.update(id, warehouse);
+    public Warehouse updateWarehouse(@PathVariable Long id, @Valid @RequestBody WarehouseRequest request) {
+        return warehouseService.update(id, toEntity(request));
+    }
+
+    private Warehouse toEntity(final WarehouseRequest request) {
+        final Warehouse warehouse = new Warehouse();
+        warehouse.setCode(request.code());
+        warehouse.setName(request.name());
+        warehouse.setAddress(request.address());
+        warehouse.setPhone(request.phone());
+        return warehouse;
     }
 
     @DeleteMapping("/{id}")
