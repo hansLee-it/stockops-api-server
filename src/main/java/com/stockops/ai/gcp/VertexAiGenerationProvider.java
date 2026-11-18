@@ -14,9 +14,12 @@ public class VertexAiGenerationProvider implements AiGenerationProvider {
     private static final Logger log = LoggerFactory.getLogger(VertexAiGenerationProvider.class);
 
     private final VertexAiProperties properties;
+    private final VertexModelArmorService modelArmorService;
 
-    public VertexAiGenerationProvider(final VertexAiProperties properties) {
+    public VertexAiGenerationProvider(final VertexAiProperties properties,
+                                      final VertexModelArmorService modelArmorService) {
         this.properties = properties;
+        this.modelArmorService = modelArmorService;
     }
 
     @Override
@@ -38,6 +41,7 @@ public class VertexAiGenerationProvider implements AiGenerationProvider {
             throw new IllegalStateException("Vertex AI project id is not configured");
         }
 
+        modelArmorService.sanitizeUserPrompt(request.userPrompt());
         final String combinedPrompt = request.systemPrompt() + "\n\n" + request.userPrompt();
         final com.google.genai.types.GenerateContentResponse response =
                 callApi(properties.getModelId(), combinedPrompt);
@@ -46,6 +50,7 @@ public class VertexAiGenerationProvider implements AiGenerationProvider {
         if (text == null || text.isBlank()) {
             throw new IllegalStateException("Vertex AI response was empty");
         }
+        modelArmorService.sanitizeModelResponse(text);
 
         // Extract token usage from usageMetadata (google-genai 1.5.0)
         // usageMetadata() → Optional<GenerateContentResponseUsageMetadata>

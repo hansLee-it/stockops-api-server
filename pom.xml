@@ -25,6 +25,7 @@
         <jacoco.version>0.8.14</jacoco.version>
         <aws.sdk.version>2.44.13</aws.sdk.version>
         <google.genai.version>1.5.0</google.genai.version>
+        <google.modelarmor.version>0.34.0</google.modelarmor.version>
         <resilience4j.version>2.2.0</resilience4j.version>
         <shedlock.version>5.16.0</shedlock.version>
     </properties>
@@ -188,6 +189,11 @@
             <groupId>com.google.genai</groupId>
             <artifactId>google-genai</artifactId>
             <version>${google.genai.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.google.cloud</groupId>
+            <artifactId>google-cloud-modelarmor</artifactId>
+            <version>${google.modelarmor.version}</version>
         </dependency>
 
         <!-- ShedLock: single-instance execution of cron batch jobs behind a load balancer -->

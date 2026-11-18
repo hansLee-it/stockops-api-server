@@ -15,19 +15,22 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class VertexAiGenerationProviderTest {
 
     @Mock VertexAiProperties properties;
+    @Mock VertexModelArmorService modelArmorService;
 
     VertexAiGenerationProvider provider;
 
     @BeforeEach
     void setUp() {
-        provider = new VertexAiGenerationProvider(properties);
+        provider = new VertexAiGenerationProvider(properties, modelArmorService);
     }
 
     @Test
@@ -146,6 +149,38 @@ class VertexAiGenerationProviderTest {
         final AiGenerationResponse nonChatResult = spy.generate(
                 new AiGenerationRequest("sys", "user", "EXPLANATION", false));
         assertThat(nonChatResult.fallbackNotice()).isEmpty();
+    }
+
+    @Test
+    void generate_sanitizesUserPromptAndModelResponseOnVertexPath() {
+        final VertexAiGenerationProvider spy = spy(provider);
+        when(properties.isEnabled()).thenReturn(true);
+        when(properties.getProjectId()).thenReturn("test-project");
+        when(properties.getModelId()).thenReturn("gemini-1.5-pro");
+
+        final com.google.genai.types.GenerateContentResponse mockResponse =
+                mock(com.google.genai.types.GenerateContentResponse.class);
+        when(mockResponse.text()).thenReturn("응답 텍스트");
+        when(mockResponse.usageMetadata()).thenReturn(Optional.empty());
+        doReturn(mockResponse).when(spy).callApi(anyString(), anyString());
+
+        spy.generate(sampleRequest());
+
+        verify(modelArmorService).sanitizeUserPrompt("현재 재고 상태를 요약해줘.");
+        verify(modelArmorService).sanitizeModelResponse("응답 텍스트");
+    }
+
+    @Test
+    void generate_doesNotCallVertexWhenModelArmorBlocksPrompt() {
+        final VertexAiGenerationProvider spy = spy(provider);
+        when(properties.isEnabled()).thenReturn(true);
+        when(properties.getProjectId()).thenReturn("test-project");
+        org.mockito.Mockito.doThrow(new VertexModelArmorBlockedException("blocked"))
+                .when(modelArmorService).sanitizeUserPrompt(anyString());
+
+        assertThatThrownBy(() -> spy.generate(sampleRequest()))
+                .isInstanceOf(VertexModelArmorBlockedException.class);
+        verify(spy, never()).callApi(anyString(), anyString());
     }
 
     private AiGenerationRequest sampleRequest() {

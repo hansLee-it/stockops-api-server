@@ -92,9 +92,14 @@ Set them to `true` in your deployment environment and provide the required crede
 | `STOCKOPS_BEDROCK_ENABLED` | Set `true` to enable Amazon Bedrock |
 | `STOCKOPS_BEDROCK_REGION` | AWS region (default: `ap-northeast-2`) |
 | `STOCKOPS_BEDROCK_MODEL_ID` | Bedrock model or inference profile ARN |
-| `STOCKOPS_VERTEX_ENABLED` | Set `true` to enable GCP Vertex AI fallback |
-| `STOCKOPS_VERTEX_PROJECT_ID` | GCP project ID |
-| `STOCKOPS_VERTEX_CREDENTIALS_JSON` | GCP service account JSON (base64 or raw) |
+| `STOCKOPS_VERTEX_AI_ENABLED` | Set `true` to enable GCP Vertex AI fallback |
+| `STOCKOPS_VERTEX_AI_PROJECT_ID` | GCP project ID |
+| `STOCKOPS_VERTEX_AI_LOCATION` | Vertex AI region (default: `us-central1`) |
+| `STOCKOPS_VERTEX_AI_MODEL_ID` | Vertex AI Gemini model ID (default: `gemini-2.5-flash`) |
+| `STOCKOPS_VERTEX_MODEL_ARMOR_ENABLED` | Set `true` to protect the Vertex fallback path with Model Armor |
+| `STOCKOPS_VERTEX_MODEL_ARMOR_INPUT_TEMPLATE_ID` | Model Armor template for user prompts |
+| `STOCKOPS_VERTEX_MODEL_ARMOR_OUTPUT_TEMPLATE_ID` | Model Armor template for model responses |
+| `STOCKOPS_VERTEX_MODEL_ARMOR_ENFORCEMENT_MODE` | `INSPECT_ONLY` or `INSPECT_AND_BLOCK` |
 | `STOCKOPS_AI_SERVICE_API_KEY` | API key for stockops-ai-module Prophet service |
 
 ### Bedrock Live Smoke Tests
